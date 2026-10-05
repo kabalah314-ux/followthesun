@@ -7,7 +7,7 @@ import type {
   SunSearchRequest,
   WhenPreset,
 } from "../types";
-import { dayChoiceLabel, dayStartFor, hhmm, zonedMs } from "./planningTime";
+import { dayChoiceLabel, dayStartFor, hhmm, minutesOfDay, zonedMs } from "./planningTime";
 import { getSunTimes } from "./solarCalculations";
 
 /**
@@ -122,6 +122,22 @@ export function buildSearchRequest(p: PlannerState, ctx: PlannerContext): SunSea
 /* -------------------------------------------------------------------------- */
 /*  Atajos de primera clase                                                    */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Franja con la que arranca el planificador: lo que queda de hoy (si queda luz) o, si ya se ha
+ * puesto el sol, la mañana de mañana. Siempre en bloques de 15 min.
+ */
+export function defaultPlannerWindow(now: number): { dayOffset: number; fromMinutes: number; toMinutes: number } {
+  const sunsetToday = minutesOfDay(sunOf(now, 0).sunset);
+  const nowMin = minutesOfDay(now);
+  const from = Math.min(1439, Math.ceil((nowMin + 15) / 15) * 15);
+  if (sunsetToday - from >= 60) {
+    return { dayOffset: 0, fromMinutes: from, toMinutes: Math.min(sunsetToday, from + 90) };
+  }
+  const tomorrow = minutesOfDay(sunOf(now, 1).sunrise);
+  const tomorrowFrom = Math.min(1439, Math.ceil((tomorrow + 30) / 15) * 15);
+  return { dayOffset: 1, fromMinutes: tomorrowFrom, toMinutes: Math.min(1439, tomorrowFrom + 120) };
+}
 
 /** «Encuéntrame 1 hora de sol»: ahora, máximo sol, cerca si hay ubicación. */
 export function oneHourOfSun(minutes: number, hasOrigin: boolean): PlannerState {

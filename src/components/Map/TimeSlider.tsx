@@ -1,10 +1,11 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { clamp } from "../../lib/coordinates";
 import type { TimeMode, TimeRange } from "../../hooks/useTimeController";
+import { presentOnDay } from "../../hooks/useDaySun";
+import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
 import { formatClock, formatDuration, HOUR, MINUTE } from "../../services/timeService";
 import type { TimeZones, TimelineInterval } from "../../types";
 import { cn } from "../../utils/cn";
-import { PauseIcon, PlayIcon } from "../Icons";
 
 interface Props {
   /** Instante elegido (`selectedTime`, en ms). */
@@ -12,18 +13,21 @@ interface Props {
   now: number;
   range: TimeRange;
   mode: TimeMode;
-  playing: boolean;
+  /** 0 = hoy … 6: el día que está usando la línea de tiempo. */
+  dayOffset: number;
   isNight: boolean;
   intervals: TimelineInterval[] | null;
   onScrub(ms: number): void;
   onNow(): void;
-  onAhead(): void;
-  onTogglePlay(): void;
+  onSelectDay(dayOffset: number): void;
+  onHide(): void;
   /** Zonas de procedencia del dato: observado · presente · previsión. */
   zones?: TimeZones | null;
   /** Procedencia del instante elegido ("Observado", "Previsión"…). */
   provenance?: string | null;
 }
+
+const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6];
 
 /**
  * TimeSlider — línea de tiempo del día solar. Por defecto `selectedTime = currentTime`;
@@ -34,13 +38,13 @@ export default function TimeSlider({
   now,
   range,
   mode,
-  playing,
+  dayOffset,
   isNight,
   intervals,
   onScrub,
   onNow,
-  onAhead,
-  onTogglePlay,
+  onSelectDay,
+  onHide,
   zones,
   provenance,
 }: Props) {
@@ -51,7 +55,9 @@ export default function TimeSlider({
   const span = Math.max(1, range.end - range.start);
   const frac = (ms: number) => clamp((ms - range.start) / span, 0, 1);
   const thumb = frac(selectedTime);
-  const nowInRange = now >= range.start && now <= range.end;
+  /** Hora presente del día elegido; se marca solo cuando no coincide con el indicador. */
+  const present = presentOnDay(now, dayOffset);
+  const presentInRange = mode === "ahead" && present >= range.start && present <= range.end;
 
   const scrubFromX = (clientX: number) => {
     const el = trackRef.current;
@@ -89,6 +95,8 @@ export default function TimeSlider({
   let label = "Ahora";
   if (mode === "ahead" && Math.abs(delta) > MINUTE) {
     label = delta > 0 ? `Dentro de ${formatDuration(delta)}` : `Hace ${formatDuration(-delta)}`;
+  } else if (dayOffset > 0) {
+    label = dayChoiceLabel(dayStartFor(now, dayOffset), now);
   } else if (mode === "now" && isNight) {
     label = "Ahora · fuera de luz solar";
   }
@@ -107,34 +115,49 @@ export default function TimeSlider({
           </p>
         </div>
 
-        <div
-          role="group"
-          aria-label="Modo de tiempo"
-          className="flex shrink-0 rounded-full border border-line bg-ink/[0.04] p-[3px] text-[9px] font-semibold uppercase tracking-[0.14em] sm:text-[10px] sm:tracking-[0.18em]"
-        >
+        <div className="flex shrink-0 items-end gap-2">
+          <div
+            role="group"
+            aria-label="Momento"
+            className="flex rounded-full border border-line bg-ink/[0.04] p-[3px] text-[9px] font-semibold uppercase tracking-[0.14em] sm:text-[10px] sm:tracking-[0.18em]"
+          >
+            <button
+              type="button"
+              onClick={onNow}
+              aria-pressed={mode === "now"}
+              className={cn(
+                "rounded-full px-3 py-2 transition-all duration-500 sm:px-4",
+                mode === "now" ? "bg-ink text-paper shadow-sm" : "text-ink-soft hover:text-ink"
+              )}
+            >
+              Ahora
+            </button>
+            <select
+              aria-label="Día"
+              title="Elegir el día"
+              value={dayOffset}
+              onChange={(e) => onSelectDay(Number(e.target.value))}
+              className={cn(
+                "cursor-pointer rounded-full px-2.5 py-2 font-semibold uppercase tracking-[0.14em] outline-none transition-all duration-500 sm:px-3.5",
+                mode === "ahead" ? "bg-sun-soft text-sun-deep" : "text-ink-soft hover:text-ink"
+              )}
+            >
+              {DAY_OFFSETS.map((d) => (
+                <option key={d} value={d}>
+                  {dayChoiceLabel(dayStartFor(now, d), now)}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
-            onClick={onNow}
-            aria-pressed={mode === "now"}
-            className={cn(
-              "rounded-full px-3 py-2 transition-all duration-500 sm:px-4",
-              mode === "now" ? "bg-ink text-paper shadow-sm" : "text-ink-soft hover:text-ink"
-            )}
+            onClick={onHide}
+            aria-label="Ocultar la línea de tiempo"
+            title="Ocultar la línea de tiempo"
+            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-line text-ink-soft transition-colors hover:bg-ink/[0.06] hover:text-ink"
           >
-            Ahora
-          </button>
-          <button
-            type="button"
-            onClick={mode === "ahead" ? onTogglePlay : onAhead}
-            aria-pressed={mode === "ahead"}
-            aria-label={mode === "ahead" && playing ? "Pausar" : "Próximas horas"}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-2 transition-all duration-500 sm:px-4",
-              mode === "ahead" ? "bg-ink text-paper shadow-sm" : "text-ink-soft hover:text-ink"
-            )}
-          >
-            {mode === "ahead" && playing ? <PauseIcon size={9} /> : <PlayIcon size={9} />}
-            Próximas horas
+            <span aria-hidden className="-mt-0.5 text-[11px]">▾</span>
           </button>
         </div>
       </div>
@@ -163,8 +186,10 @@ export default function TimeSlider({
           {/* línea base con degradado de luz del día */}
           <div className="fts-track absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" />
 
-          {/* tramos de sol / sombra del punto seleccionado */}
-          {intervals?.map((iv, i) => {
+          {/* tramos de sol / sombra del punto seleccionado (solo los que tocan la franja visible) */}
+          {intervals
+            ?.filter((iv) => iv.end > range.start && iv.start < range.end)
+            .map((iv, i) => {
             const a = frac(iv.start) * 100;
             const w = Math.max(0.4, (frac(iv.end) - frac(iv.start)) * 100);
             return (
@@ -230,12 +255,12 @@ export default function TimeSlider({
             );
           })()}
 
-          {/* ahora */}
-          {nowInRange && (
+          {/* hora presente */}
+          {presentInRange && (
             <span
               title="Ahora"
               className="absolute top-[calc(50%+17px)] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-ink"
-              style={{ left: `${frac(now) * 100}%` }}
+              style={{ left: `${frac(present) * 100}%` }}
             />
           )}
 
@@ -262,5 +287,43 @@ export default function TimeSlider({
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * Línea de tiempo ocultada: una sola fila con la hora que se está viendo y el botón para
+ * volver a desplegarla. Ocupa el mismo hueco que `TimeSlider`.
+ */
+export function TimelineCollapsed({
+  selectedTime,
+  dayLabel,
+  onShow,
+}: {
+  selectedTime: number;
+  dayLabel: string;
+  onShow(): void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onShow}
+      aria-label="Mostrar la línea de tiempo"
+      title="Mostrar la línea de tiempo"
+      className="fts-glass fts-rise flex w-full items-center justify-between gap-3 rounded-[24px] px-4 py-3 text-left sm:px-7"
+      style={{ animationDelay: "700ms" }}
+    >
+      <span className="min-w-0">
+        <span className="fts-caps block truncate">{dayLabel}</span>
+        <span className="mt-1 block font-serif text-[20px] leading-none tabular-nums text-ink">
+          {formatClock(selectedTime)}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+        Hora
+        <span aria-hidden className="text-[11px]">
+          ▴
+        </span>
+      </span>
+    </button>
   );
 }

@@ -30,7 +30,7 @@ interface Item {
 
 const PRIMARY: Item[] = [
   { id: "explore", label: "Mapa", description: "Ver dónde da el sol ahora", icon: ExploreIcon },
-  { id: "find", label: "Buscar sol", description: "Sitios con sol (o sombra) cerca de ti", icon: FindIcon },
+  { id: "find", label: "Buscar sol/sombra", description: "Sitios con sol (o sombra) cerca de ti", icon: FindIcon },
   { id: "plan", label: "Planificar", description: "Elegir otro momento u otro día", icon: PlanIcon },
   { id: "places", label: "Sitios", description: "Parques, plazas, playas, terrazas y miradores", icon: PlacesIcon },
   { id: "recommended", label: "Recomendados", description: "9 sitios por categoría, siempre distintos", icon: StarIcon },

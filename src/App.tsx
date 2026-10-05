@@ -12,7 +12,7 @@ import { DesktopExploreBar, DesktopPanels, MobileExploreBar, MobileSheet } from 
 import type { PointDetailsProps, ResultDetailsProps } from "./components/Shell/Details";
 import { useMapLayers } from "./hooks/useMapLayers";
 import { useSearchResults } from "./hooks/useSearchResults";
-import TimeSlider from "./components/Map/TimeSlider";
+import TimeSlider, { TimelineCollapsed } from "./components/Map/TimeSlider";
 import Splash from "./components/Splash";
 import { PROVENANCE_WORD } from "./components/SourceStatusLine";
 import Toast from "./components/Toast";
@@ -32,6 +32,7 @@ import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useTimeController } from "./hooks/useTimeController";
 import { buildSearchRequest, oneHourOfSun, type PlannerState } from "./lib/planning";
+import { dayChoiceLabel, dayStartFor } from "./lib/planningTime";
 import { createShareablePlan, shareOrCopy } from "./services/planShareService";
 import { SUN_UP_RAD, solarService } from "./services/solarService";
 import type {
@@ -58,10 +59,12 @@ export default function App() {
   const isTablet = useMediaQuery("(min-width: 768px) and (max-width: 1023px)");
 
   /* ------------------------------ día y sol ------------------------------ */
-  const { dayStart, sunTimes, range } = useDaySun(now);
+  /** Día que está mirando la línea de tiempo: 0 = hoy … 6. */
+  const [dayOffset, setDayOffset] = useState(0);
+  const { dayStart, sunTimes, range } = useDaySun(now, dayOffset);
 
-  /** Instante visualizado. Por defecto es la hora actual; el selector de tiempo lo desplaza. */
-  const clock = useTimeController(now, range);
+  /** Instante visualizado. Por defecto es la hora presente del día elegido; el selector lo desplaza. */
+  const clock = useTimeController(now, range, dayOffset);
   const { goNow, scrub } = clock;
   const selectedTime = clock.selectedTime;
   const sunPos = useMemo(
@@ -84,6 +87,7 @@ export default function App() {
   const [debugSource, setDebugSource] = useState<LightSourceMode>("fused");
   const [view, setView] = useState<AppView>("explore");
   const [sidebarCollapsed, setSidebarCollapsed] = useStoredFlag("fts:sidebar-collapsed");
+  const [timelineHidden, setTimelineHidden] = useStoredFlag("fts:timeline-hidden");
 
   /* El hook carga los servicios meteorológicos en idle, después del primer render del mapa. */
   const light = useLightSource(selectedTime, loaded);
@@ -169,6 +173,19 @@ export default function App() {
       goNow();
     }
   }, [goNow]);
+
+  /**
+   * Cambiar de día (o volver a «Ahora»): la línea de tiempo se sitúa en la hora presente de ese
+   * día, así que se descarta cualquier instantánea elegida arrastrando.
+   */
+  const selectDay = useCallback(
+    (next: number) => {
+      scrubbedRef.current = false;
+      setDayOffset(next);
+      goNow();
+    },
+    [goNow]
+  );
 
   /** Lleva el mapa a un lugar y lo selecciona, saliendo de la búsqueda si hacía falta. */
   const focusPlace = useCallback(
@@ -312,20 +329,26 @@ export default function App() {
   ) : null;
 
   /** Línea de tiempo (escritorio, móvil y bajo el punto), con las franjas del punto si lo hay. */
-  const timeline = (
+  const timeline = timelineHidden ? (
+    <TimelineCollapsed
+      selectedTime={selectedTime}
+      dayLabel={dayChoiceLabel(dayStartFor(now, dayOffset), now)}
+      onShow={() => setTimelineHidden(false)}
+    />
+  ) : (
     <TimeSlider
       selectedTime={selectedTime}
       now={now}
       range={range}
       mode={clock.mode}
-      playing={clock.playing}
+      dayOffset={dayOffset}
       isNight={!up}
       zones={light.zones}
       provenance={provenance}
       onScrub={scrub}
-      onNow={goNow}
-      onAhead={clock.startAhead}
-      onTogglePlay={clock.togglePlay}
+      onNow={() => selectDay(0)}
+      onSelectDay={selectDay}
+      onHide={() => setTimelineHidden(true)}
       intervals={pointTimeline && selection ? pointTimeline.intervals : null}
     />
   );

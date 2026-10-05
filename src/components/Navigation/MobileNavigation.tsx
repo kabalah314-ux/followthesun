@@ -6,7 +6,7 @@ type MobileTab = "explore" | "find" | "plan" | "saved";
 
 const ITEMS = [
   { id: "explore" as const, label: "Mapa", icon: ExploreIcon },
-  { id: "find" as const, label: "Buscar sol", icon: FindIcon },
+  { id: "find" as const, label: "Sol/sombra", icon: FindIcon },
   { id: "plan" as const, label: "Planificar", icon: PlanIcon },
   { id: "saved" as const, label: "Favoritos", icon: SavedIcon },
 ];

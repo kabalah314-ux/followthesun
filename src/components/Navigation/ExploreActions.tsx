@@ -21,7 +21,7 @@ export default function ExploreActions({
           <span className="fts-breathe absolute inset-0 rounded-full bg-[#ffb94d]/50 blur-[7px]" />
           <span className="relative h-[9px] w-[9px] rounded-full bg-[#ffc45e]" />
         </span>
-        <span>Buscar sol<span className="hidden sm:inline"> cerca de mí</span></span>
+        <span>Buscar sol/sombra<span className="hidden sm:inline"> cerca de mí</span></span>
       </button>
       <button
         type="button"

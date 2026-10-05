@@ -15,10 +15,10 @@ const STEPS: WelcomeStep[] = [
   },
   {
     title: "Mueve la barra para ver otra hora.",
-    text: "Abajo tienes el día entero, del amanecer al atardecer: mira cómo giran las sombras.",
+    text: "Abajo tienes el día que queda, desde ahora hasta la puesta de sol, y puedes cambiar de día: mira cómo giran las sombras.",
   },
   {
-    title: "Pulsa «Buscar sol» y te decimos adónde ir.",
+    title: "Pulsa «Buscar sol/sombra» y te decimos adónde ir.",
     text: "Parques, plazas, playas, terrazas y miradores con sol (o sombra) durante el rato que quieras.",
   },
 ];
