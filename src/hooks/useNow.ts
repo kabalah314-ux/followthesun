@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /** Hora actual (ms) que se refresca cada `intervalMs`. */
-export function useNow(intervalMs = 15_000) {
+export function useNow(intervalMs: number = 15_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), intervalMs);

@@ -1,5 +1,5 @@
 /**
- * Tipos centralizados de Follow the Sun.
+ * Tipos centralizados de I Follow the Sun.
  *
  * Cadena de luz, cada eslabón con su propio resultado:
  *   SolarPosition → ShadowResult → (CloudCoverage ⟷ SatelliteRadiation) → LightFusion → SunlightResult
@@ -589,6 +589,8 @@ export interface SunPlace {
 export type PlaceInventoryState = "loading" | "ready" | "stale" | "unavailable";
 
 export interface PlaceInventoryStatus {
+  /** Versión del inventario (cambia cada vez que se cargan datos nuevos). */
+  version?: number;
   state: PlaceInventoryState;
   counts: Record<SunPlaceType, number>;
   total: number;
@@ -601,7 +603,7 @@ export interface PlaceInventoryStatus {
 /* -------------------------------------------------------------------------- */
 
 /** Qué quiere hacer la persona (traduce la intención a tipos de lugar y prioridades). */
-export type SunIntent = "sun" | "coffee" | "read" | "beach" | "sunset" | "walk";
+export type SunIntent = "sun" | "shade" | "coffee" | "read" | "beach" | "sunset" | "walk";
 
 /**
  * Prioridad de la búsqueda:

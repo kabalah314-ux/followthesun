@@ -1,10 +1,9 @@
 import { memo, useState } from "react";
 import type { LightSourceState } from "../hooks/useLightSource";
 import { compassLabel, type SunTimes } from "../services/solarService";
-import { formatClock } from "../services/timeService";
+import { formatClock, formatDuration } from "../services/timeService";
 import type { CityDirection, CityStats, SunState } from "../types";
 import { cn } from "../utils/cn";
-import { AnimatedNumber } from "./AnimatedNumber";
 import { SunGlyph } from "./Icons";
 import Legend from "./Legend";
 import SourceStatusLine from "./SourceStatusLine";
@@ -26,19 +25,23 @@ const SIDE: Record<CityDirection, string> = {
 type Headline = { label: string; glyph: SunState | "night" };
 
 /**
- * Titular de la ciudad. Sin datos de nubes el sol no está verificado: se dice "Sol posible" en
- * lugar de afirmar "Sol directo". Para instantes futuros se habla de previsión.
+ * Titular claro: Sol · Sol entre nubes · Nublado · De noche. Sin porcentajes ambiguos.
+ * Sin datos de nubes el sol no está verificado y se dice.
  */
-function headline(stats: CityStats, up: boolean, weatherKnown: boolean, forecast: boolean): Headline {
-  if (!up) return { label: "Sin sol", glyph: "night" };
-  const p = stats.sunPercent;
-  if (!weatherKnown) return { label: "Sol posible", glyph: p >= 8 ? "partial" : "shade" };
-  if (p >= 60) return { label: forecast ? "Sol directo previsto" : "Sol directo", glyph: "sun" };
-  if (p >= 30) return { label: forecast ? "Sol parcial previsto" : "Sol parcial", glyph: "partial" };
-  if (p >= 8) return { label: "Poco sol", glyph: "partial" };
-  return stats.cloudPercent >= 30
-    ? { label: "Cielo cubierto", glyph: "cloud" }
-    : { label: "Sombra", glyph: "shade" };
+function headline(stats: CityStats, up: boolean, weatherKnown: boolean, forecast: boolean, loading: boolean): Headline {
+  if (!up) return { label: "De noche", glyph: "night" };
+  if (!weatherKnown) return { label: loading ? "Mirando las nubes…" : "Sol (sin datos de nubes)", glyph: "partial" };
+  const c = stats.cloudPercent;
+  if (c < 25) return { label: forecast ? "Sol previsto" : "Sol", glyph: "sun" };
+  if (c < 65) return { label: "Sol entre nubes", glyph: "partial" };
+  return { label: "Nublado", glyph: "cloud" };
+}
+
+function subline(up: boolean, time: number, times: SunTimes): string {
+  if (up) return `Se pone a las ${formatClock(times.sunset)} · quedan ${formatDuration(times.sunset - time)} de luz`;
+  return time < times.solarNoon
+    ? `El sol sale a las ${formatClock(times.sunrise)}`
+    : `Mañana sale hacia las ${formatClock(times.sunrise)}`;
 }
 
 function describe(
@@ -115,8 +118,7 @@ function InfoPanelBase({
 
   const kind = light.summary.kind;
   const weatherKnown = kind !== "unavailable" && kind !== "loading";
-  const head = headline(s, up, weatherKnown, kind === "forecast");
-  const pct = up ? s.sunPercent : 0;
+  const head = headline(s, up, weatherKnown, kind === "forecast", kind === "loading");
   const text = stats
     ? describe(s, up, time, sunTimes, weatherKnown)
     : "Calculando la luz sobre la ciudad…";
@@ -127,7 +129,7 @@ function InfoPanelBase({
         "fts-glass fts-rise transition-[border-radius,padding] duration-300",
         expanded
           ? "w-[min(calc(100vw-1.5rem),292px)] rounded-[24px] p-4 sm:p-[18px]"
-          : "w-[min(calc(100vw-1.5rem),234px)] rounded-full p-1.5 pr-3"
+          : "w-[min(calc(100vw-1.5rem),318px)] rounded-[22px] p-1.5 pr-3"
       )}
       style={{ animationDelay: "600ms" }}
     >
@@ -138,21 +140,21 @@ function InfoPanelBase({
         aria-label={expanded ? "Ocultar información solar" : "Ver información solar"}
         className={cn(
           "group flex w-full items-center text-left transition-colors",
-          expanded ? "justify-between gap-3" : "gap-2.5 rounded-full hover:bg-ink/[0.035]"
+          expanded ? "justify-between gap-3" : "gap-2.5 rounded-[18px] hover:bg-ink/[0.035]"
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5">
           <SunGlyph state={head.glyph} size={expanded ? 30 : 27} className="shrink-0 transition-all duration-500" />
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold tracking-[0.08em] text-ink">{head.label}</p>
-            <p className="truncate font-serif text-[13px] leading-tight text-ink-soft">{s.area}</p>
+            <p className="truncate text-[12px] font-semibold tracking-[0.04em] text-ink" data-testid="sky-state">
+              {head.label} <span className="font-normal text-ink-faint">· {s.area}</span>
+            </p>
+            <p className="truncate text-[11px] leading-tight text-ink-soft" data-testid="sky-subline">
+              {subline(up, time, sunTimes)}
+            </p>
           </div>
         </div>
         <span className="ml-1 flex shrink-0 items-center gap-1.5">
-          <span className="font-serif text-[24px] leading-none tabular-nums tracking-tight text-ink">
-            <AnimatedNumber value={pct} />
-            <span className="ml-px text-[12px] text-ink-soft">%</span>
-          </span>
           <span
             aria-hidden
             className={cn(
@@ -165,6 +167,11 @@ function InfoPanelBase({
         </span>
       </button>
 
+      {!expanded && up && (
+        <div className="px-2.5 pb-1 pt-1.5">
+          <Legend showClouds={showClouds} showShadows={showShadows} compact />
+        </div>
+      )}
       {expanded && (
         <div className="fts-fade-in">
           <p className="mt-3 text-[12px] leading-[1.5] text-ink-soft">{text}</p>

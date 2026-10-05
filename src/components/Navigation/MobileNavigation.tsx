@@ -5,16 +5,18 @@ import type { AppView } from "./viewTypes";
 type MobileTab = "explore" | "find" | "plan" | "saved";
 
 const ITEMS = [
-  { id: "explore" as const, label: "Explorar", icon: ExploreIcon },
-  { id: "find" as const, label: "Buscar", icon: FindIcon },
-  { id: "plan" as const, label: "Plan", icon: PlanIcon },
-  { id: "saved" as const, label: "Guardados", icon: SavedIcon },
+  { id: "explore" as const, label: "Mapa", icon: ExploreIcon },
+  { id: "find" as const, label: "Buscar sol", icon: FindIcon },
+  { id: "plan" as const, label: "Planificar", icon: PlanIcon },
+  { id: "saved" as const, label: "Favoritos", icon: SavedIcon },
 ];
 
 export function mobileTabFor(view: AppView): MobileTab {
-  // En móvil hay cuatro acciones principales. Lugares se abre desde Explorar/Buscar; ajustes y
-  // acerca de también son secundarios y vuelven al mapa.
-  return view === "places" || view === "settings" || view === "about" ? "explore" : view;
+  // En móvil hay cuatro acciones principales. Lugares y Recomendados se abren desde Explorar;
+  // ajustes y acerca de también son secundarios y vuelven al mapa.
+  return view === "places" || view === "recommended" || view === "settings" || view === "about"
+    ? "explore"
+    : view;
 }
 
 /** Cuatro acciones principales; el mapa permanece como fondo en todas. */

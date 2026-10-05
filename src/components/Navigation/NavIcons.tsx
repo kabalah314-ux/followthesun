@@ -31,6 +31,21 @@ export const PlanIcon = (p: P) =>
 export const PlacesIcon = (p: P) =>
   svg(p, <><path d="M19 10.1c0 5.1-7 10.4-7 10.4S5 15.2 5 10.1a7 7 0 1 1 14 0Z" /><circle cx="12" cy="10" r="2.2" /></>);
 
+export const StarIcon = (p: P) =>
+  svg(p, <path d="m12 4.4 2.35 4.76 5.25.76-3.8 3.7.9 5.23L12 16.36l-4.7 2.49.9-5.23-3.8-3.7 5.25-.76L12 4.4Z" />);
+
+export const ShuffleIcon = (p: P) =>
+  svg(
+    p,
+    <>
+      <path d="M3.5 7.5h3.2c1.4 0 2.7.7 3.5 1.8l3.6 5.4c.8 1.1 2.1 1.8 3.5 1.8h2.2" />
+      <path d="M3.5 16.5h3.2c1.4 0 2.7-.7 3.5-1.8l.9-1.3" />
+      <path d="M14 5.6h2.9c1 0 1.9.4 2.6 1.1" />
+      <path d="m17.4 4.3 2.7 2.4-2.7 2.4" />
+      <path d="m17.4 14.4 2.7 2.4-2.7 2.4" />
+    </>
+  );
+
 export const SavedIcon = (p: P) =>
   svg(p, <><path d="M6 4.8A1.8 1.8 0 0 1 7.8 3h8.4A1.8 1.8 0 0 1 18 4.8V21l-6-3.8L6 21V4.8Z" /><path d="M9 7h6" /></>);
 

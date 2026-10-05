@@ -4,8 +4,9 @@ import {
   PLACE_TYPE_ORDER,
 } from "../../lib/placeTypes";
 import { durationLabel, whenLabel, type PlannerState } from "../../lib/planning";
-import { dayChoiceLabel, dayStartFor, hhmm, parseHHMM } from "../../lib/planningTime";
-import type { LngLat, PlaceInventoryStatus, SunPreference } from "../../types";
+import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
+import TimeSelect from "../TimeSelect";
+import type { LngLat, PlaceInventoryStatus } from "../../types";
 import { CloseIcon } from "../Navigation/NavIcons";
 import { Caps, Chip, PrimaryButton } from "../FindSun/ui";
 
@@ -38,10 +39,10 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
     <div className="fts-fade-in">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <Caps>Elige cuándo salir</Caps>
-          <h2 className="mt-1.5 font-serif text-[24px] leading-none text-ink">Planifica tu franja</h2>
+          <Caps>Otro momento u otro día</Caps>
+          <h2 className="mt-1.5 font-serif text-[24px] leading-none text-ink">Planifica tu rato</h2>
           <p className="mt-2 text-[11.5px] leading-relaxed text-ink-soft">
-            Elige una franja y cuánto sol quieres disfrutar. Encontraremos la mejor ventana dentro de ella.
+            Elige cuándo sales y cuánto rato quieres. Buscamos el sitio y la hora con más sol (o sombra).
           </p>
         </div>
         <button type="button" aria-label="Cerrar" onClick={onClose} className="fts-close-button -mr-1 -mt-1">
@@ -73,22 +74,17 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
                 ))}
               </select>
               <span>De</span>
-              <input
-                type="time"
-                aria-label="Desde"
-                value={hhmm(state.fromMinutes)}
-                onChange={(e) => {
-                  const m = parseHHMM(e.target.value);
-                  if (m !== null) onChange({ fromMinutes: m, toMinutes: Math.max(state.toMinutes, m + 30) });
-                }}
+              <TimeSelect
+                label="Desde"
+                value={state.fromMinutes}
+                onChange={(m) => onChange({ fromMinutes: m, toMinutes: Math.max(state.toMinutes, m + 30) })}
                 className={INPUT}
               />
               <span>a</span>
-              <input
-                type="time"
-                aria-label="Hasta"
-                value={hhmm(state.toMinutes)}
-                onChange={(e) => { const m = parseHHMM(e.target.value); if (m !== null) onChange({ toMinutes: m }); }}
+              <TimeSelect
+                label="Hasta"
+                value={state.toMinutes}
+                onChange={(m) => onChange({ toMinutes: m })}
                 className={INPUT}
               />
             </div>
@@ -96,7 +92,7 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
         </div>
 
         <div className="space-y-2">
-          <Caps>Cuánto sol</Caps>
+          <Caps>Cuánto rato</Caps>
           <div className="flex flex-wrap gap-1.5">
             {DURATIONS.map((m) => (
               <Chip key={m} active={!customDuration && state.durationMinutes === m} onClick={() => { setCustomDuration(false); onChange({ durationMinutes: m }); }}>
@@ -117,9 +113,9 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
         <div className="space-y-2">
           <Caps>Prioridad</Caps>
           <div className="flex flex-wrap gap-1.5">
-            {([["maximum_sun", "Máximo sol"], ["balanced", "Equilibrado"]] as Array<[SunPreference, string]>).map(([id, label]) => (
-              <Chip key={id} active={state.preference === id} onClick={() => onChange({ preference: id })}>{label}</Chip>
-            ))}
+            <Chip active={state.intent !== "shade" && state.preference === "maximum_sun"} onClick={() => onChange({ intent: "sun", preference: "maximum_sun" })}>Máximo sol</Chip>
+            <Chip active={state.intent !== "shade" && state.preference === "balanced"} onClick={() => onChange({ intent: "sun", preference: "balanced" })}>Sol agradable</Chip>
+            <Chip active={state.intent === "shade"} onClick={() => onChange({ intent: "shade", preference: "maximum_sun" })}>Sombra</Chip>
             <Chip active={state.avoidClouds} onClick={() => onChange({ avoidClouds: !state.avoidClouds })}>Evitar nubes</Chip>
           </div>
         </div>
@@ -133,7 +129,7 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
           </div>
           <div className="flex flex-wrap gap-1.5">
             {types.length > 0 && (
-              <Chip active={state.locationType === "any"} onClick={() => onChange({ locationType: "any" })}>Cualquier lugar</Chip>
+              <Chip active={state.locationType === "any"} onClick={() => onChange({ locationType: "any" })}>Cualquier tipo</Chip>
             )}
             {types.map((t) => (
               <Chip key={t} active={state.locationType === t} onClick={() => onChange({ locationType: t })}>
@@ -152,7 +148,7 @@ export default function PlanPanel({ state, onChange, now, origin, inventory, onS
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-line pt-3.5">
-        <span className="text-[10px] text-ink-faint">24 h · Europe/Madrid</span>
+        <span className="text-[10px] text-ink-faint">Hora de Barcelona</span>
         <PrimaryButton onClick={onSearch}>Encontrar mi mejor plan</PrimaryButton>
       </div>
     </div>

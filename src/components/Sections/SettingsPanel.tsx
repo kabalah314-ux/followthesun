@@ -64,7 +64,7 @@ export default function SettingsPanel({ light, onAbout, onClose }: Props) {
         onClick={onAbout}
         className="mt-4 flex w-full items-center justify-between border-t border-line pt-3.5 text-left text-[12px] font-medium text-ink-soft transition-colors hover:text-ink"
       >
-        <span>Acerca de Follow the Sun</span>
+        <span>Acerca de I Follow the Sun</span>
         <span aria-hidden className="text-ink-faint">→</span>
       </button>
     </section>

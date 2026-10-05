@@ -15,11 +15,11 @@ interface Props {
 export default function PlacesPanel({ inventory, onSelect, onClose }: Props) {
   const [filter, setFilter] = useState<SunPlaceType | "any">("any");
   const [query, setQuery] = useState("");
-  const places = placeService.getPlaces() ?? [];
   const available = PLACE_TYPE_ORDER.filter((t) => inventory.counts[t] > 0);
+  const places = placeService.getPlaces();
   const list = useMemo(() => {
     const q = query.trim().toLocaleLowerCase("ca");
-    return places
+    return (places ?? [])
       .filter((p) => filter === "any" || p.type === filter)
       .filter((p) => !q || p.name.toLocaleLowerCase("ca").includes(q))
       .sort((a, b) => (b.areaM2 ?? 0) - (a.areaM2 ?? 0))

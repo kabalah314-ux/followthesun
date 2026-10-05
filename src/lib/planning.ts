@@ -193,5 +193,5 @@ export function whenLabel(p: PlannerState, now: number): string {
 }
 
 export function distanceLabel(maxWalkingMinutes: number | null): string {
-  return maxWalkingMinutes === null ? "Cualquier sitio" : `≤ ${maxWalkingMinutes} min a pie`;
+  return maxWalkingMinutes === null ? "Cualquier distancia" : `≤ ${maxWalkingMinutes} min a pie`;
 }

@@ -10,6 +10,7 @@ import {
   type LL,
 } from "../lib/geometry";
 import { PLACE_TYPE_ORDER } from "../lib/placeTypes";
+import { BARCELONA_PLACES } from "../data/barcelonaPlaces";
 import type { PlaceInventoryStatus, SunPlace, SunPlaceType } from "../types";
 
 /**
@@ -384,25 +385,11 @@ class PlaceService {
 
     this.promise = (async (): Promise<PlaceInventory> => {
       try {
-        const key = CACHE_KEY();
-        const hit = force ? null : placeCache.get(key);
-        if (hit) {
-          this.set(hit.value, hit.storedAt, false);
+        // Selección revisada incluida en la app: instantánea y sin depender de Overpass.
+        if (PLACES_CONFIG.source === "curated") {
+          this.set(BARCELONA_PLACES, Date.now(), false);
         } else {
-          try {
-            const places = normalizeOverpass(await fetchElements());
-            if (places.length === 0) throw new Error("Inventario vacío");
-            const now = Date.now();
-            placeCache.set(key, places, now);
-            this.set(places, now, false);
-          } catch (err) {
-            const old = placeCache.getAllowStale(key);
-            if (!old) {
-              this.failed = true;
-              throw err;
-            }
-            this.set(old.value, old.storedAt, true);
-          }
+          await this.loadFromOverpass(force);
         }
         return {
           places: this.places as SunPlace[],
@@ -416,6 +403,30 @@ class PlaceService {
       }
     })();
     return this.promise;
+  }
+
+  /** Inventario desde OpenStreetMap (opcional, con `VITE_PLACES_SOURCE=osm`). */
+  private async loadFromOverpass(force: boolean) {
+    const key = CACHE_KEY();
+    const hit = force ? null : placeCache.get(key);
+    if (hit) {
+      this.set(hit.value, hit.storedAt, false);
+      return;
+    }
+    try {
+      const places = normalizeOverpass(await fetchElements());
+      if (places.length === 0) throw new Error("Inventario vacío");
+      const now = Date.now();
+      placeCache.set(key, places, now);
+      this.set(places, now, false);
+    } catch (err) {
+      const old = placeCache.getAllowStale(key);
+      if (!old) {
+        this.failed = true;
+        throw err;
+      }
+      this.set(old.value, old.storedAt, true);
+    }
   }
 }
 

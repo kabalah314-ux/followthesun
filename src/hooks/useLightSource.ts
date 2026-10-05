@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { LightSourceSummary, SatelliteStatus, TimeZones, WeatherStatus } from "../types";
 import { useNow } from "./useNow";
+import { log } from "../lib/log";
 
 export interface LightSourceState {
   /** Qué fuente respalda el instante elegido (observación · previsión · estimación). */
@@ -9,6 +10,8 @@ export interface LightSourceState {
   zones: TimeZones;
   satellite: SatelliteStatus;
   weather: WeatherStatus;
+  /** Versión de los datos de nubes y satélite (0 mientras cargan). */
+  version: number;
 }
 
 interface LightServices {
@@ -21,6 +24,7 @@ const NO_SUBSCRIBE = () => () => undefined;
 const ZERO = () => 0;
 
 const EMPTY: LightSourceState = {
+  version: 0,
   summary: { kind: "loading", ageMs: null, satellite: null, model: null },
   zones: { observedUntil: null, presentUntil: null },
   satellite: {
@@ -94,8 +98,9 @@ export function useLightSource(selectedTime: number, enabled = true): LightSourc
       };
       if (w.requestIdleCallback) idle = w.requestIdleCallback(start, { timeout: 1800 });
       else timer = window.setTimeout(start, 500);
-    }).catch(() => {
+    }).catch((error) => {
       // La geometría solar y el mapa siguen funcionando aunque un chunk no esté disponible.
+      log.warn("servicios meteorológicos no disponibles", error);
     });
     return () => {
       cancelled = true;
@@ -110,16 +115,19 @@ export function useLightSource(selectedTime: number, enabled = true): LightSourc
   const getSnapshot = services?.fusion.getVersion ?? ZERO;
   const version = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
+  // Se recalcula una vez por minuto del instante elegido (no en cada fotograma de la reproducción).
+  const minuteTime = minute * 60_000;
   return useMemo(
     () => services
       ? {
-          summary: services.fusion.getSourceSummary(selectedTime, now),
+          summary: services.fusion.getSourceSummary(minuteTime, now),
           zones: services.fusion.getTimeZones(),
           satellite: services.satellite.getStatus(now),
           weather: services.cloud.getStatus(now),
+          // Versión de los datos meteorológicos: el estado cambia cuando llegan datos nuevos.
+          version,
         }
       : EMPTY,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [services, version, now, minute]
+    [services, version, now, minuteTime]
   );
 }

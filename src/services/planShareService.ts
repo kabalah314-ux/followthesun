@@ -7,7 +7,7 @@ import { formatClock } from "./timeService";
  * planShareService — un resultado como texto compartible. Sin sistema social: solo el texto y el
  * enlace de la aplicación (todavía no hay enlaces profundos a un resultado).
  *
- *   Follow the Sun
+ *   I Follow the Sun
  *   Sábado, 10 de octubre · 17:30–19:00
  *   Bogatell
  *   1 h 42 min de sol directo · confianza alta
@@ -18,7 +18,7 @@ const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export function createShareablePlan(result: SunSearchResult): ShareablePlan {
   const w = result.bestWindow ?? result.searchWindow;
   const lines = [
-    "Follow the Sun",
+    "I Follow the Sun",
     `${capitalize(longDayLabel(w.start))} · ${formatClock(w.start)}–${formatClock(w.end)}`,
     result.place.name,
     `${fmtMin(result.sunlightMinutes)} de sol directo · confianza ${CONFIDENCE_ES[
@@ -29,7 +29,7 @@ export function createShareablePlan(result: SunSearchResult): ShareablePlan {
   lines.push("Meteorología a escala de barrio, no de calle.");
 
   return {
-    title: `Follow the Sun · ${result.place.name}`,
+    title: `I Follow the Sun · ${result.place.name}`,
     text: lines.join("\n"),
     url: `${window.location.origin}${window.location.pathname}`,
   };

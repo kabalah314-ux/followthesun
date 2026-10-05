@@ -9,6 +9,7 @@ import {
 } from "../../services/mapService";
 import type { CameraState, LngLat, SelectedPoint, Theme } from "../../types";
 import { MapContext } from "./MapContext";
+import { log } from "../../lib/log";
 
 /**
  * BarcelonaMap — el mapa interactivo de Barcelona, sin ninguna lógica solar.
@@ -116,13 +117,8 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
         } catch {
           /* sin sessionStorage */
         }
-        later(
-          () =>
-            propsRef.current.onToast(
-              "Mapbox sin configurar · usando el mapa abierto. Añade VITE_MAPBOX_TOKEN en .env"
-            ),
-          3600
-        );
+        // Sin aviso al usuario: el mapa abierto es equivalente. Solo se informa en la consola.
+        log.info("sin VITE_MAPBOX_TOKEN, se usa el mapa abierto (OpenFreeMap).");
       }
     };
     // `style.load` deja entrar antes que `load` (que espera a las primeras teselas). `load` es un

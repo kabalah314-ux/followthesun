@@ -2,30 +2,27 @@ import { useState } from "react";
 import {
   INTENT_ORDER,
   PLACE_TYPE_LABEL,
-  PLACE_TYPE_ORDER,
   SUN_INTENTS,
 } from "../../lib/placeTypes";
 import {
   distanceLabel,
   durationLabel,
   oneHourOfSun,
-  planAfternoon,
-  sunAt,
   whenLabel,
   type PlannerState,
 } from "../../lib/planning";
-import { dayChoiceLabel, dayStartFor, hhmm, parseHHMM } from "../../lib/planningTime";
+import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
+import TimeSelect from "../TimeSelect";
 import type {
   LngLat,
   PlaceInventoryStatus,
   SavedPlace,
   SunIntent,
-  SunPreference,
   WhenPreset,
 } from "../../types";
-import { cn } from "../../utils/cn";
 import { CloseIcon } from "../Icons";
 import { Caps, Chip, GhostButton, PrimaryButton } from "./ui";
+import { DistanceStep, PlaceTypeStep, StepSummary } from "./PlannerSteps";
 
 /**
  * Sun Session Planner — qué quieres hacer, cuándo, cuánto tiempo, hasta dónde y dónde.
@@ -33,7 +30,7 @@ import { Caps, Chip, GhostButton, PrimaryButton } from "./ui";
  * siempre disponible porque todo tiene un valor razonable por defecto.
  */
 
-const STEP_TITLES = ["¿Qué buscas?", "¿Cuándo?", "¿Cuánto tiempo?", "¿Hasta dónde?", "¿Qué tipo de lugar?"];
+const STEP_TITLES = ["¿Qué te apetece?", "¿Cuándo?", "¿Cuánto rato?", "¿Hasta dónde?", "¿Qué tipo de sitio?"];
 
 const WHEN_PRESETS: Array<{ id: WhenPreset; label: string }> = [
   { id: "now", label: "Ahora" },
@@ -44,7 +41,6 @@ const WHEN_PRESETS: Array<{ id: WhenPreset; label: string }> = [
 ];
 
 const DURATIONS = [30, 60, 120, 180];
-const DISTANCES: Array<number | null> = [5, 10, 20, 30, null];
 
 const timeInput =
   "rounded-full border border-line bg-transparent px-3.5 py-2 text-[12px] tabular-nums text-ink outline-none transition-colors focus:border-sun";
@@ -78,17 +74,13 @@ export default function Planner({
   onClose,
 }: Props) {
   const [step, setStep] = useState(0);
-  const [atTime, setAtTime] = useState("17:30");
-  const [atDuration, setAtDuration] = useState(60);
   const [customDuration, setCustomDuration] = useState(false);
-  const [more, setMore] = useState(false);
 
   // Sin datos de lugares todavía (o sin ellos) no se descarta ninguna intención: la búsqueda lo dirá.
   const intentAvailable = (i: SunIntent) =>
     inventory.state === "loading" ||
     inventory.state === "unavailable" ||
     SUN_INTENTS[i].types.some((t) => inventory.counts[t] > 0);
-  const typesAvailable = PLACE_TYPE_ORDER.filter((t) => inventory.counts[t] > 0);
 
   const pickIntent = (i: SunIntent) => {
     const d = SUN_INTENTS[i];
@@ -126,7 +118,7 @@ export default function Planner({
     [whenLabel(state, now), 1],
     [durationLabel(state.durationMinutes), 2],
     [distanceLabel(state.maxWalkingMinutes), 3],
-    [state.locationType === "any" ? "Cualquier lugar" : PLACE_TYPE_LABEL[state.locationType].singular, 4],
+    [state.locationType === "any" ? "Cualquier tipo" : PLACE_TYPE_LABEL[state.locationType].singular, 4],
   ];
 
   const isPreset = DURATIONS.includes(state.durationMinutes);
@@ -147,21 +139,7 @@ export default function Planner({
         </button>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {summary.map(([text, idx]) => (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => setStep(idx)}
-            className={cn(
-              "rounded-full px-2.5 py-1 text-[10.5px] font-medium transition-colors duration-300",
-              step === idx ? "bg-sun-soft text-sun-deep" : "bg-ink/[0.04] text-ink-soft hover:text-ink"
-            )}
-          >
-            {text}
-          </button>
-        ))}
-      </div>
+      <StepSummary items={summary} step={step} onStep={setStep} />
 
       <div className="mt-4 min-h-[58px]">
         {/* 0 · Qué */}
@@ -185,36 +163,12 @@ export default function Planner({
               <Caps>Atajos</Caps>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
                 <PrimaryButton onClick={() => onQuick(oneHourOfSun(60, origin !== null))}>
-                  Encuéntrame 1 h de sol
+                  Sol 1 h cerca de mí
                 </PrimaryButton>
-                <GhostButton onClick={() => onQuick(planAfternoon(now))}>Planear mi tarde</GhostButton>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
-                <span>Quiero sol a las</span>
-                <input
-                  type="time"
-                  aria-label="Hora"
-                  value={atTime}
-                  onChange={(e) => setAtTime(e.target.value)}
-                  className={timeInput}
-                />
-                <span>durante</span>
-                {[30, 60, 120].map((m) => (
-                  <Chip key={m} active={atDuration === m} onClick={() => setAtDuration(m)}>
-                    {durationLabel(m)}
-                  </Chip>
-                ))}
-                <GhostButton
-                  onClick={() => {
-                    const minutes = parseHHMM(atTime);
-                    if (minutes !== null) onQuick(sunAt(minutes, atDuration, now));
-                  }}
-                  className="text-sun-deep"
-                >
-                  Buscar →
+                <GhostButton onClick={() => onQuick({ ...oneHourOfSun(60, origin !== null), intent: "shade", locationType: "any" })}>
+                  Sombra 1 h
                 </GhostButton>
               </div>
-
               {saved.length > 0 && (
                 <div className="space-y-2 pt-1">
                   <Caps>Guardados</Caps>
@@ -270,13 +224,10 @@ export default function Planner({
                   ))}
                 </select>
                 <span>de</span>
-                <input
-                  type="time"
-                  aria-label="Desde"
-                  value={hhmm(state.fromMinutes)}
-                  onChange={(e) => {
-                    const m = parseHHMM(e.target.value);
-                    if (m === null) return;
+                <TimeSelect
+                  label="Desde"
+                  value={state.fromMinutes}
+                  onChange={(m) => {
                     onChange({
                       fromMinutes: m,
                       toMinutes:
@@ -286,14 +237,10 @@ export default function Planner({
                   className={timeInput}
                 />
                 <span>a</span>
-                <input
-                  type="time"
-                  aria-label="Hasta"
-                  value={hhmm(state.toMinutes)}
-                  onChange={(e) => {
-                    const m = parseHHMM(e.target.value);
-                    if (m !== null) onChange({ toMinutes: m });
-                  }}
+                <TimeSelect
+                  label="Hasta"
+                  value={state.toMinutes}
+                  onChange={(m) => onChange({ toMinutes: m })}
                   className={timeInput}
                 />
                 <GhostButton onClick={() => setStep(2)} className="text-sun-deep">
@@ -350,96 +297,17 @@ export default function Planner({
               </div>
             )}
             <p className="mt-3 text-[11px] leading-snug text-ink-faint">
-              Se busca el sitio con más sol durante todo ese tiempo, no solo a una hora concreta.
+              {state.intent === "shade"
+                ? "Se busca el sitio con más sombra seguida durante todo ese tiempo."
+                : "Se busca el sitio con más sol seguido durante todo ese tiempo, no solo a una hora concreta."}
             </p>
           </div>
         )}
 
-        {/* 3 · Hasta dónde */}
         {step === 3 && (
-          <div className="fts-fade-in">
-            <div className="flex flex-wrap gap-2">
-              {DISTANCES.map((m) => (
-                <Chip
-                  key={m ?? "any"}
-                  active={state.maxWalkingMinutes === m}
-                  onClick={() => void pickDistance(m)}
-                >
-                  {m === null ? "Cualquier sitio" : `${m} min`}
-                </Chip>
-              ))}
-            </div>
-            <p className="mt-3 text-[11px] leading-snug text-ink-faint">
-              {origin
-                ? "Tiempo a pie estimado desde tu ubicación (en línea recta con rodeo, no una ruta real)."
-                : "Sin tu ubicación se busca en toda Barcelona. Al limitar el tiempo te la pediremos; es opcional."}
-            </p>
-          </div>
+          <DistanceStep value={state.maxWalkingMinutes} hasOrigin={origin !== null} onPick={(m) => void pickDistance(m)} />
         )}
-
-        {/* 4 · Tipo de lugar */}
-        {step === 4 && (
-          <div className="fts-fade-in">
-            <div className="flex flex-wrap gap-2">
-              <Chip active={state.locationType === "any"} onClick={() => onChange({ locationType: "any" })}>
-                Cualquier lugar
-              </Chip>
-              {typesAvailable.map((t) => (
-                <Chip key={t} active={state.locationType === t} onClick={() => onChange({ locationType: t })}>
-                  {PLACE_TYPE_LABEL[t].singular}
-                </Chip>
-              ))}
-            </div>
-            {inventory.state === "loading" && (
-              <p className="mt-2.5 text-[11px] text-ink-faint">Cargando los lugares de Barcelona…</p>
-            )}
-            {inventory.state === "unavailable" && (
-              <p className="mt-2.5 text-[11px] text-ink-faint">
-                No hemos podido cargar los lugares. Comprueba tu conexión.
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setMore((v) => !v)}
-              aria-expanded={more}
-              className="mt-3.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
-            >
-              {more ? "Menos opciones" : "Más opciones"}
-            </button>
-            {more && (
-              <div className="fts-fade-in mt-2.5 space-y-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="mr-1 text-[11px] text-ink-soft">Prioridad</span>
-                  {(
-                    [
-                      ["maximum_sun", "Máximo sol"],
-                      ["balanced", "Equilibrado"],
-                    ] as Array<[SunPreference, string]>
-                  ).map(([id, label]) => (
-                    <Chip key={id} active={state.preference === id} onClick={() => onChange({ preference: id })}>
-                      {label}
-                    </Chip>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Chip active={state.avoidClouds} onClick={() => onChange({ avoidClouds: !state.avoidClouds })}>
-                    Evitar nubes
-                  </Chip>
-                  <Chip
-                    active={state.preferShadeBreaks}
-                    onClick={() => onChange({ preferShadeBreaks: !state.preferShadeBreaks })}
-                  >
-                    Pausas de sombra
-                  </Chip>
-                </div>
-                <p className="text-[10.5px] leading-snug text-ink-faint">
-                  «Equilibrado» tiene en cuenta el calor y el viento, además del sol.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+        {step === 4 && <PlaceTypeStep state={state} inventory={inventory} onChange={onChange} />}
       </div>
 
       <div className="mt-5 flex items-center justify-between gap-3">

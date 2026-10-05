@@ -23,8 +23,9 @@ export function sunlightTint(score: number, dayK: number, weatherAvailable: bool
     lerp(218, 145, strength),
     lerp(158, 58, strength),
   ];
-  const base = weatherAvailable ? 0.12 : 0.07;
-  const range = weatherAvailable ? 0.31 : 0.21;
+  // Más visible que antes: el sol tiene que «verse» en el mapa a primera vista.
+  const base = weatherAvailable ? 0.2 : 0.12;
+  const range = weatherAvailable ? 0.4 : 0.28;
   const opacity = dayK * (base + range * strength) * smoothstep(0.035, 0.35, value);
   return { strength, rgb, opacity };
 }

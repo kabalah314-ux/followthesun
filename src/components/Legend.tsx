@@ -27,27 +27,29 @@ function Swatch({ kind }: { kind: Kind }) {
 interface Props {
   showClouds: boolean;
   showShadows: boolean;
+  /** Versión de una línea, siempre visible bajo el titular. */
+  compact?: boolean;
 }
 
 /**
  * Leyenda mínima de luz solar. "Nubes" y "Sombra" son además interruptores de su capa:
  * así no hace falta ningún botón extra en el mapa.
  */
-export default function Legend({ showClouds, showShadows }: Props) {
+export default function Legend({ showClouds, showShadows, compact = false }: Props) {
   const item = "flex items-center gap-1.5 text-[10px] font-medium tracking-[0.04em] text-ink-soft";
   const state = (on: boolean) => cn(item, !on && "opacity-40");
 
   return (
     <div role="group" aria-label="Leyenda de luz solar" className="flex flex-col gap-2">
-      <p className="fts-caps !text-[9px]">Luz solar</p>
+      {!compact && <p className="fts-caps !text-[9px]">En el mapa</p>}
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
         <span className={item}>
           <Swatch kind="sun" />
-          Directa
+          Sol
         </span>
         <span className={item}>
           <Swatch kind="partial" />
-          Parcial
+          Sol a ratos
         </span>
         <span className={state(showClouds)}>
           <Swatch kind="cloud" />

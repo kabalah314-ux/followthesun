@@ -2,9 +2,10 @@ import { MAP_CONFIG, OPEN_TILES } from "../../config";
 import type { Theme } from "../../types";
 import { BUILDINGS_QUERY_LAYER } from "../buildingService";
 import type { Buildings3DMode, MapLike } from "./types";
+import { log } from "../../lib/log";
 
 /**
- * Estilos cartográficos de Follow the Sun.
+ * Estilos cartográficos de I Follow the Sun.
  *
  * Un único diseño editorial (crema cálido de día, azul medianoche de noche) construido sobre
  * dos esquemas vectoriales:
@@ -413,7 +414,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
 
   return {
     version: 8,
-    name: "Follow the Sun",
+    name: "I Follow the Sun",
     projection: { name: "mercator" },
     glyphs: "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
     transition: { duration: 900, delay: 0 },
@@ -674,7 +675,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
 
   return {
     version: 8,
-    name: "Follow the Sun · open",
+    name: "I Follow the Sun · open",
     glyphs: OPEN_TILES.glyphs,
     transition: { duration: 900, delay: 0 },
     sources: {
@@ -695,8 +696,9 @@ export function applyMapTheme(map: MapLike, theme: Theme) {
     for (const [prop, value] of Object.entries(props)) {
       try {
         map.setPaintProperty(layerId, prop, value);
-      } catch {
-        /* estilo aún no listo */
+      } catch (error) {
+        // Normal mientras el estilo termina de cargar; se reintenta en el siguiente cambio.
+        log.debug("estilo aún no listo", layerId, prop, error);
       }
     }
   }
@@ -705,8 +707,8 @@ export function applyMapTheme(map: MapLike, theme: Theme) {
 export function setFootprintsVisible(map: MapLike, visible: boolean) {
   try {
     if (map.getLayer("buildings")) map.setPaintProperty("buildings", "fill-opacity", visible ? 1 : 0);
-  } catch {
-    /* estilo aún no listo */
+  } catch (error) {
+    log.debug("estilo aún no listo", error);
   }
 }
 
@@ -725,8 +727,8 @@ export function setExtrusionEnabled(map: MapLike, mode: Buildings3DMode) {
         map.setPaintProperty("buildings-3d", "fill-extrusion-opacity", 0.72);
       }
     }
-  } catch {
-    /* estilo aún no listo */
+  } catch (error) {
+    log.debug("estilo aún no listo", error);
   }
 }
 

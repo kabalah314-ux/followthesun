@@ -13,7 +13,7 @@ import {
 import type { MapLike, MapProvider, MarkerLike } from "./types";
 
 /**
- * Proveedor Mapbox GL JS — usa Mapbox Streets v8 con el estilo propio de Follow the Sun.
+ * Proveedor Mapbox GL JS — usa Mapbox Streets v8 con el estilo propio de I Follow the Sun.
  * Requiere un token público (ver `getMapboxToken` en src/config.ts).
  */
 export const mapboxProvider: MapProvider = {

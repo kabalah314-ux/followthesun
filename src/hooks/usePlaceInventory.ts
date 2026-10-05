@@ -11,6 +11,6 @@ export function usePlaceInventory(enabled: boolean): PlaceInventoryStatus {
   useEffect(() => {
     if (enabled) placeService.load().catch(() => undefined);
   }, [enabled]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  return useMemo(() => placeService.getStatus(), [version]);
+  // Instantánea sellada con la versión del inventario: cambia solo cuando cambian los datos.
+  return useMemo(() => ({ ...placeService.getStatus(), version }), [version]);
 }

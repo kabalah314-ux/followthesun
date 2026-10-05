@@ -13,6 +13,7 @@ import { cn } from "../../utils/cn";
 import { CloseIcon } from "../Icons";
 import { Caps, ConfidenceBars } from "./ui";
 import WindowStrip from "./WindowStrip";
+import { reliabilityWord, windowPhrase } from "./ResultCards";
 
 const ORIGIN_ES: Record<SunlightOrigin, string> = {
   observed: "Basado en observación satelital",
@@ -166,82 +167,13 @@ interface Props {
   className?: string;
 }
 
-/**
- * Detalle de un resultado: cuánto sol, cuándo, por qué gana y con qué confianza. Explica el
- * resultado en lugar de limitarse a dar una puntuación.
- */
-export default function SunDetails({
-  result,
-  peers,
-  request,
-  saved,
-  onToggleSave,
-  onShare,
-  onClose,
-  className,
-}: Props) {
-  const [howOpen, setHowOpen] = useState(false);
-  const [compareId, setCompareId] = useState<string | null>(null);
-  const other = peers.find((p) => p.placeId === compareId && p.placeId !== result.placeId) ?? null;
-  const others = peers.filter((p) => p.placeId !== result.placeId);
-  const d = result.confidenceDetail;
-  const R = result.rankingDetail;
+/** Cifras clave del resultado. */
+function MetricsGrid({ result, shade }: { result: SunSearchResult; shade: boolean }) {
   const D = result.requestedMinutes;
-
   return (
-    <section
-      className={cn(
-        "fts-glass fts-slide-in fts-scroll-y w-[min(calc(100vw-1.5rem),340px)] overflow-y-auto rounded-[26px] p-4 sm:p-5",
-        className
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Caps>
-            {PLACE_TYPE_LABEL[result.locationType].singular}
-            {result.walking ? ` · ≈ ${result.walking.durationMinutes} min a pie` : ""}
-          </Caps>
-          <h2 className="mt-1.5 font-serif text-[24px] leading-[1.08] text-ink">{result.place.name}</h2>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar"
-          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <CloseIcon />
-        </button>
-      </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="font-serif text-[54px] leading-[0.82] tracking-tight text-ink">{result.score}</p>
-          <Caps className="mt-2">Sun Score</Caps>
-        </div>
-        <div className="text-right">
-          <p className="text-[12px] font-medium text-ink">
-            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
-          </p>
-          <p className="mt-1 max-w-[150px] text-[10.5px] leading-snug text-ink-soft">
-            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <WindowStrip
-          windows={result.windows}
-          start={request.startTime}
-          end={request.endTime}
-          highlight={result.searchWindow}
-        />
-        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
-          El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
-        </p>
-      </div>
-
+    <>
       <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl bg-ink/[0.035] px-3.5 py-3">
-        <Row label={result.weatherAvailable ? "Sol directo" : "Sol posible"}>
+        <Row label={shade ? "Sombra" : result.weatherAvailable ? "Sol directo" : "Sol posible"}>
           {fmtMin(result.sunlightMinutes)}
           <span className="font-normal text-ink-faint"> de {fmtMin(D)}</span>
         </Row>
@@ -261,7 +193,15 @@ export default function SunDetails({
         </Row>
         <Row label="Distancia">{walkText(result)}</Row>
       </dl>
+    </>
+  );
+}
 
+/** Confianza por componente (geometría, meteorología, global). */
+function ConfidenceSection({ result }: { result: SunSearchResult }) {
+  const d = result.confidenceDetail;
+  return (
+    <>
       <div className="mt-4 space-y-2 border-t border-line pt-3.5">
         <Caps>Confianza</Caps>
         <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
@@ -272,12 +212,19 @@ export default function SunDetails({
           una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
         </p>
       </div>
+    </>
+  );
+}
 
+/** Por qué gana este lugar. */
+function ReasonsList({ result }: { result: SunSearchResult }) {
+  return (
+    <>
       <div className="mt-4 border-t border-line pt-3.5">
         <Caps>¿Por qué este lugar?</Caps>
         <ul className="mt-2.5 space-y-1.5">
-          {result.reasons.map((reason, i) => (
-            <li key={i} className="flex gap-2.5 text-[12px] leading-snug text-ink-soft">
+          {result.reasons.map((reason) => (
+            <li key={`${reason.tone}:${reason.text}`} className="flex gap-2.5 text-[12px] leading-snug text-ink-soft">
               <span
                 aria-hidden
                 className={cn(
@@ -294,13 +241,20 @@ export default function SunDetails({
           ))}
         </ul>
       </div>
+    </>
+  );
+}
 
+/** La franja contada paso a paso (solo si aporta). */
+function Narrative({ result }: { result: SunSearchResult }) {
+  return (
+    <>
       {result.narrative.length >= 3 && (
         <div className="mt-4 border-t border-line pt-3.5">
           <Caps>Tu franja</Caps>
           <ol className="mt-2.5 space-y-2">
-            {result.narrative.map((e, i) => (
-              <li key={i} className="flex items-center gap-3 text-[12px]">
+            {result.narrative.map((e) => (
+              <li key={`${e.time}:${e.kind}:${e.label}`} className="flex items-center gap-3 text-[12px]">
                 <span className="w-11 shrink-0 tabular-nums text-ink-faint">{formatClock(e.time)}</span>
                 <i className={cn("block h-[8px] w-[8px] shrink-0 rounded-full", DOT[e.kind])} />
                 <span className={cn("text-ink-soft", e.kind === "best" && "font-medium text-ink")}>{e.label}</span>
@@ -309,7 +263,16 @@ export default function SunDetails({
           </ol>
         </div>
       )}
+    </>
+  );
+}
 
+/** Desglose de la puntuación, plegado por defecto. */
+function HowItsCalculated({ result }: { result: SunSearchResult }) {
+  const [howOpen, setHowOpen] = useState(false);
+  const R = result.rankingDetail;
+  return (
+    <>
       <div className="mt-4 border-t border-line pt-3">
         <button
           type="button"
@@ -351,7 +314,17 @@ export default function SunDetails({
           </div>
         )}
       </div>
+    </>
+  );
+}
 
+/** Comparar con otro resultado de la lista. */
+function ComparePicker({ result, peers }: { result: SunSearchResult; peers: SunSearchResult[] }) {
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const other = peers.find((p) => p.placeId === compareId && p.placeId !== result.placeId) ?? null;
+  const others = peers.filter((p) => p.placeId !== result.placeId);
+  return (
+    <>
       {others.length > 0 && (
         <div className="mt-3.5 border-t border-line pt-3.5">
           <Caps>Comparar con</Caps>
@@ -373,6 +346,92 @@ export default function SunDetails({
           {other && <Compare a={result} b={other} />}
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * Detalle de un resultado: cuánto sol, cuándo, por qué gana y con qué confianza. Explica el
+ * resultado en lugar de limitarse a dar una puntuación.
+ */
+export default function SunDetails({
+  result,
+  peers,
+  request,
+  saved,
+  onToggleSave,
+  onShare,
+  onClose,
+  className,
+}: Props) {
+  const D = result.requestedMinutes;
+  const shade = request.intent === "shade";
+  const tip = result.place.metadata?.tip as string | undefined;
+  const barrio = result.place.metadata?.barrio as string | undefined;
+
+  return (
+    <section
+      className={cn(
+        "fts-glass fts-slide-in fts-scroll-y w-[min(calc(100vw-1.5rem),340px)] overflow-y-auto rounded-[26px] p-4 sm:p-5",
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Caps>
+            {PLACE_TYPE_LABEL[result.locationType].singular}
+            {barrio ? ` · ${barrio}` : ""}
+            {result.walking ? ` · ≈ ${result.walking.durationMinutes} min a pie` : ""}
+          </Caps>
+          <h2 className="mt-1.5 font-serif text-[24px] leading-[1.08] text-ink">{result.place.name}</h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div>
+          <p className="font-serif text-[26px] leading-[1.05] tracking-tight text-ink" data-testid="details-window">
+            {windowPhrase(result, shade)}
+          </p>
+          <Caps className="mt-2">Fiabilidad {reliabilityWord(result.confidence).toLowerCase()}</Caps>
+        </div>
+        <div className="text-right">
+          <p className="text-[12px] font-medium text-ink">
+            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
+          </p>
+          <p className="mt-1 max-w-[150px] text-[10.5px] leading-snug text-ink-soft">
+            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
+          </p>
+        </div>
+      </div>
+
+      {tip && <p className="mt-3 text-[12px] italic leading-snug text-ink-soft">{tip}</p>}
+
+      <div className="mt-4">
+        <WindowStrip
+          windows={result.windows}
+          start={request.startTime}
+          end={request.endTime}
+          highlight={result.searchWindow}
+        />
+        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
+          El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
+        </p>
+      </div>
+
+      <MetricsGrid result={result} shade={shade} />
+      <ConfidenceSection result={result} />
+      <ReasonsList result={result} />
+      <Narrative result={result} />
+      <HowItsCalculated result={result} />
+      <ComparePicker result={result} peers={peers} />
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3.5">
         <ActionButton onClick={onToggleSave} active={saved}>

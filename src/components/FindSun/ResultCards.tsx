@@ -1,5 +1,6 @@
-import { fmtMin, influenceWord } from "../../lib/formatSun";
+import { CONFIDENCE_ES, confidenceWord, fmtMin, influenceWord } from "../../lib/formatSun";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
+import { formatClock } from "../../services/timeService";
 import type { SunSearchResult } from "../../types";
 import { cn } from "../../utils/cn";
 import { SunGlyph } from "../Icons";
@@ -11,29 +12,46 @@ interface Props {
   activeId: string | null;
   rangeStart: number;
   rangeEnd: number;
+  /** Modo sombra: los minutos y la franja se refieren a sombra, no a sol. */
+  shade?: boolean;
   onPick(r: SunSearchResult): void;
 }
 
-const glyphOf = (r: SunSearchResult) => {
+const glyphOf = (r: SunSearchResult, shade: boolean) => {
+  if (shade) return "shade" as const;
   if (!r.weatherAvailable) return "partial" as const;
   const f = r.sunlightMinutes / Math.max(1, r.requestedMinutes);
   return f >= 0.75 ? ("sun" as const) : f >= 0.35 ? ("partial" as const) : ("cloud" as const);
 };
 
-/** Resultados en tarjetas pequeñas: la mejor opción primero y destacada. */
-export function ResultCards({ results, activeId, rangeStart, rangeEnd, onPick }: Props) {
+/** Frase directa: «Sol de 15:10 a 18:05» (o sombra en el modo sombra). */
+export function windowPhrase(r: SunSearchResult, shade = false): string {
+  const w = r.bestWindow ?? r.searchWindow;
+  return `${shade ? "Sombra" : "Sol"} de ${formatClock(w.start)} a ${formatClock(w.end)}`;
+}
+
+export const reliabilityWord = (c: number): string => {
+  const w = confidenceWord(c);
+  return w === "very_high" || w === "high" ? "Alta" : w === "medium" ? "Media" : "Baja";
+};
+
+/** Resultados: la mejor opción primero, con la franja de sol (o sombra) en grande. */
+export function ResultCards({ results, activeId, rangeStart, rangeEnd, shade = false, onPick }: Props) {
   return (
-    <div className="fts-scroll-x -mx-1 mt-3.5 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-3 sm:overflow-visible">
+    <div className="fts-scroll-x -mx-1 mt-3.5 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1 sm:grid sm:grid-cols-1 sm:overflow-visible">
       {results.map((r, i) => {
         const best = r.rank === 1;
         const active = activeId === r.placeId;
+        const barrio = r.place.metadata?.barrio as string | undefined;
+        const tip = r.place.metadata?.tip as string | undefined;
         return (
           <button
             key={r.placeId}
             type="button"
+            data-testid={`result-card-${r.rank}`}
             onClick={() => onPick(r)}
             className={cn(
-              "fts-fade-in group flex min-w-[218px] snap-start flex-col rounded-2xl border px-3.5 py-3 text-left transition-all duration-500 hover:-translate-y-0.5 sm:min-w-0",
+              "fts-fade-in group flex min-w-[240px] snap-start flex-col rounded-2xl border px-3.5 py-3 text-left transition-all duration-500 hover:-translate-y-0.5 sm:min-w-0",
               active || best ? "border-sun/60 bg-sun-soft" : "border-line bg-ink/[0.03] hover:bg-ink/[0.06]"
             )}
             style={{ animationDelay: `${i * 90}ms` }}
@@ -41,31 +59,29 @@ export function ResultCards({ results, activeId, rangeStart, rangeEnd, onPick }:
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-faint">
-                  {best ? "Mejor opción" : `Opción ${r.rank}`}
+                  {best ? "Mejor opción" : `Opción ${r.rank}`} · {PLACE_TYPE_LABEL[r.locationType].singular}
+                  {barrio ? ` · ${barrio}` : ""}
                 </p>
-                <p className="mt-1.5 line-clamp-2 font-serif text-[18px] leading-[1.1] text-ink">
-                  {r.place.name}
-                </p>
+                <p className="mt-1.5 line-clamp-2 font-serif text-[18px] leading-[1.1] text-ink">{r.place.name}</p>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="font-serif text-[34px] leading-[0.85] tracking-tight text-ink">{r.score}</p>
-                <p className="mt-1 text-[8px] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-                  Sun Score
+              {r.walking && (
+                <p className="shrink-0 text-right font-serif text-[20px] leading-none text-ink">
+                  {r.walking.durationMinutes}
+                  <span className="ml-0.5 text-[10px] text-ink-soft">min a pie</span>
                 </p>
-              </div>
+              )}
             </div>
-
-            <p className="mt-2 text-[10.5px] text-ink-soft">
-              {PLACE_TYPE_LABEL[r.locationType].singular}
-              {r.walking ? ` · ≈ ${r.walking.durationMinutes} min a pie` : ""}
-            </p>
 
             <div className="mt-2.5 flex items-center gap-2">
-              <SunGlyph state={glyphOf(r)} size={20} className="shrink-0" />
-              <p className="text-[12.5px] font-medium text-ink">
-                {fmtMin(r.sunlightMinutes)} {r.weatherAvailable ? "de sol" : "de sol posible"}
+              <SunGlyph state={glyphOf(r, shade)} size={20} className="shrink-0" />
+              <p className="text-[13.5px] font-semibold text-ink" data-testid={`result-window-${r.rank}`}>
+                {windowPhrase(r, shade)}
               </p>
             </div>
+            <p className="mt-1 text-[11px] text-ink-soft">
+              {fmtMin(r.longestSunRunMinutes || r.sunlightMinutes)} {shade ? "de sombra seguida" : "de sol seguido"}
+              {!shade && !r.weatherAvailable ? " (posible)" : ""}
+            </p>
 
             <div className="mt-2.5">
               <WindowStrip windows={r.windows} start={rangeStart} end={rangeEnd} compact />
@@ -73,14 +89,14 @@ export function ResultCards({ results, activeId, rangeStart, rangeEnd, onPick }:
 
             <div className="mt-2.5 flex items-center justify-between gap-2 text-[10.5px] text-ink-soft">
               <span className="truncate">
-                {r.urbanShadowMinutes > 0 && r.buildingsKnown
-                  ? `${fmtMin(r.urbanShadowMinutes)} de sombra`
-                  : r.weatherAvailable
-                    ? `Nubes: ${influenceWord(r.cloudInfluence).toLowerCase()}`
-                    : "Sin datos de nubes"}
+                {r.weatherAvailable ? `Nubes: ${influenceWord(r.cloudInfluence).toLowerCase()}` : "Sin datos de nubes"}
               </span>
-              <ConfidenceBars value={r.confidence} showWord={false} />
+              <span className="flex items-center gap-1.5" title={CONFIDENCE_ES[confidenceWord(r.confidence)]}>
+                Fiabilidad {reliabilityWord(r.confidence).toLowerCase()}
+                <ConfidenceBars value={r.confidence} showWord={false} />
+              </span>
             </div>
+            {tip && <p className="mt-2 text-[10.5px] italic leading-snug text-ink-faint">{tip}</p>}
           </button>
         );
       })}
@@ -114,7 +130,6 @@ export function ResultPills({
         >
           <span className="font-serif text-[15px] italic text-sun-deep">{r.rank}</span>
           <span className="max-w-[140px] truncate font-medium">{r.place.name}</span>
-          <span className="tabular-nums text-ink-faint">{r.score}</span>
         </button>
       ))}
     </div>

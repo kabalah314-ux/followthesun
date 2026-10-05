@@ -1,9 +1,9 @@
-# Follow the Sun
+# I Follow the Sun
 
 Dónde da el sol en Barcelona, ahora. Un mapa interactivo a pantalla completa con una capa de luz
 solar **efectiva** y, encima, una pregunta que la app sabe contestar:
 
-> **Dime qué quieres hacer fuera, cuándo y durante cuánto tiempo, y Follow the Sun encontrará el
+> **Dime qué quieres hacer fuera, cuándo y durante cuánto tiempo, y I Follow the Sun encontrará el
 > mejor lugar para ti.**
 
 ```text
@@ -45,12 +45,14 @@ hora elegida ni las capas.
 | **Buscar sol** | «¿Dónde hay sol?» para una intención y un momento. | Sidebar / móvil |
 | **Planificar** | «¿Cuándo y cuánto tiempo salgo?» con una franja elegida. Es el mismo motor de búsqueda con otra pregunta. | Sidebar / móvil; también alternable desde Buscar |
 | **Lugares** | Explorar el inventario real de OpenStreetMap sin tener una búsqueda concreta. | Sidebar desktop; botón pequeño «Lugares» en Explore móvil |
+| **Recomendados** | 9 sitios por categoría (playas, parques, plazas, terrazas, miradores y espacios abiertos) sorteados de la selección propia; «Otros sitios» sortea de nuevo. | Sidebar desktop; botón ★ en Explore móvil |
 | **Guardados** | Sitios guardados en este dispositivo. | Sidebar / móvil |
 | Ajustes · Acerca de | Capas del mapa y transparencia de los datos. | Separados al pie de la sidebar; Ajustes también en la cabecera móvil |
 
 En desktop una rail translúcida (expandible/colapsable) se superpone al mapa; en tablet queda
-compacta. En móvil hay cuatro acciones —Explorar, Buscar, Plan y Guardados— y Lugares se abre desde
-Explore. Los paneles son contextuales; las opciones no están todas flotando a la vez.
+compacta. En móvil hay cuatro acciones —Explorar, Buscar, Plan y Guardados— y Lugares y
+Recomendados se abren desde Explore. Los paneles son contextuales; las opciones no están todas
+flotando a la vez.
 
 Para que el mapa aparezca antes, se muestra al cargar la hoja de estilo sin esperar a que terminen
 todas las teselas (`style.load`). Se importa solo el proveedor de mapa que se va a usar (Mapbox o
@@ -68,7 +70,7 @@ La superposición distingue más claramente **luz débil** (oro pálido) de **so
 (ámbar cálido), con una transición continua basada en la transmisión efectiva, sin fingir bordes de
 nube a nivel de calle. Al acercarse por encima del zoom 15,35, el mapa toma un pitch suave de 38° y
 las huellas planas se convierten en volúmenes de altura/plantas de OpenStreetMap; al alejar, vuelve a
-la vista cenital. Si se cambia manualmente la inclinación o rotación, Follow the Sun respeta la vista
+la vista cenital. Si se cambia manualmente la inclinación o rotación, I Follow the Sun respeta la vista
 del usuario y no vuelve a inclinar por su cuenta hasta alejarse a escala de ciudad. Las sombras
 conservan el cálculo de alturas y geometría urbanas y ganan algo de contraste al acercar.
 
@@ -246,7 +248,7 @@ semanal), teselas (solo las nuevas), meteorología (ya en memoria). El análisis
 
 * **Guardar** (`savedPlacesService`): `localStorage` (`fts:saved-places:v1`); aparecen como atajos en
   el primer paso. La interfaz ya es la de un almacenamiento remoto futuro.
-* **Compartir** (`planShareService`): texto («Follow the Sun · sábado, 10 de octubre · 17:30–19:00 ·
+* **Compartir** (`planShareService`): texto («I Follow the Sun · sábado, 10 de octubre · 17:30–19:00 ·
   Bogatell · 1 h 42 min de sol directo · confianza alta») con la hoja del sistema o copiando al
   portapapeles. No hay sistema social ni enlaces profundos todavía.
 

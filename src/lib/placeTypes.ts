@@ -68,8 +68,16 @@ export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
     defaultDurationMinutes: 60,
     defaultWhen: "now",
   },
+  shade: {
+    label: "Sombra",
+    hint: "Un sitio fresco, sin sol directo",
+    types: ["park", "square", "open_space", "terrace"],
+    preference: "maximum_sun",
+    defaultDurationMinutes: 60,
+    defaultWhen: "now",
+  },
   coffee: {
-    label: "Café",
+    label: "Terraza",
     hint: "Una terraza al sol",
     types: ["terrace"],
     preference: "balanced",
@@ -110,4 +118,4 @@ export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
   },
 };
 
-export const INTENT_ORDER: SunIntent[] = ["sun", "coffee", "read", "beach", "sunset", "walk"];
+export const INTENT_ORDER: SunIntent[] = ["sun", "shade", "coffee", "beach", "sunset", "read", "walk"];

@@ -284,8 +284,21 @@ interface SpotAnalysis {
   lng: number;
   lat: number;
   samples: SunSample[];
+  /** Luz real (sin invertir): es lo que se dibuja en la línea del día. */
+  raw: SunSample[];
   metrics: WindowMetrics;
   buildingsKnown: boolean;
+}
+
+/**
+ * Modo sombra: se invierte la luz para que el mismo motor busque la mejor ventana SIN sol directo
+ * (sombra de edificios, relieve o nubes). La noche no cuenta como sombra útil.
+ */
+export function invertForShade(s: SunSample): SunSample {
+  if (s.kind === "night") return s;
+  const kind: SunWindowKind =
+    s.kind === "shadow" || s.kind === "cloud" ? "sun" : s.kind === "sun" ? "shadow" : s.kind;
+  return { ...s, kind, score: 1 - s.score, unverified: false, urbanShadow: false };
 }
 
 function analyzeSpot(
@@ -296,14 +309,15 @@ function analyzeSpot(
   req: NormalizedSunRequest
 ): SpotAnalysis | null {
   const results = sunlightService.evaluateSpotSeries(shadow, series);
-  const samples = results.map((r, i) => toSample(r, series.sun[i].altitudeDeg));
+  const raw = results.map((r, i) => toSample(r, series.sun[i].altitudeDeg));
+  const samples = req.intent === "shade" ? raw.map(invertForShade) : raw;
   const metrics = findBestSunWindow(
     samples,
     req.stepMs,
     req.minimumSunlightMinutes * MIN,
     req.endTime
   );
-  return metrics ? { lng, lat, samples, metrics, buildingsKnown: shadow.buildingsKnown } : null;
+  return metrics ? { lng, lat, samples, raw, metrics, buildingsKnown: shadow.buildingsKnown } : null;
 }
 
 /** ¿Es `a` mejor punto que `b`? Más luz acumulada; a igualdad, más sol directo. */
@@ -486,7 +500,7 @@ export async function findBestSunPlaces(
       ? (comfortService.summarize(m.start, m.end) ?? undefined)
       : undefined;
 
-    const windows = groupWindows(best.samples, req.stepMs, req.endTime);
+    const windows = groupWindows(best.raw, req.stepMs, req.endTime);
     const bestWindow =
       m.strongStart !== null && m.strongEnd !== null ? { start: m.strongStart, end: m.strongEnd } : null;
 
@@ -614,7 +628,7 @@ export async function findBestSunPlaces(
   let reason: NoSunReason = "none";
   if (useful.length === 0) {
     const open = ceiling ? ceiling.sunMinutes + 0.5 * ceiling.partialMinutes : 0;
-    reason = open < S.minUsefulSunFraction * D ? "clouds" : "shade";
+    reason = req.intent === "shade" ? "none" : open < S.minUsefulSunFraction * D ? "clouds" : "shade";
   }
   return outcome("no_results", { bestAvailable, noSunReason: reason, ...meta });
 }

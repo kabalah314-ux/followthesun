@@ -9,7 +9,7 @@ export default function AboutPanel({ light, onClose }: { light: LightSourceState
       <div className="fts-section-head">
         <div>
           <Caps>Una herramienta para salir</Caps>
-          <h2 className="mt-1 font-serif text-[25px] leading-none text-ink">Follow the Sun</h2>
+          <h2 className="mt-1 font-serif text-[25px] leading-none text-ink">I Follow the Sun</h2>
         </div>
         <button type="button" aria-label="Cerrar" onClick={onClose} className="fts-close-button">
           <CloseIcon className="h-4 w-4" />
