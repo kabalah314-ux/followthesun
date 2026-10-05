@@ -1,0 +1,761 @@
+@import "tailwindcss";
+
+/* -------------------------------------------------------------------------- */
+/*  Tokens de color — registrados para poder animar el cambio día ⇄ noche      */
+/* -------------------------------------------------------------------------- */
+
+@property --paper {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f6f1e8;
+}
+@property --ink {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #2a2733;
+}
+@property --ink-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(42, 39, 51, 0.64);
+}
+@property --ink-faint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(42, 39, 51, 0.4);
+}
+@property --glass {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(250, 246, 239, 0.74);
+}
+@property --glass-strong {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(252, 249, 244, 0.94);
+}
+@property --line {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(42, 39, 51, 0.09);
+}
+@property --sun {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e9a23b;
+}
+@property --sun-deep {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c26d17;
+}
+@property --sun-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(233, 162, 59, 0.16);
+}
+@property --shade {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #56648f;
+}
+
+:root {
+  --paper: #f6f1e8;
+  --ink: #2a2733;
+  --ink-soft: rgba(42, 39, 51, 0.64);
+  --ink-faint: rgba(42, 39, 51, 0.4);
+  --glass: rgba(250, 246, 239, 0.74);
+  --glass-strong: rgba(252, 249, 244, 0.94);
+  --line: rgba(42, 39, 51, 0.09);
+  --sun: #e9a23b;
+  --sun-deep: #c26d17;
+  --sun-soft: rgba(233, 162, 59, 0.16);
+  --shade: #56648f;
+
+  --fts-font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --fts-font-serif: "Instrument Serif", "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+
+  transition:
+    --paper 900ms ease,
+    --ink 900ms ease,
+    --ink-soft 900ms ease,
+    --ink-faint 900ms ease,
+    --glass 900ms ease,
+    --glass-strong 900ms ease,
+    --line 900ms ease,
+    --sun 900ms ease,
+    --sun-deep 900ms ease,
+    --sun-soft 900ms ease,
+    --shade 900ms ease;
+}
+
+:root[data-theme="night"] {
+  --paper: #0f1428;
+  --ink: #eceff8;
+  --ink-soft: rgba(236, 239, 248, 0.68);
+  --ink-faint: rgba(236, 239, 248, 0.42);
+  --glass: rgba(18, 24, 48, 0.68);
+  --glass-strong: rgba(20, 27, 54, 0.94);
+  --line: rgba(255, 255, 255, 0.1);
+  --sun: #f2b866;
+  --sun-deep: #f4a850;
+  --sun-soft: rgba(242, 184, 102, 0.16);
+  --shade: #8da2da;
+}
+
+@theme {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Instrument Serif", "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-glass: var(--glass);
+  --color-glass-strong: var(--glass-strong);
+  --color-line: var(--line);
+  --color-sun: var(--sun);
+  --color-sun-deep: var(--sun-deep);
+  --color-sun-soft: var(--sun-soft);
+  --color-shade: var(--shade);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Base                                                                       */
+/* -------------------------------------------------------------------------- */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--fts-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+[role="slider"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sun) 75%, transparent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--sun) 35%, transparent);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Componentes reutilizables                                                  */
+/* -------------------------------------------------------------------------- */
+
+@layer components {
+  .fts-glass {
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    backdrop-filter: blur(22px) saturate(1.2);
+    border: 1px solid var(--line);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 22px 50px -26px rgba(66, 42, 10, 0.4);
+  }
+
+  .fts-caps {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .fts-fade-top {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--paper) 92%, transparent) 0%,
+      color-mix(in srgb, var(--paper) 58%, transparent) 42%,
+      transparent 100%
+    );
+  }
+
+  .fts-cta {
+    box-shadow:
+      0 20px 44px -16px rgba(40, 25, 5, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+
+  .fts-track {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--ink) 10%, transparent) 0%,
+      color-mix(in srgb, var(--sun) 52%, transparent) 50%,
+      color-mix(in srgb, var(--ink) 10%, transparent) 100%
+    );
+  }
+
+  .fts-thumb {
+    background: radial-gradient(circle at 35% 30%, #fff1c9 0%, #ffc45e 38%, #e8923a 100%);
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    box-shadow:
+      0 3px 12px rgba(232, 146, 58, 0.55),
+      0 0 0 1px rgba(120, 70, 10, 0.1);
+  }
+
+  .fts-thumb-halo {
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(255, 184, 77, 0.6) 0%, rgba(255, 184, 77, 0) 70%);
+    animation: fts-halo 3.8s ease-in-out infinite;
+  }
+
+  .fts-live-dot {
+    position: relative;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--sun);
+  }
+  .fts-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: var(--sun);
+    animation: fts-pulse 2.8s ease-out infinite;
+  }
+
+  .fts-shimmer {
+    background: linear-gradient(
+      100deg,
+      var(--line) 20%,
+      color-mix(in srgb, var(--ink) 10%, transparent) 42%,
+      var(--line) 64%
+    );
+    background-size: 220% 100%;
+    animation: fts-shimmer 1.7s linear infinite;
+  }
+
+  .fts-scroll-x,
+  .fts-scroll-y {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--ink) 18%, transparent) transparent;
+  }
+  .fts-scroll-x::-webkit-scrollbar,
+  .fts-scroll-y::-webkit-scrollbar {
+    height: 4px;
+    width: 4px;
+  }
+  .fts-scroll-x::-webkit-scrollbar-thumb,
+  .fts-scroll-y::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--ink) 18%, transparent);
+    border-radius: 999px;
+  }
+
+  /* Panels compartidos por Lugares, Guardados, Ajustes y Acerca de. */
+  .fts-context-panel {
+    width: min(100%, 370px);
+    max-height: min(72dvh, 680px);
+    overflow: hidden;
+    padding: 18px;
+    border-radius: 25px;
+  }
+  .fts-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .fts-close-button {
+    display: flex;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    margin: -4px -4px 0 0;
+    border-radius: 999px;
+    color: var(--ink-soft);
+    transition: background 250ms ease, color 250ms ease;
+  }
+  .fts-close-button:hover {
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    color: var(--ink);
+  }
+  .fts-search-input {
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    outline: none;
+    background: color-mix(in srgb, var(--ink) 3%, transparent);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    transition: border-color 250ms ease, background 250ms ease;
+  }
+  .fts-search-input::placeholder {
+    color: var(--ink-faint);
+  }
+  .fts-search-input:focus {
+    border-color: color-mix(in srgb, var(--sun) 65%, transparent);
+    background: color-mix(in srgb, var(--ink) 5%, transparent);
+  }
+  .fts-place-row {
+    display: flex;
+    width: 100%;
+    min-height: 58px;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 8px;
+    border-radius: 13px;
+    text-align: left;
+    transition: background 250ms ease;
+  }
+  .fts-place-row:hover {
+    background: color-mix(in srgb, var(--ink) 4%, transparent);
+  }
+  .fts-setting-row {
+    display: flex;
+    width: 100%;
+    min-height: 60px;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 2px;
+    text-align: left;
+  }
+  .fts-switch {
+    position: relative;
+    display: block;
+    width: 34px;
+    height: 20px;
+    flex: none;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 16%, transparent);
+    transition: background 250ms ease;
+  }
+  .fts-switch i {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: var(--paper);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .fts-switch.is-on {
+    background: var(--sun);
+  }
+  .fts-switch.is-on i {
+    transform: translateX(14px);
+  }
+  .fts-stepper {
+    display: flex;
+    width: 32px;
+    height: 32px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    color: var(--ink);
+    transition: background 250ms ease;
+  }
+  .fts-stepper:hover {
+    background: color-mix(in srgb, var(--ink) 5%, transparent);
+  }
+}
+
+/* Navegación persistente, translúcida, flotando sobre el mapa. */
+.fts-nav-rail {
+  background: color-mix(in srgb, var(--glass-strong) 88%, transparent);
+  box-shadow: 0 18px 55px -32px rgba(35, 29, 19, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.fts-mobile-nav {
+  background: color-mix(in srgb, var(--glass-strong) 92%, transparent);
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Animaciones — suaves y discretas                                           */
+/* -------------------------------------------------------------------------- */
+
+.fts-rise {
+  animation: fts-rise 1000ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-fade-in {
+  animation: fts-fade 700ms ease both;
+}
+.fts-slide-in {
+  animation: fts-slide-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-slide-up {
+  animation: fts-slide-up 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-breathe {
+  animation: fts-halo 3.6s ease-in-out infinite;
+}
+.fts-loadbar {
+  animation: fts-loadbar 1.6s ease-in-out infinite;
+}
+
+@keyframes fts-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fts-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fts-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fts-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fts-halo {
+  0%,
+  100% {
+    transform: scale(0.86);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+}
+@keyframes fts-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(3.4);
+    opacity: 0;
+  }
+}
+@keyframes fts-orbit {
+  from {
+    transform: rotate(-42deg);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(0deg);
+    opacity: 1;
+  }
+}
+@keyframes fts-loadbar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(380%);
+  }
+}
+@keyframes fts-shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Mapa y marcadores                                                          */
+/* -------------------------------------------------------------------------- */
+
+.maplibregl-canvas:focus,
+.maplibregl-map:focus,
+.mapboxgl-canvas:focus,
+.mapboxgl-map:focus {
+  outline: none;
+}
+
+/* El mapa invita a arrastrar; los botones flotantes conservan su propio cursor. */
+.maplibregl-canvas-container.maplibregl-interactive,
+.mapboxgl-canvas-container.mapboxgl-interactive {
+  cursor: grab;
+  touch-action: none;
+}
+.maplibregl-canvas-container.maplibregl-interactive:active,
+.mapboxgl-canvas-container.mapboxgl-interactive:active {
+  cursor: grabbing;
+}
+
+/* Atribución del mapa (obligatoria): compacta y a juego con la paleta. */
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.mapboxgl-ctrl-attrib.mapboxgl-compact {
+  margin: 0 8px 6px 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.maplibregl-ctrl-attrib,
+.mapboxgl-ctrl-attrib {
+  font-family: var(--fts-font-sans);
+  color: var(--ink-soft);
+}
+.maplibregl-ctrl-attrib a,
+.mapboxgl-ctrl-attrib a {
+  color: var(--ink-soft);
+}
+/* El logotipo de Mapbox debe permanecer visible: solo se separa del borde. */
+.mapboxgl-ctrl-bottom-left .mapboxgl-ctrl {
+  margin: 0 0 8px 8px;
+}
+
+.fts-sun-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1800ms ease;
+}
+
+/* punto seleccionado */
+.fts-pin {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+.fts-pin__core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #fff1c9 0%, #ffc45e 42%, #e8923a 100%);
+  border: 2.5px solid #fff;
+  box-shadow:
+    0 4px 14px rgba(232, 146, 58, 0.7),
+    0 0 0 1px rgba(90, 50, 5, 0.15);
+}
+.fts-pin__ring {
+  position: absolute;
+  inset: 4px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(232, 146, 58, 0.75);
+  animation: fts-pulse 2.8s ease-out infinite;
+}
+.fts-pin__ring--b {
+  animation-delay: 1.4s;
+}
+
+/* ubicación del usuario */
+.fts-user {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+.fts-user__dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 999px;
+  background: #34457a;
+  border: 2.5px solid #fff;
+  box-shadow: 0 2px 8px rgba(30, 40, 90, 0.5);
+}
+.fts-user__pulse {
+  position: absolute;
+  inset: 5px;
+  border-radius: 999px;
+  background: rgba(52, 69, 122, 0.4);
+  animation: fts-pulse 2.6s ease-out infinite;
+}
+
+/* zonas destacadas por Find the Sun */
+.fts-find {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-family: var(--fts-font-sans);
+}
+.fts-find__halo {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: rgba(255, 196, 94, 0.55);
+  animation: fts-pulse 3s ease-out infinite;
+}
+.fts-find__badge {
+  position: absolute;
+  inset: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #2a2733;
+  color: #ffd98a;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  font-family: var(--fts-font-serif);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1;
+  box-shadow: 0 6px 18px -4px rgba(40, 25, 5, 0.55);
+  transition:
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 400ms ease,
+    color 400ms ease;
+}
+.fts-find:hover .fts-find__badge,
+.fts-find.is-active .fts-find__badge {
+  transform: scale(1.14);
+  background: #e8923a;
+  color: #fff;
+}
+.fts-find__label {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 6px;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  box-shadow: 0 8px 22px -10px rgba(40, 25, 5, 0.45);
+  pointer-events: none;
+}
+@media (max-width: 639px) {
+  .fts-find__label {
+    display: none;
+  }
+  .fts-find.is-active .fts-find__label {
+    display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .fts-context-panel {
+    width: 100%;
+    max-height: min(55dvh, 560px);
+    padding: 16px;
+    border-radius: 25px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Accesibilidad                                                              */
+/* -------------------------------------------------------------------------- */
+
+/* Resultados de Find the Sun: el principal destaca, el resto se atenúa. */
+.fts-find {
+  transition: opacity 500ms ease;
+}
+.fts-find.is-primary {
+  width: 42px;
+  height: 42px;
+}
+.fts-find.is-primary .fts-find__badge {
+  background: #e8923a;
+  color: #fff;
+  font-size: 17px;
+}
+.fts-find.is-dim {
+  opacity: 0.6;
+}
+.fts-find.is-dim:hover {
+  opacity: 1;
+}
+.fts-find.is-dim .fts-find__halo {
+  display: none;
+}
+.fts-find__score {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  margin-top: 3px;
+  transform: translateX(-50%);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--glass-strong);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  box-shadow: 0 6px 16px -8px rgba(40, 25, 5, 0.45);
+}
+.fts-find__score:empty {
+  display: none;
+}
+
+/* Tramo de previsión en la línea de tiempo: discontinuo, para distinguirlo de lo observado. */
+.fts-forecast-dash {
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink) 38%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
