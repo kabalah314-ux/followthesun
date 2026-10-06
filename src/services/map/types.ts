@@ -30,6 +30,10 @@ export interface MapLike {
   fitBounds(bounds: any, options?: any): unknown;
   zoomIn(options?: any): unknown;
   zoomOut(options?: any): unknown;
+  /** Cambia el estilo en caliente (p. ej. a vista satélite) sin recrear el mapa. */
+  setStyle(style: any): unknown;
+  /** Luz de los edificios en 3D (ambas librerías la tienen). */
+  setLight?(light: any, options?: any): unknown;
 }
 
 export interface MarkerLike {
@@ -39,11 +43,12 @@ export interface MarkerLike {
 }
 
 export type MapProviderId = "mapbox" | "maplibre";
-export type Buildings3DMode = "off" | "auto" | "on";
 
 export interface CreateMapOptions {
   container: HTMLElement;
   theme: Theme;
+  /** Empezar directamente en vista satélite. */
+  satellite?: boolean;
 }
 
 export interface MapProvider {
@@ -51,14 +56,17 @@ export interface MapProvider {
   label: string;
   /** Id de la fuente vectorial dentro del estilo (para detectar fallos de carga y refrescar edificios). */
   sourceId: string;
-  create(options: CreateMapOptions): MapLike;
+  /** Estilo completo: vectorial propio o vista satélite híbrida. */
+  createStyle(theme: Theme, satellite: boolean): any;
+  /** Puede ser asíncrono: el proveedor de Mapbox se descarga de su CDN solo si hay token. */
+  create(options: CreateMapOptions): Promise<MapLike> | MapLike;
   destroy(map: MapLike): void;
   createMarker(map: MapLike, element: HTMLElement, lngLat: [number, number]): MarkerLike;
   applyTheme(map: MapLike, theme: Theme): void;
   /** Muestra u oculta las huellas de edificios (la capa invisible de consulta se mantiene). */
   setBuildingsVisible(map: MapLike, visible: boolean): void;
-  /** Apaga, activa automáticamente al acercar o fuerza la capa 3D de edificios. */
-  setBuildings3D(map: MapLike, mode: Buildings3DMode): void;
+  /** Activa la capa 3D de edificios (preparada, apagada por defecto). */
+  setBuildings3D(map: MapLike, enabled: boolean): void;
   /** Mapa base mínimo cuando las teselas vectoriales no están disponibles. */
   installFallback(map: MapLike, theme: Theme): void;
   getPlaceName(map: MapLike, lng: number, lat: number): string;

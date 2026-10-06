@@ -4,30 +4,28 @@ import { useMapContext } from "./MapContext";
 /**
  * BuildingLayer — edificios del mapa.
  *
- * Controla dos capas del estilo:
- *  · huellas planas (la vista por defecto, sutil y elegante)
- *  · extrusión 3D sutil que aparece gradualmente al acercar el mapa (≥ zoom 15,35).
+ *  · huellas planas: la vista de lejos, sutil
+ *  · relieve 3D: al acercarse (zoom ≥ 14,6) los edificios crecen hasta su altura real, con un tono
+ *    más profundo cuanto más altos, iluminados por la luz del sol (ver `SolarOverlayEngine`).
  *
  * Los edificios (geometría + altura + orientación) alimentan el cálculo de sombras a través de
- * `buildingService`, independientemente de cuál de las dos se vea. Para activar el 3D basta con
- * `extrude` como booleano puede forzarla o apagarla; en la vista normal usa `auto`.
+ * `buildingService`, se vean o no.
  */
 
 export interface BuildingLayerProps {
   /** Mostrar los edificios. */
   visible: boolean;
-  /** false: plano · true: 3D forzado · auto: transición al acercar (valor normal). */
-  extrude?: boolean | "auto";
+  /** Levantarlos en 3D al acercarse. */
+  extrude?: boolean;
 }
 
-export default function BuildingLayer({ visible, extrude = "auto" }: BuildingLayerProps) {
+export default function BuildingLayer({ visible, extrude = false }: BuildingLayerProps) {
   const { map, provider } = useMapContext();
 
   useEffect(() => {
     if (!map || !provider) return;
     provider.setBuildingsVisible(map, visible);
-    const mode = !visible || extrude === false ? "off" : extrude === true ? "on" : "auto";
-    provider.setBuildings3D(map, mode);
+    provider.setBuildings3D(map, visible && extrude);
   }, [map, provider, visible, extrude]);
 
   return null;

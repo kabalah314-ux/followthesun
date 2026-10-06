@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from "react";
-import type { SearchProgress, SearchStatus, SunSearchOutcome, SunSearchRequest } from "../types";
+import type {
+  SearchProgress,
+  SearchStatus,
+  SunSearchOptions,
+  SunSearchOutcome,
+  SunSearchRequest,
+} from "../types";
 
 export interface SunSearchState {
   status: SearchStatus;
@@ -14,7 +20,7 @@ const IDLE: SunSearchState = { status: "idle", request: null, outcome: null, pro
 
 export interface SunSearchApi {
   state: SunSearchState;
-  run(request: SunSearchRequest): Promise<SunSearchOutcome | null>;
+  run(request: SunSearchRequest, options?: SunSearchOptions): Promise<SunSearchOutcome | null>;
   cancel(): void;
   reset(): void;
 }
@@ -29,7 +35,7 @@ export function useSunSearch(): SunSearchApi {
   const runId = useRef(0);
   const controller = useRef<AbortController | null>(null);
 
-  const run = useCallback(async (request: SunSearchRequest) => {
+  const run = useCallback(async (request: SunSearchRequest, options?: SunSearchOptions) => {
     controller.current?.abort();
     const ctrl = new AbortController();
     controller.current = ctrl;
@@ -42,13 +48,12 @@ export function useSunSearch(): SunSearchApi {
       failed: false,
     });
     try {
-      // El motor de búsqueda (teselas vectoriales, inventario Overpass, geometría) pesa más que la
-      // pantalla inicial: se carga solo cuando la persona lo usa.
+      // El motor de búsqueda (edificios, nubes, lugares) se descarga aquí, no al abrir la app.
       const { findBestSunPlaces } = await import("../services/sunSearchService");
-      if (runId.current !== id || ctrl.signal.aborted) return null;
       const outcome = await findBestSunPlaces(request, {
+        ...options,
         signal: ctrl.signal,
-        onProgress: (progress) => {
+        onProgress: (progress: SearchProgress) => {
           if (runId.current !== id) return;
           setState((s) => (s.status === "searching" ? { ...s, progress } : s));
         },

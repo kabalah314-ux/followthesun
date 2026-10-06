@@ -1,6 +1,6 @@
 import { SUN_SCORE_CONFIG as SC } from "../config";
 import { clamp } from "../lib/coordinates";
-import { fmtMin } from "../lib/formatSun";
+import { fmtMin, fmtTemp } from "../lib/formatSun";
 import { influenceLevel } from "../lib/sunlightCalculations";
 import type {
   ComfortSummary,
@@ -55,7 +55,7 @@ export function comfortMultiplier(c: ComfortSummary | null): ComfortFactor {
   const heat = 1 - (1 - k.heatFloor) * heatT;
   const wind = 1 - (1 - k.windFloor) * windT;
   const notes: string[] = [];
-  if (heatT > 0.15) notes.push(`Calor (${Math.round(c.meanApparentC)} °C de sensación): el sol aprieta`);
+  if (heatT > 0.15) notes.push(`Calor (${fmtTemp(c.meanApparentC)} de sensación): el sol aprieta`);
   if (windT > 0.15) notes.push(`Viento de hasta ${Math.round(c.maxWindKmh)} km/h`);
   return { value: heat * wind, notes };
 }

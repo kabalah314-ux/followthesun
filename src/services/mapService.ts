@@ -1,29 +1,47 @@
-import { getMapboxToken } from "../config";
+import { forgetMapboxToken, getMapboxToken } from "../config";
 import type { LngLat } from "../types";
-import type { MapProvider, MapProviderId } from "./map/types";
+import type { MapProvider } from "./map/types";
 
 /**
  * mapService — punto único de acceso al mapa.
  *
- * Elige el proveedor (Mapbox GL JS si hay token; mapa abierto equivalente si no) y expone la
- * geolocalización. Todo lo demás (estilo, nombres, marcadores, tema, edificios) cuelga del
- * `MapProvider` devuelto, de modo que el resto de la app no sabe qué librería hay debajo.
+ * El proveedor (Mapbox GL JS si hay token; mapa abierto equivalente si no) se carga BAJO DEMANDA:
+ * el paquete de la otra librería nunca se descarga. Eso ahorra ~1,7 MB en la carga inicial, que es
+ * el gasto más grande de la app.
  */
 
 export type { MapLike, MapProvider, MapProviderId, MarkerLike } from "./map/types";
 
-/**
- * Importa únicamente el proveedor necesario. Mapbox pesa mucho y MapLibre es respaldo: cargar los
- * dos al arrancar duplicaba el coste de parseo, aunque solo se usase uno.
- */
-export async function loadMapProvider(id?: MapProviderId): Promise<MapProvider> {
-  const providerId = id ?? (getMapboxToken() ? "mapbox" : "maplibre");
-  if (providerId === "mapbox") {
-    const module = await import("./map/mapbox");
-    return module.mapboxProvider;
-  }
-  const module = await import("./map/maplibre");
-  return module.maplibreProvider;
+let cached: MapProvider | null = null;
+let inflight: Promise<MapProvider> | null = null;
+
+/** Carga (una sola vez) solo el proveedor que se va a usar. */
+export async function loadMapProvider(): Promise<MapProvider> {
+  if (cached) return cached;
+  if (inflight) return inflight;
+
+  const promise = (async (): Promise<MapProvider> => {
+    if (getMapboxToken()) {
+      const mod = await import("./map/mapbox");
+      return mod.mapboxProvider;
+    }
+    const mod = await import("./map/maplibre");
+    return mod.maplibreProvider;
+  })().then((provider) => {
+    cached = provider;
+    inflight = null;
+    return provider;
+  });
+
+  inflight = promise;
+  return promise;
+}
+
+/** Cambia al mapa abierto (token inválido o ausente). */
+export async function loadOpenMapProvider(): Promise<MapProvider> {
+  cached = null;
+  forgetMapboxToken();
+  return loadMapProvider();
 }
 
 export function locateUser(): Promise<LngLat> {
@@ -42,5 +60,6 @@ export function locateUser(): Promise<LngLat> {
 
 export const mapService = {
   loadProvider: loadMapProvider,
+  loadOpenProvider: loadOpenMapProvider,
   locateUser,
 };

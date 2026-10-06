@@ -56,8 +56,8 @@ export interface IntentDef {
 }
 
 /**
- * Intenciones. «Sombra» (buscar un sitio sin sol) NO está: es una función futura (Find Shade) que
- * invertirá la puntuación; el motor ya recibe `intent`, así que se podrá añadir sin cambiar nada más.
+ * Intenciones. «Sombra» invierte la puntuación en `sunSearchService` (`invertForShade`): el mismo
+ * motor busca la mejor ventana SIN sol directo, sin la noche contando como sombra útil.
  */
 export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
   sun: {
@@ -77,7 +77,7 @@ export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
     defaultWhen: "now",
   },
   coffee: {
-    label: "Terraza",
+    label: "Café",
     hint: "Una terraza al sol",
     types: ["terrace"],
     preference: "balanced",
@@ -118,4 +118,4 @@ export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
   },
 };
 
-export const INTENT_ORDER: SunIntent[] = ["sun", "shade", "coffee", "beach", "sunset", "read", "walk"];
+export const INTENT_ORDER: SunIntent[] = ["sun", "shade", "coffee", "read", "beach", "sunset", "walk"];

@@ -1,32 +1,65 @@
-import { lerp, myToLat, smoothstep } from "../../lib/coordinates";
+import { clamp, lerp, myToLat, smoothstep } from "../../lib/coordinates";
 import { SolarGrid, type SolarSample } from "../../lib/solarGrid";
-import { sunlightTint } from "../../lib/solarTint";
 import type { View } from "../../types";
 
 /**
- * SolarHeatmap — "luz sobre el mapa". Pinta una `SolarGrid` sobre el suelo del mapa.
+ * SolarHeatmap — «luz sobre el mapa». Pinta la intensidad del sol directo con una escala de color
+ * clara y fácil de leer, sin tapar las calles:
  *
- * Genera dos texturas de baja resolución, alineadas con la pantalla pero muestreadas sobre el
- * suelo real (con rotación e inclinación), que luego se escalan con suavizado:
- *   · luz   → tinte cálido donde llega sol directo + sombra neutra de relieve
- *   · nubes → velo suave y apagado, proporcional a lo que las nubes bloquean del haz directo
+ *   sol fuerte   ámbar intenso          (cielo despejado, sol alto)
+ *   sol medio    dorado
+ *   sol débil    crema pálido           (sol bajo o nubes finas)
+ *   nubes        velo gris frío         (las nubes tapan el sol)
+ *   sombra       azul (relieve aquí; edificios en ShadowLayer)
+ *   noche        sin capa solar
  *
- * Estados (siempre sutiles, pero con diferencia legible a primera vista):
- *   DIRECT SUN        ámbar más intenso donde la luz efectiva es alta
- *   PARTIAL/UNCERTAIN oro pálido donde la luz efectiva es menor
- *   CLOUD COVER       velo frío y traslúcido
- *   URBAN SHADOW      sombra neutra (la dibuja ShadowLayer, a resolución de calle)
- *   NIGHT             sin overlay solar
+ * Intensidad = luz directa que llega al suelo (relieve × transmisión de las nubes) × factor de
+ * elevación del sol (a mediodía pega más fuerte que al atardecer). La escala es perceptual:
+ * los tonos cambian de matiz además de opacidad, para distinguir «mucho» de «poco» de un vistazo.
  *
- * No añade ruido sintético: el campo de nubes es tan suave como los datos que lo respaldan
- * (celdas de varios km), para no fingir una precisión que no existe.
+ * El campo de nubes es tan suave como los datos que lo respaldan (celdas de varios km): no se
+ * añade textura que sugiera una precisión de calle que no existe.
  */
 
-const CELL = 14;
-/** Sombra de relieve: azul noche neutro; distingue la sombra sin tapar las calles. */
-const SHADE: [number, number, number] = [39, 48, 82];
+const CELL = 12;
+/** Sombra de relieve: azul profundo. */
+const SHADE: [number, number, number] = [36, 46, 96];
 /** Distancia máxima sobre el suelo que se pinta (m): evita calcular el horizonte con mucha inclinación. */
 const MAX_GROUND_M = 16_000;
+
+/**
+ * Escala de color de la intensidad (0-1 → rgba). Paradas: crema pálido → dorado → ámbar → naranja
+ * intenso. Opacidades moderadas para que el mapa se siga leyendo.
+ */
+const RAMP: Array<[number, number, number, number, number]> = [
+  // [intensidad, r, g, b, alfa]
+  [0.0, 255, 246, 214, 0.0],
+  [0.12, 255, 238, 190, 0.1],
+  [0.35, 255, 216, 120, 0.2],
+  [0.6, 255, 186, 64, 0.3],
+  [0.82, 252, 152, 30, 0.38],
+  [1.0, 240, 116, 14, 0.44],
+];
+
+const OUT = new Float64Array(4);
+
+function ramp(t: number): Float64Array {
+  const x = clamp(t, 0, 1);
+  let i = 1;
+  while (i < RAMP.length - 1 && x > RAMP[i][0]) i++;
+  const a = RAMP[i - 1];
+  const b = RAMP[i];
+  const f = (x - a[0]) / Math.max(1e-6, b[0] - a[0]);
+  const s = f * f * (3 - 2 * f);
+  OUT[0] = a[1] + (b[1] - a[1]) * s;
+  OUT[1] = a[2] + (b[2] - a[2]) * s;
+  OUT[2] = a[3] + (b[3] - a[3]) * s;
+  OUT[3] = a[4] + (b[4] - a[4]) * s;
+  return OUT;
+}
+
+/** Fuerza del sol según su elevación: 0,5 en el horizonte, 1 a partir de ~40°. */
+export const elevationStrength = (altDeg: number) => 0.5 + 0.5 * smoothstep(2, 40, altDeg);
 
 /** Atenuación de ambiente al atardecer. En plena noche vale 0: sin overlay solar. */
 function ambientAlpha(altDeg: number) {
@@ -38,7 +71,7 @@ function ambientAlpha(altDeg: number) {
 export interface HeatmapOptions {
   /** 0-1 · visibilidad de la capa de nubes (animada al activarla / desactivarla). */
   cloudK: number;
-  /** Sin datos meteorológicos el sol no está verificado: la calidez se atenúa. */
+  /** Sin datos meteorológicos el sol no está verificado: la escala se atenúa. */
   weatherAvailable: boolean;
 }
 
@@ -70,15 +103,15 @@ export class SolarHeatmap {
       this.cloudData = this.cloudCtx.createImageData(cols, rows);
     }
 
-    const dayK = smoothstep(-0.5, 9, altDeg);
+    const dayK = smoothstep(-0.5, 4, altDeg);
     const shadeK = smoothstep(0, 4, altDeg);
+    const elev = elevationStrength(altDeg);
     const amb = ambientAlpha(altDeg);
     const nightK = 1 - smoothstep(-6, 1, altDeg);
     const veilDay = smoothstep(-4, 3, altDeg);
-    const veilMax = lerp(0.35, 0.22, nightK) * veilDay;
-    const cr0 = lerp(232, 120, nightK);
-    const cg0 = lerp(234, 132, nightK);
-    const cb0 = lerp(240, 178, nightK);
+    // Sin datos de nubes no se presenta el sol como «fuerte»: tope en dorado.
+    const cap = opts.weatherAvailable ? 1 : 0.62;
+    const veilMax = lerp(0.5, 0.24, nightK) * veilDay;
     const cloudK = opts.cloudK;
 
     const L = this.lightData.data;
@@ -112,33 +145,31 @@ export class SolarHeatmap {
         grid.sample(lng, lat, s);
         const d = s.cloudCoverage * cloudK;
 
-        // Distingue los valores de luz efectivos con un gradiente cálido graduado:
-        // poca luz → oro pálido; luz directa alta → ámbar más visible.
-        const effectiveDirect = s.sunlight * (1 - d);
-        const tint = sunlightTint(effectiveDirect, dayK, opts.weatherAvailable);
-        const [wr, wg, wb] = tint.rgb;
-        const wa = tint.opacity;
+        // Intensidad del sol directo que llega al suelo (0-1).
+        const intensity = Math.min(cap, s.sunlight * (1 - d) * elev) * dayK;
+        const c = ramp(intensity);
+        const wa = c[3];
 
-        // La sombra topográfica también gana definición respecto al cielo despejado.
-        const nT = s.shadow * 0.4 * shadeK;
+        // Sombra de relieve (azul) y ambiente del atardecer, bajo el color del sol.
+        const nT = s.shadow * 0.38 * shadeK;
         const na = 1 - (1 - nT) * (1 - amb);
         const outA = na + wa * (1 - na);
         if (outA > 0.001) {
           const wk = wa * (1 - na);
-          L[p] = (SHADE[0] * na + wr * wk) / outA;
-          L[p + 1] = (SHADE[1] * na + wg * wk) / outA;
-          L[p + 2] = (SHADE[2] * na + wb * wk) / outA;
+          L[p] = (SHADE[0] * na + c[0] * wk) / outA;
+          L[p + 1] = (SHADE[1] * na + c[1] * wk) / outA;
+          L[p + 2] = (SHADE[2] * na + c[2] * wk) / outA;
           L[p + 3] = outA * 255;
         } else {
           L[p + 3] = 0;
         }
 
-        // Velo de nubes: apaga ligeramente; algo más denso en el núcleo, siempre translúcido.
+        // Velo de nubes: gris frío, más denso donde las nubes tapan más el sol.
         const core = d * d;
-        C[p] = cr0 - 20 * core;
-        C[p + 1] = cg0 - 18 * core;
-        C[p + 2] = cb0 - 12 * core;
-        C[p + 3] = veilMax * d * 255;
+        C[p] = lerp(214, 118, nightK) - 22 * core;
+        C[p + 1] = lerp(222, 130, nightK) - 18 * core;
+        C[p + 2] = lerp(234, 176, nightK) - 8 * core;
+        C[p + 3] = veilMax * smoothstep(0.08, 0.9, d) * 255;
       }
     }
 
@@ -156,7 +187,12 @@ export class SolarHeatmap {
 
   private blit(ctx: CanvasRenderingContext2D, src: HTMLCanvasElement) {
     ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "medium";
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(src, 0, 0, this.cols, this.rows, 0, 0, this.cols * this.cell, this.rows * this.cell);
   }
 }
+
+/** CSS de la escala (para la leyenda): de sol débil a sol fuerte. */
+export const SUN_RAMP_CSS = `linear-gradient(90deg, ${RAMP.slice(1)
+  .map(([t, r, g, b, a]) => `rgba(${r},${g},${b},${Math.min(1, a * 2.1)}) ${Math.round(((t - 0.12) / 0.88) * 100)}%`)
+  .join(", ")})`;

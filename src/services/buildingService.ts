@@ -25,8 +25,10 @@ export interface BuildingSet {
   coords: Float64Array;
   /** Índice de vértice inicial de cada edificio (count + 1 entradas). */
   offsets: Uint32Array;
-  /** Altura en metros. */
+  /** Altura en metros (estimada cuando OSM no la tiene: se usa para calcular sombras). */
   heights: Float32Array;
+  /** Altura tal como la dibuja el mapa en 3D (la de los datos). Para recortar las siluetas. */
+  renderHeights: Float32Array;
   /** Orientación del lado mayor en grados desde el norte (0-180). */
   orientation: Float32Array;
   /** minX, minY, maxX, maxY por edificio. */
@@ -68,6 +70,7 @@ export function buildBuildingSet(
   const coords: number[] = [];
   const offsets: number[] = [0];
   const heights: number[] = [];
+  const renderHeights: number[] = [];
   const orientation: number[] = [];
   const bbox: number[] = [];
   const buckets: number[][] = HEIGHT_BUCKETS.map(() => []);
@@ -162,6 +165,7 @@ export function buildBuildingSet(
       }
       buckets[bucket].push(count);
       heights.push(h);
+      renderHeights.push(Number.isFinite(rawH) && rawH > 0 ? rawH : h);
       orientation.push(angle);
       bbox.push(minX, minY, maxX, maxY);
       offsets.push(coords.length / 2);
@@ -174,6 +178,7 @@ export function buildBuildingSet(
     coords: Float64Array.from(coords),
     offsets: Uint32Array.from(offsets),
     heights: Float32Array.from(heights),
+    renderHeights: Float32Array.from(renderHeights),
     orientation: Float32Array.from(orientation),
     bbox: Float64Array.from(bbox),
     buckets: buckets.map((b) => Uint32Array.from(b)),

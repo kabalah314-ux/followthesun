@@ -1,5 +1,4 @@
 import type { SavedPlace, SunPlace } from "../types";
-import { log } from "../lib/log";
 
 /**
  * savedPlacesService — lugares favoritos («sitios soleados»), solo en este navegador.
@@ -30,8 +29,7 @@ function read(): SavedPlace[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.filter(valid) : [];
-  } catch (error) {
-    log.warn("favoritos ilegibles, se empieza con la lista vacía", error);
+  } catch {
     return [];
   }
 }
@@ -54,9 +52,8 @@ class SavedPlacesService {
     this.cache = next;
     try {
       window.localStorage.setItem(KEY, JSON.stringify(next));
-    } catch (error) {
-      // Almacenamiento lleno o desactivado: los favoritos siguen funcionando en memoria.
-      log.warn("no se pudieron guardar los favoritos", error);
+    } catch {
+      /* almacenamiento lleno o desactivado: sigue funcionando en memoria */
     }
     this.listeners.forEach((l) => l());
   }

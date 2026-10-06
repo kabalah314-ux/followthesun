@@ -5,7 +5,8 @@ import {
   type CloudInfluenceLevel,
   type ConfidenceLevel,
 } from "../lib/sunlightCalculations";
-import { formatAge, formatClock, formatDayLabel, formatDuration } from "../services/timeService";
+import { dayChoiceLabel } from "../lib/planningTime";
+import { formatAge, formatClock, formatDayLabel, formatDuration, startOfZoneDay } from "../services/timeService";
 import type {
   ConfidenceBreakdown,
   DataOrigin,
@@ -262,9 +263,13 @@ interface Props {
   time: number;
   onClose(): void;
   className?: string;
+  /** Dentro de un panel contextual: sin cristal ni anchura propios. */
+  embedded?: boolean;
+  saved?: boolean;
+  onToggleSave?(): void;
 }
 
-function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className }: Props) {
+function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave }: Props) {
   const intervalLabel = (state: SunState) =>
     state === "sun"
       ? timeline?.weatherAvailable
@@ -279,13 +284,16 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
   return (
     <section
       className={cn(
-        "fts-glass fts-slide-in w-[min(calc(100vw-1.5rem),320px)] rounded-[26px] p-4 sm:w-[min(calc(100vw-2rem),320px)] sm:p-5",
+        !embedded &&
+          "fts-glass fts-slide-in w-[min(calc(100vw-1.5rem),320px)] rounded-[26px] p-4 sm:w-[min(calc(100vw-2rem),320px)] sm:p-5",
         className
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="fts-caps">Hoy · {formatDayLabel(time)}</p>
+          <p className="fts-caps">
+            {dayChoiceLabel(startOfZoneDay(time), now)} · {formatDayLabel(time)}
+          </p>
           <h2 className="mt-1.5 font-serif text-[23px] leading-[1.08] text-ink sm:text-[25px]">
             {point.name}
           </h2>
@@ -359,6 +367,33 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
           </>
         )}
       </div>
+
+      {onToggleSave && (
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-3.5">
+          <button
+            type="button"
+            onClick={onToggleSave}
+            aria-pressed={saved}
+            className={cn(
+              "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[11px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+              saved ? "border-sun/60 bg-sun-soft text-sun-deep" : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
+            )}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
+              <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+            </svg>
+            {saved ? "Guardado" : "Guardar este punto"}
+          </button>
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=walking`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-[11px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+          >
+            Cómo llegar
+          </a>
+        </div>
+      )}
     </section>
   );
 }

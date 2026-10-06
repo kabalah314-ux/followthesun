@@ -34,6 +34,8 @@ export interface SolarOverlayProps {
   time: number;
   dayStart: number;
   showSunPath: boolean;
+  /** Relieve 3D de los edificios al acercarse. */
+  buildings3D?: boolean;
   selection: SelectedPoint | null;
   highlights: Highlight[];
   /** Datos solares externos. Si se omiten se usan relieve + nubes reales. */
@@ -94,6 +96,10 @@ export default function SolarOverlay(props: SolarOverlayProps) {
   useEffect(() => {
     engine?.setShowSunPath(props.showSunPath);
   }, [engine, props.showSunPath]);
+
+  useEffect(() => {
+    engine?.setBuildings3D(props.buildings3D ?? true);
+  }, [engine, props.buildings3D]);
 
   useEffect(() => {
     engine?.setHighlights(props.highlights);

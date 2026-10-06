@@ -1,4 +1,4 @@
-import { BARCELONA, MAP_CONFIG, SOLAR_FIELD } from "../config";
+import { BARCELONA, BUILDINGS_3D, MAP_CONFIG, SOLAR_FIELD } from "../config";
 import { clamp, myToLat, smoothstep } from "../lib/coordinates";
 import { SUN_UP_RAD } from "../lib/solarCalculations";
 import { SolarGrid, type SolarSample } from "../lib/solarGrid";
@@ -59,8 +59,11 @@ export interface EngineOptions {
   onPointSunlight(result: SunlightResult | null): void;
 }
 
-const SHADOW_ALPHA = 0.42;
+/** Opacidad de la sombra de edificios (se refuerza un poco más al acercarse). */
+const SHADOW_ALPHA = 0.46;
 const MAX_GROUND_M = 16_000;
+const EXTRUDE_FROM_ZOOM = BUILDINGS_3D.fromZoom;
+const EXTRUDE_FULL_ZOOM = BUILDINGS_3D.fullZoom;
 /** Intervalo mínimo entre resultados enviados a la interfaz mientras se mueve el tiempo. */
 const POINT_EMIT_MS = 90;
 
@@ -123,6 +126,9 @@ export class SolarOverlayEngine {
 
   private showShadows = true;
   private showClouds = true;
+  /** Edificios en 3D al acercarse (siluetas recortadas y luz del mapa según el sol). */
+  private buildings3D = true;
+  private lightKey = "";
   private lightMode: LightSourceMode = "fused";
   private showSunPath = false;
   private shadowsFade = 1;
@@ -213,6 +219,13 @@ export class SolarOverlayEngine {
 
   setShowClouds(v: boolean) {
     this.showClouds = v;
+    this.dirty = true;
+  }
+
+  /** Relieve 3D: al acercarse, los edificios se levantan con su altura real y el sol los ilumina. */
+  setBuildings3D(v: boolean) {
+    this.buildings3D = v;
+    this.lightKey = "";
     this.dirty = true;
   }
 
@@ -472,6 +485,38 @@ export class SolarOverlayEngine {
     this.canvas.height = Math.max(1, Math.round(v.h * dpr));
   }
 
+  /**
+   * La luz de los edificios en 3D sigue al sol real: llega desde su azimut, con la inclinación de su
+   * elevación y un color más cálido cuando está bajo. Así las fachadas al sol se ven iluminadas y las
+   * de espaldas, en sombra. Solo se actualiza cuando el sol se mueve de forma apreciable.
+   */
+  private updateMapLight(pos: SunPosition) {
+    if (!this.buildings3D || typeof this.map.setLight !== "function") return;
+    const up = pos.altitudeDeg > -1;
+    const az = Math.round((((pos.azimuthDeg % 360) + 360) % 360) / 2) * 2;
+    const alt = Math.round(pos.altitudeDeg / 2) * 2;
+    const key = up ? `${az}|${alt}` : "night";
+    if (key === this.lightKey) return;
+    this.lightKey = key;
+
+    const t = smoothstep(2, 35, pos.altitudeDeg);
+    const light = up
+      ? {
+          anchor: "map",
+          // [distancia, azimut desde el norte (horario), ángulo polar desde la vertical]
+          position: [1.2, az, clamp(90 - pos.altitudeDeg, 12, 86)],
+          color: t < 0.5 ? "#ffd9a8" : "#fff4e2",
+          intensity: 0.32 + 0.26 * t,
+        }
+      : { anchor: "map", position: [1.2, 210, 40], color: "#aab6e0", intensity: 0.18 };
+    try {
+      this.map.setLight(light);
+    } catch {
+      /* estilo aún no listo: se reintentará en el siguiente cambio */
+      this.lightKey = "";
+    }
+  }
+
   /** Recalcula los datos solares solo cuando cambia el instante o los datos (no al desplazar el mapa). */
   private updateField(time: number) {
     if (this.externalPoints) {
@@ -516,23 +561,42 @@ export class SolarOverlayEngine {
     });
     this.heatmap.drawLight(ctx);
 
-    // 2 · Sombras de edificios (geometría; independientes de las nubes).
+    // 2 · Sombras de edificios (geometría; independientes de las nubes) y relieve 3D.
     const zoomFade = smoothstep(12.9, 13.5, v.zoom);
     const bFade = this.shadowsFade * zoomFade * shadeK;
+    // Misma transición que la capa 3D del mapa (altura interpolada linealmente con el zoom).
+    const extrudeK = this.buildings3D ? clamp((v.zoom - EXTRUDE_FROM_ZOOM) / (EXTRUDE_FULL_ZOOM - EXTRUDE_FROM_ZOOM), 0, 1) : 0;
     this.lastBFade = bFade;
     this.maskActive = false;
-    if (this.buildings && bFade > 0.01) {
-      this.shadows.render(v, this.buildings, pos.azimuth, pos.altitude);
-      this.maskActive = true;
+    this.updateMapLight(pos);
 
-      // Quita el tinte cálido bajo la sombra y añade el tono neutro de la sombra.
-      ctx.globalCompositeOperation = "destination-out";
-      ctx.globalAlpha = 0.9 * bFade;
-      ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
+    const wantShadows = bFade > 0.01;
+    if (this.buildings && (wantShadows || extrudeK > 0.01)) {
+      this.shadows.render(v, this.buildings, pos.azimuth, pos.altitude, {
+        shadows: wantShadows,
+        extrudeK,
+      });
+      this.maskActive = wantShadows;
+
+      if (wantShadows) {
+        // Quita el color del sol bajo la sombra…
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.globalAlpha = 0.95 * bFade;
+        ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
+      }
+      if (this.shadows.silhouettesActive) {
+        // …y de los edificios en 3D: el mapa los ilumina con la luz del sol (fachadas incluidas).
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.globalAlpha = Math.min(1, extrudeK * 1.6);
+        ctx.drawImage(this.shadows.silhouettes, 0, 0, v.w, v.h);
+      }
+      if (wantShadows) {
+        // Tono de la sombra, más marcado al acercarse (donde se lee calle a calle).
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = (SHADOW_ALPHA + 0.12 * smoothstep(14, 16, v.zoom)) * bFade;
+        ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
+      }
       ctx.globalCompositeOperation = "source-over";
-      // Al acercarse, las sombras de los edificios se leen mejor sobre las huellas 3D.
-      ctx.globalAlpha = (SHADOW_ALPHA + 0.06 * zoomFade) * bFade;
-      ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
       ctx.globalAlpha = 1;
     }
 

@@ -284,8 +284,6 @@ interface SpotAnalysis {
   lng: number;
   lat: number;
   samples: SunSample[];
-  /** Luz real (sin invertir): es lo que se dibuja en la línea del día. */
-  raw: SunSample[];
   metrics: WindowMetrics;
   buildingsKnown: boolean;
 }
@@ -317,7 +315,7 @@ function analyzeSpot(
     req.minimumSunlightMinutes * MIN,
     req.endTime
   );
-  return metrics ? { lng, lat, samples, raw, metrics, buildingsKnown: shadow.buildingsKnown } : null;
+  return metrics ? { lng, lat, samples, metrics, buildingsKnown: shadow.buildingsKnown } : null;
 }
 
 /** ¿Es `a` mejor punto que `b`? Más luz acumulada; a igualdad, más sol directo. */
@@ -500,7 +498,7 @@ export async function findBestSunPlaces(
       ? (comfortService.summarize(m.start, m.end) ?? undefined)
       : undefined;
 
-    const windows = groupWindows(best.raw, req.stepMs, req.endTime);
+    const windows = groupWindows(best.samples, req.stepMs, req.endTime);
     const bestWindow =
       m.strongStart !== null && m.strongEnd !== null ? { start: m.strongStart, end: m.strongEnd } : null;
 

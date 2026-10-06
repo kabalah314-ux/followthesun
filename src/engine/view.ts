@@ -4,10 +4,11 @@ import type { View } from "../types";
 
 /**
  * Convierte la cámara del mapa (centro, zoom, rotación, inclinación) en una `View`:
- * la homografía exacta que lleva el suelo plano a píxeles de pantalla.
+ *  · la homografía exacta que lleva el suelo plano a píxeles de pantalla, y
+ *  · la posición 3D de la cámara, para proyectar puntos elevados (tejados) como hace el mapa.
  *
- * Se obtiene de 4 correspondencias pantalla ↔ suelo que da el propio mapa, de modo que funciona
- * igual con Mapbox GL JS y MapLibre GL JS y con cualquier combinación de rotación e inclinación.
+ * La homografía se obtiene de 4 correspondencias pantalla ↔ suelo que da el propio mapa, de modo que
+ * funciona igual con Mapbox GL JS y MapLibre GL JS y con cualquier rotación e inclinación.
  */
 
 const SAMPLES: Array<[number, number]> = [
@@ -16,6 +17,36 @@ const SAMPLES: Array<[number, number]> = [
   [0.88, 0.88],
   [0.12, 0.88],
 ];
+
+interface CameraApis {
+  getFreeCameraOptions?: () => { position?: { x: number; y: number; z: number } | null };
+  transform?: { cameraToCenterDistance?: number };
+}
+
+/**
+ * Cámara en coordenadas (u, v, z) en píxeles del mundo al zoom actual.
+ *  · Mapbox: `getFreeCameraOptions()` da la posición exacta (Mercator, con altura).
+ *  · MapLibre: distancia cámara→centro de su transformación + inclinación + rotación.
+ *  · Si ninguna está disponible: campo de visión por defecto de ambas librerías (≈ 36,9°).
+ */
+function computeCamera(map: MapLike, cx: number, cy: number, ws: number, h: number) {
+  const apis = map as unknown as CameraApis;
+  try {
+    const pos = apis.getFreeCameraOptions?.().position;
+    if (pos && Number.isFinite(pos.z) && pos.z > 0) {
+      return { x: (pos.x - cx) * ws, y: (pos.y - cy) * ws, z: pos.z * ws };
+    }
+  } catch {
+    /* sin cámara libre */
+  }
+  const dist = apis.transform?.cameraToCenterDistance;
+  const d = typeof dist === "number" && Number.isFinite(dist) && dist > 0 ? dist : 1.5 * h;
+  const pitch = map.getPitch() * DEG;
+  const bearing = map.getBearing() * DEG;
+  // La cámara está detrás del centro (hacia abajo de la pantalla) y elevada.
+  const back = d * Math.sin(pitch);
+  return { x: -Math.sin(bearing) * back, y: Math.cos(bearing) * back, z: d * Math.cos(pitch) };
+}
 
 export function computeView(map: MapLike): View {
   const el = map.getContainer();
@@ -76,6 +107,7 @@ export function computeView(map: MapLike): View {
     H,
     Hi,
     bounds: { minX: minX - padX, maxX: maxX + padX, minY: minY - padY, maxY: maxY + padY },
+    camera: computeCamera(map, cx, cy, ws, h),
   };
 }
 

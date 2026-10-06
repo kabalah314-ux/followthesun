@@ -265,131 +265,6 @@ button:focus-visible,
     background: color-mix(in srgb, var(--ink) 18%, transparent);
     border-radius: 999px;
   }
-
-  /* Panels compartidos por Lugares, Guardados, Ajustes y Acerca de. */
-  .fts-context-panel {
-    width: min(100%, 370px);
-    max-height: min(72dvh, 680px);
-    overflow: hidden;
-    padding: 18px;
-    border-radius: 25px;
-  }
-  .fts-section-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .fts-close-button {
-    display: flex;
-    width: 32px;
-    height: 32px;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    margin: -4px -4px 0 0;
-    border-radius: 999px;
-    color: var(--ink-soft);
-    transition: background 250ms ease, color 250ms ease;
-  }
-  .fts-close-button:hover {
-    background: color-mix(in srgb, var(--ink) 6%, transparent);
-    color: var(--ink);
-  }
-  .fts-search-input {
-    width: 100%;
-    height: 40px;
-    padding: 0 14px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    outline: none;
-    background: color-mix(in srgb, var(--ink) 3%, transparent);
-    color: var(--ink);
-    font: inherit;
-    font-size: 12px;
-    transition: border-color 250ms ease, background 250ms ease;
-  }
-  .fts-search-input::placeholder {
-    color: var(--ink-faint);
-  }
-  .fts-search-input:focus {
-    border-color: color-mix(in srgb, var(--sun) 65%, transparent);
-    background: color-mix(in srgb, var(--ink) 5%, transparent);
-  }
-  .fts-place-row {
-    display: flex;
-    width: 100%;
-    min-height: 58px;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 8px;
-    border-radius: 13px;
-    text-align: left;
-    transition: background 250ms ease;
-  }
-  .fts-place-row:hover {
-    background: color-mix(in srgb, var(--ink) 4%, transparent);
-  }
-  .fts-setting-row {
-    display: flex;
-    width: 100%;
-    min-height: 60px;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 2px;
-    text-align: left;
-  }
-  .fts-switch {
-    position: relative;
-    display: block;
-    width: 34px;
-    height: 20px;
-    flex: none;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--ink) 16%, transparent);
-    transition: background 250ms ease;
-  }
-  .fts-switch i {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 14px;
-    height: 14px;
-    border-radius: 999px;
-    background: var(--paper);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
-    transition: transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .fts-switch.is-on {
-    background: var(--sun);
-  }
-  .fts-switch.is-on i {
-    transform: translateX(14px);
-  }
-  .fts-stepper {
-    display: flex;
-    width: 32px;
-    height: 32px;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    color: var(--ink);
-    transition: background 250ms ease;
-  }
-  .fts-stepper:hover {
-    background: color-mix(in srgb, var(--ink) 5%, transparent);
-  }
-}
-
-/* Navegación persistente, translúcida, flotando sobre el mapa. */
-.fts-nav-rail {
-  background: color-mix(in srgb, var(--glass-strong) 88%, transparent);
-  box-shadow: 0 18px 55px -32px rgba(35, 29, 19, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-.fts-mobile-nav {
-  background: color-mix(in srgb, var(--glass-strong) 92%, transparent);
-  padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -510,17 +385,6 @@ button:focus-visible,
 .mapboxgl-canvas:focus,
 .mapboxgl-map:focus {
   outline: none;
-}
-
-/* El mapa invita a arrastrar; los botones flotantes conservan su propio cursor. */
-.maplibregl-canvas-container.maplibregl-interactive,
-.mapboxgl-canvas-container.mapboxgl-interactive {
-  cursor: grab;
-  touch-action: none;
-}
-.maplibregl-canvas-container.maplibregl-interactive:active,
-.mapboxgl-canvas-container.mapboxgl-interactive:active {
-  cursor: grabbing;
 }
 
 /* Atribución del mapa (obligatoria): compacta y a juego con la paleta. */
@@ -684,15 +548,6 @@ button:focus-visible,
   }
 }
 
-@media (max-width: 767px) {
-  .fts-context-panel {
-    width: 100%;
-    max-height: min(55dvh, 560px);
-    padding: 16px;
-    border-radius: 25px;
-  }
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Accesibilidad                                                              */
 /* -------------------------------------------------------------------------- */
@@ -739,6 +594,52 @@ button:focus-visible,
 }
 .fts-find__score:empty {
   display: none;
+}
+
+/* Paneles contextuales: aparecen desde su lado, hojas inferiores desde abajo, menús con un
+   ligerísimo cambio de escala. Sin rebotes. */
+.fts-panel-left {
+  animation: fts-panel-left 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-panel-right {
+  animation: fts-slide-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-sheet-in {
+  animation: fts-sheet-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fts-pop-in {
+  animation: fts-pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top right;
+}
+@keyframes fts-panel-left {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fts-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fts-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Tramo de previsión en la línea de tiempo: discontinuo, para distinguirlo de lo observado. */

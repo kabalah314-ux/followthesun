@@ -1,82 +1,124 @@
-import { useState } from "react";
-import { cn } from "../../utils/cn";
-import { Caps } from "../FindSun/ui";
-import { CloseIcon } from "../Navigation/NavIcons";
-import { LayersIcon } from "./MapIcons";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { SUN_RAMP_CSS } from "../../engine/layers/SolarHeatmap";
+import type { Preferences } from "../../lib/preferences";
+import { Caps, Switch } from "../FindSun/ui";
 
-interface LayerState {
-  buildings: boolean;
-  shadows: boolean;
-  clouds: boolean;
-  sunPath: boolean;
-}
+type LayerKey =
+  | "satelliteView"
+  | "showBuildings"
+  | "buildings3D"
+  | "showShadows"
+  | "showClouds"
+  | "showSunPath";
 
-interface Props extends LayerState {
-  onBuildings(v: boolean): void;
-  onShadows(v: boolean): void;
-  onClouds(v: boolean): void;
-  onSunPath(v: boolean): void;
-}
+const dot = (cls: string, style?: CSSProperties) => (
+  <i className={`block h-[9px] w-[9px] rounded-full ${cls}`} style={style} />
+);
 
-function Toggle({
-  label,
-  detail,
-  on,
-  onChange,
-}: {
-  label: string;
-  detail: string;
-  on: boolean;
-  onChange(): void;
-}) {
+const SatelliteIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="text-ink-soft" aria-hidden>
+    <rect x="3.5" y="5" width="17" height="14" rx="2" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="M4.5 17l4.5-4.5 3.5 3.5 3-2.5 4 3.5" />
+  </svg>
+);
+
+const CubeIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" className="text-ink-soft" aria-hidden>
+    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z" />
+    <path d="M4 7.5l8 4.5 8-4.5M12 12v9" />
+  </svg>
+);
+
+const LAYERS: Array<{ key: LayerKey; label: string; hint: string; swatch: ReactNode }> = [
+  {
+    key: "satelliteView",
+    label: "Vista satélite",
+    hint: "Imagen real de Barcelona, con calles y sombras encima",
+    swatch: <SatelliteIcon />,
+  },
+  { key: "showBuildings", label: "Edificios", hint: "Huellas de los edificios", swatch: dot("border border-ink/30 bg-ink/10") },
+  { key: "buildings3D", label: "Relieve 3D", hint: "Al acercarte, los edificios con su altura real", swatch: <CubeIcon /> },
+  { key: "showShadows", label: "Sombra urbana", hint: "Sombra de los edificios, calle a calle", swatch: dot("bg-shade/80") },
+  { key: "showClouds", label: "Nubes", hint: "Lo que las nubes tapan al sol (escala de barrio)", swatch: dot("bg-ink/30") },
+  {
+    key: "showSunPath",
+    label: "Trayectoria del sol",
+    hint: "El recorrido del sol hoy",
+    swatch: (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M4 18a8 8 0 0 1 16 0" stroke="var(--sun-deep)" strokeWidth="2" strokeDasharray="2 3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
+
+/** Leyenda de la luz: escala de intensidad del sol + nubes + sombra. */
+export function SunLegend() {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={onChange} className="fts-setting-row">
-      <span className="min-w-0 flex-1 text-left">
-        <span className="block text-[12px] font-medium text-ink">{label}</span>
-        <span className="mt-0.5 block text-[10px] leading-snug text-ink-faint">{detail}</span>
-      </span>
-      <span className={cn("fts-switch", on && "is-on")} aria-hidden><i /></span>
-    </button>
+    <div>
+      <div className="h-[10px] w-full rounded-full ring-1 ring-ink/10" style={{ background: SUN_RAMP_CSS }} />
+      <div className="mt-1.5 flex justify-between text-[10px] text-ink-soft">
+        <span>Sol débil</span>
+        <span>Sol fuerte</span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[10.5px] text-ink-soft">
+        <span className="flex items-center gap-1.5">{dot("", { background: "#cfd6e2" })}Nubes</span>
+        <span className="flex items-center gap-1.5">{dot("", { background: "#3b4377" })}Sombra</span>
+      </div>
+    </div>
   );
 }
 
-/** Un solo control flotante agrupa todas las capas: no hay cuatro interruptores permanentes. */
-export default function LayerControl(p: Props) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label="Capas del mapa"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "fts-glass group flex h-11 w-11 items-center justify-center rounded-full transition-all duration-300 hover:scale-[1.04] active:scale-95 sm:h-12 sm:w-12",
-          open ? "bg-sun-soft text-sun-deep" : "text-ink"
-        )}
-      >
-        <LayersIcon className="h-[18px] w-[18px]" />
-      </button>
+interface Props {
+  prefs: Preferences;
+  onChange(patch: Partial<Preferences>): void;
+  onClose(): void;
+}
 
-      {open && (
-        <section className="fts-glass fts-slide-in absolute right-full top-0 z-40 mr-3 w-[min(78vw,264px)] rounded-[21px] p-3.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Caps>Visibilidad</Caps>
-              <p className="mt-1 font-serif text-[18px] leading-none text-ink">Capas del mapa</p>
-            </div>
-            <button type="button" aria-label="Cerrar capas" onClick={() => setOpen(false)} className="fts-close-button">
-              <CloseIcon className="h-3.5 w-3.5" />
-            </button>
+/**
+ * Capas del mapa: solo aparecen cuando se piden. Incluye la leyenda de la luz, para que nadie tenga
+ * que adivinar qué significa cada tono.
+ */
+export default function LayerControl({ prefs, onChange, onClose }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (ref.current?.contains(target) || target.closest("[data-layers-toggle]")) return;
+      onClose();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return (
+    <div ref={ref} role="dialog" aria-label="Capas del mapa" className="fts-glass fts-pop-in w-[280px] rounded-[22px] p-3">
+      <Caps className="px-2 pb-1 pt-1">Mapa</Caps>
+      {LAYERS.map((l) => {
+        const disabled = l.key === "buildings3D" && !prefs.showBuildings;
+        return (
+          <div key={l.key} className={disabled ? "pointer-events-none opacity-40" : undefined}>
+            <Switch
+              checked={prefs[l.key]}
+              onChange={(v) => onChange({ [l.key]: v } as Partial<Preferences>)}
+              label={l.label}
+              hint={l.hint}
+              swatch={l.swatch}
+            />
           </div>
-          <div className="mt-2 divide-y divide-line">
-            <Toggle label="Edificios" detail="Volúmenes sobre el mapa" on={p.buildings} onChange={() => p.onBuildings(!p.buildings)} />
-            <Toggle label="Sombras urbanas" detail="Sombra calculada por edificios" on={p.shadows} onChange={() => p.onShadows(!p.shadows)} />
-            <Toggle label="Nubes" detail="Influencia estimada en el sol directo" on={p.clouds} onChange={() => p.onClouds(!p.clouds)} />
-            <Toggle label="Trayectoria solar" detail="Recorrido y posición del Sol" on={p.sunPath} onChange={() => p.onSunPath(!p.sunPath)} />
-          </div>
-        </section>
-      )}
+        );
+      })}
+      <div className="mx-2 mt-2 border-t border-line pt-2.5">
+        <Caps className="mb-2">Luz del sol</Caps>
+        <SunLegend />
+      </div>
     </div>
   );
 }

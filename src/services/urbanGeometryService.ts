@@ -77,6 +77,7 @@ function mergeSets(sets: BuildingSet[]): BuildingSet {
   const coords = new Float64Array(verts * 2);
   const offsets = new Uint32Array(count + 1);
   const heights = new Float32Array(count);
+  const renderHeights = new Float32Array(count);
   const orientation = new Float32Array(count);
   const bbox = new Float64Array(count * 4);
   let minX = Infinity;
@@ -91,6 +92,7 @@ function mergeSets(sets: BuildingSet[]): BuildingSet {
     for (let i = 0; i < s.count; i++) {
       offsets[ci + i] = vi + s.offsets[i];
       heights[ci + i] = s.heights[i];
+      renderHeights[ci + i] = s.renderHeights[i];
       orientation[ci + i] = s.orientation[i];
     }
     bbox.set(s.bbox, ci * 4);
@@ -108,6 +110,7 @@ function mergeSets(sets: BuildingSet[]): BuildingSet {
     coords,
     offsets,
     heights,
+    renderHeights,
     orientation,
     bbox,
     // Los cubos por altura solo los usa el dibujo del mapa; el cálculo de sombras no.

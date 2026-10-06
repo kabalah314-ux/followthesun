@@ -1,5 +1,5 @@
 /**
- * Marca de I Follow the Sun: un sol que recorre su trayectoria sobre el horizonte.
+ * Marca de Follow the Sun: un sol que recorre su trayectoria sobre el horizonte.
  * Círculo solar + arco + línea de horizonte, sin iconografía genérica.
  */
 export function LogoMark({
@@ -64,7 +64,7 @@ export function LogoMark({
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={className}>
-      I FOLLOW THE <span className="text-sun-deep">SUN</span>
+      FOLLOW THE <span className="text-sun-deep">SUN</span>
     </span>
   );
 }

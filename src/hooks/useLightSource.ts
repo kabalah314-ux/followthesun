@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
+import { cloudService } from "../services/cloudService";
+import { lightFusionService } from "../services/lightFusionService";
+import { satelliteService } from "../services/satelliteService";
 import type { LightSourceSummary, SatelliteStatus, TimeZones, WeatherStatus } from "../types";
 import { useNow } from "./useNow";
-import { log } from "../lib/log";
 
 export interface LightSourceState {
   /** Qué fuente respalda el instante elegido (observación · previsión · estimación). */
@@ -10,124 +12,30 @@ export interface LightSourceState {
   zones: TimeZones;
   satellite: SatelliteStatus;
   weather: WeatherStatus;
-  /** Versión de los datos de nubes y satélite (0 mientras cargan). */
-  version: number;
 }
-
-interface LightServices {
-  fusion: typeof import("../services/lightFusionService").lightFusionService;
-  satellite: typeof import("../services/satelliteService").satelliteService;
-  cloud: typeof import("../services/cloudService").cloudService;
-}
-
-const NO_SUBSCRIBE = () => () => undefined;
-const ZERO = () => 0;
-
-const EMPTY: LightSourceState = {
-  version: 0,
-  summary: { kind: "loading", ageMs: null, satellite: null, model: null },
-  zones: { observedUntil: null, presentUntil: null },
-  satellite: {
-    state: "loading",
-    quality: "unavailable",
-    origin: "unavailable",
-    source: null,
-    attribution: null,
-    resolutionKm: null,
-    temporalResolutionMinutes: null,
-    lastObservationAt: null,
-    latencyMinutes: null,
-    ageMs: null,
-    fetchedAt: null,
-    refreshing: false,
-    calibration: { factor: 1, source: "none" },
-  },
-  weather: {
-    state: "loading",
-    quality: "unavailable",
-    source: null,
-    attribution: null,
-    resolutionKm: null,
-    updatedAt: null,
-    ageMs: null,
-    confidence: null,
-    simulated: false,
-    coverage: 0,
-    refreshing: false,
-  },
-};
 
 /**
  * Estado de las fuentes de luz para la interfaz. Se recalcula cuando cambian los datos (suscripción
  * a ambos servicios), cuando cambia el minuto del instante elegido y cada 30 s para que
  * "hace 6 min" avance solo. Los componentes nunca tocan a los proveedores.
  */
-export function useLightSource(selectedTime: number, enabled = true): LightSourceState {
-  const [services, setServices] = useState<LightServices | null>(null);
+export function useLightSource(selectedTime: number): LightSourceState {
+  const version = useSyncExternalStore(
+    lightFusionService.subscribe,
+    lightFusionService.getVersion,
+    lightFusionService.getVersion
+  );
   const now = useNow(30_000);
   const minute = Math.round(selectedTime / 60_000);
 
-  // El motor meteorológico es grande y las APIs remotas no son necesarias para el primer render.
-  // Cárgalo en idle DESPUÉS de que el mapa esté visible, luego empieza los refrescos en segundo plano.
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    let timer = 0;
-    let idle = 0;
-    let loaded: LightServices | null = null;
-    const w = window as Window & {
-      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
-      cancelIdleCallback?: (id: number) => void;
-    };
-    Promise.all([
-      import("../services/lightFusionService"),
-      import("../services/satelliteService"),
-      import("../services/cloudService"),
-    ]).then(([fusionModule, satelliteModule, cloudModule]) => {
-      if (cancelled) return;
-      loaded = {
-        fusion: fusionModule.lightFusionService,
-        satellite: satelliteModule.satelliteService,
-        cloud: cloudModule.cloudService,
-      };
-      setServices(loaded);
-      const start = () => {
-        if (cancelled || !loaded) return;
-        loaded.cloud.start();
-        loaded.satellite.start();
-      };
-      if (w.requestIdleCallback) idle = w.requestIdleCallback(start, { timeout: 1800 });
-      else timer = window.setTimeout(start, 500);
-    }).catch((error) => {
-      // La geometría solar y el mapa siguen funcionando aunque un chunk no esté disponible.
-      log.warn("servicios meteorológicos no disponibles", error);
-    });
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-      if (idle && w.cancelIdleCallback) w.cancelIdleCallback(idle);
-      loaded?.cloud.stop();
-      loaded?.satellite.stop();
-    };
-  }, [enabled]);
-
-  const subscribe = services?.fusion.subscribe ?? NO_SUBSCRIBE;
-  const getSnapshot = services?.fusion.getVersion ?? ZERO;
-  const version = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-  // Se recalcula una vez por minuto del instante elegido (no en cada fotograma de la reproducción).
-  const minuteTime = minute * 60_000;
   return useMemo(
-    () => services
-      ? {
-          summary: services.fusion.getSourceSummary(minuteTime, now),
-          zones: services.fusion.getTimeZones(),
-          satellite: services.satellite.getStatus(now),
-          weather: services.cloud.getStatus(now),
-          // Versión de los datos meteorológicos: el estado cambia cuando llegan datos nuevos.
-          version,
-        }
-      : EMPTY,
-    [services, version, now, minuteTime]
+    () => ({
+      summary: lightFusionService.getSourceSummary(selectedTime, now),
+      zones: lightFusionService.getTimeZones(),
+      satellite: satelliteService.getStatus(now),
+      weather: cloudService.getStatus(now),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [version, now, minute]
   );
 }

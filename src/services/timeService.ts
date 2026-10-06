@@ -1,4 +1,5 @@
 import { BARCELONA } from "../config";
+import { getPreferences } from "../lib/preferences";
 
 /**
  * Utilidades de tiempo en la zona horaria de Barcelona, independientes
@@ -73,7 +74,16 @@ export function startOfZoneDay(ms: number): number {
   return t;
 }
 
-export const formatClock = (ms: number) => clockFmt.format(new Date(ms));
+const clockFmt12 = new Intl.DateTimeFormat("es-ES", {
+  timeZone: TZ,
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+
+/** Hora local de Barcelona en el formato elegido en Ajustes (24 h por defecto). */
+export const formatClock = (ms: number) =>
+  (getPreferences().timeFormat === "12h" ? clockFmt12 : clockFmt).format(new Date(ms));
 
 export function formatDayLabel(ms: number) {
   return dayFmt.format(new Date(ms));

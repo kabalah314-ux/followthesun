@@ -41,14 +41,6 @@ export function planSamples(place: SunPlace): SamplePoint[] {
   }
 
   const node: SamplePoint = { lng: place.longitude, lat: place.latitude, kind: "node" };
-  const radius = typeof place.metadata?.radiusM === "number" ? (place.metadata.radiusM as number) : 0;
-  if (radius > 0) {
-    // Lugares de la selección revisada: el centro y un anillo con el radio del área útil.
-    const ring = ringAround(place.longitude, place.latitude, radius * 0.6, cfg.ringPoints).map(
-      ([lng, lat]) => ({ lng, lat, kind: "ring" as const })
-    );
-    return [node, ...ring];
-  }
   if (place.type === "terrace") {
     const ring = ringAround(place.longitude, place.latitude, cfg.ringRadiusM, cfg.ringPoints).map(
       ([lng, lat]) => ({ lng, lat, kind: "ring" as const })

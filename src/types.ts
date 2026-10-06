@@ -1,5 +1,5 @@
 /**
- * Tipos centralizados de I Follow the Sun.
+ * Tipos centralizados de Follow the Sun.
  *
  * Cadena de luz, cada eslabón con su propio resultado:
  *   SolarPosition → ShadowResult → (CloudCoverage ⟷ SatelliteRadiation) → LightFusion → SunlightResult
@@ -445,6 +445,11 @@ export interface View {
   Hi: Float64Array;
   /** Caja Mercator del terreno visible (con margen). */
   bounds: Bounds2D;
+  /**
+   * Posición de la cámara en las mismas coordenadas (u, v en píxeles planos; z = altura en píxeles).
+   * Permite proyectar puntos elevados (tejados) igual que el mapa dibuja los edificios en 3D.
+   */
+  camera: { x: number; y: number; z: number } | null;
 }
 
 export interface CameraState {
@@ -570,6 +575,70 @@ export interface GeoPolygon {
   coordinates: number[][][];
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Negocios (cafeterías, bares, restaurantes con terraza)                     */
+/* -------------------------------------------------------------------------- */
+
+/** Categoría de negocio. Ampliable sin tocar el motor. */
+export type VenueCategory = "cafe" | "bar" | "restaurant" | "ice_cream" | "pub" | "biergarten";
+
+/**
+ * Certeza sobre si el negocio tiene terraza:
+ *  · confirmed  alguien lo ha documentado (OSM `outdoor_seating=yes`, o una persona desde la app)
+ *  · likely     candidato por heurística (planta baja, acera ancha…): NO es un hecho
+ *  · unknown    no se sabe
+ *  · none       se sabe que no tiene
+ */
+export type TerraceCertainty = "confirmed" | "likely" | "unknown" | "none";
+
+/** Un negocio candidato a tener sol en su terraza. */
+export interface Venue {
+  id: string;
+  name: string;
+  category: VenueCategory;
+  latitude: number;
+  longitude: number;
+  terrace: TerraceCertainty;
+  /** Quién afirma que hay terraza (para poder explicarlo). */
+  terraceSource: string;
+  /** Horario de apertura si se conoce. */
+  openingHours?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface VenueProviderInfo {
+  id: string;
+  label: string;
+  /** ¿Se puede usar en este proyecto? */
+  available: boolean;
+  /** Por qué no, cuando `available` es false. */
+  reason?: string;
+  /** Coste orientativo por 1.000 consultas (null = gratis). */
+  costPerThousand: number | null;
+  /** ¿Deja guardar los datos en el dispositivo? Clave para no pagar en cada visita. */
+  allowsCaching: boolean;
+  /** ¿Deja mostrar los datos sobre un mapa que no es suyo? */
+  allowsThirdPartyMap: boolean;
+  license: string;
+}
+
+export interface VenueProvider {
+  info: VenueProviderInfo;
+  loadVenues(area: GeoBounds): Promise<Venue[]>;
+}
+
+/** Confirmación de una persona: «aquí sí hay terraza al sol». */
+export interface VenueFeedback {
+  venueId: string;
+  venueName: string;
+  latitude: number;
+  longitude: number;
+  /** La persona dice que en ese momento había mesas al sol. */
+  hasTerrace: boolean;
+  sunAtMoment: boolean;
+  confirmedAt: number;
+}
+
 /** Un lugar candidato. Siempre procede de una fuente real (hoy: OpenStreetMap). */
 export interface SunPlace {
   id: string;
@@ -589,8 +658,6 @@ export interface SunPlace {
 export type PlaceInventoryState = "loading" | "ready" | "stale" | "unavailable";
 
 export interface PlaceInventoryStatus {
-  /** Versión del inventario (cambia cada vez que se cargan datos nuevos). */
-  version?: number;
   state: PlaceInventoryState;
   counts: Record<SunPlaceType, number>;
   total: number;

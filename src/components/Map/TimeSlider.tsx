@@ -1,9 +1,9 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { clamp } from "../../lib/coordinates";
 import type { TimeMode, TimeRange } from "../../hooks/useTimeController";
-import { presentOnDay } from "../../hooks/useDaySun";
+import { clamp } from "../../lib/coordinates";
 import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
-import { formatClock, formatDuration, HOUR, MINUTE } from "../../services/timeService";
+import { presentOnDay } from "../../lib/timelineRange";
+import { formatClock, formatDuration, getZoneParts, HOUR, MINUTE } from "../../services/timeService";
 import type { TimeZones, TimelineInterval } from "../../types";
 import { cn } from "../../utils/cn";
 
@@ -13,60 +13,53 @@ interface Props {
   now: number;
   range: TimeRange;
   mode: TimeMode;
-  /** 0 = hoy … 6: el día que está usando la línea de tiempo. */
-  dayOffset: number;
   isNight: boolean;
+  /** Día elegido: 0 = hoy … 6. */
+  dayOffset: number;
+  onSelectDay(offset: number): void;
   intervals: TimelineInterval[] | null;
-  onScrub(ms: number): void;
-  onNow(): void;
-  onSelectDay(dayOffset: number): void;
-  onHide(): void;
   /** Zonas de procedencia del dato: observado · presente · previsión. */
   zones?: TimeZones | null;
-  /** Procedencia del instante elegido ("Observado", "Previsión"…). */
+  /** Procedencia del instante elegido («Observado», «Previsión»…). */
   provenance?: string | null;
+  onScrub(ms: number): void;
+  onNow(): void;
+  onHide(): void;
+  compact?: boolean;
 }
 
-const DAY_OFFSETS = [0, 1, 2, 3, 4, 5, 6];
+const chip = (active: boolean) =>
+  cn(
+    "rounded-full px-3 py-1.5 text-[11px] font-medium leading-none outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+    active ? "bg-ink text-paper" : "text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
+  );
 
 /**
- * TimeSlider — línea de tiempo del día solar. Por defecto `selectedTime = currentTime`;
- * al arrastrar el indicador cambian la posición del sol, los datos solares y las sombras.
+ * Línea de tiempo del día solar: el día (Hoy · Mañana · otra fecha), la hora elegida, «Ahora» para
+ * volver al presente y la barra con el indicador solar. Al moverla cambian el sol, las sombras y
+ * las nubes del mapa (sin peticiones de red).
  */
-export default function TimeSlider({
-  selectedTime,
-  now,
-  range,
-  mode,
-  dayOffset,
-  isNight,
-  intervals,
-  onScrub,
-  onNow,
-  onSelectDay,
-  onHide,
-  zones,
-  provenance,
-}: Props) {
+export default function TimeSlider(p: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   const [dragging, setDragging] = useState(false);
+  const { range, selectedTime, now } = p;
 
   const span = Math.max(1, range.end - range.start);
   const frac = (ms: number) => clamp((ms - range.start) / span, 0, 1);
   const thumb = frac(selectedTime);
   /** Hora presente del día elegido; se marca solo cuando no coincide con el indicador. */
-  const present = presentOnDay(now, dayOffset);
-  const presentInRange = mode === "ahead" && present >= range.start && present <= range.end;
+  const present = presentOnDay(now, p.dayOffset);
+  const presentInRange = p.mode === "ahead" && present >= range.start && present <= range.end;
+  const isNow = p.mode === "now" && p.dayOffset === 0;
 
   const scrubFromX = (clientX: number) => {
     const el = trackRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const f = clamp((clientX - r.left) / r.width, 0, 1);
-    onScrub(Math.round((range.start + f * span) / MINUTE) * MINUTE);
+    p.onScrub(Math.round((range.start + f * span) / MINUTE) * MINUTE);
   };
-
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     draggingRef.current = true;
@@ -80,220 +73,186 @@ export default function TimeSlider({
     draggingRef.current = false;
     setDragging(false);
   };
-
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.shiftKey ? 30 * MINUTE : 5 * MINUTE;
-    if (e.key === "ArrowRight" || e.key === "ArrowUp") onScrub(selectedTime + step);
-    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") onScrub(selectedTime - step);
-    else if (e.key === "Home") onScrub(range.start);
-    else if (e.key === "End") onScrub(range.end);
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") p.onScrub(selectedTime + step);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") p.onScrub(selectedTime - step);
+    else if (e.key === "Home") p.onScrub(range.start);
+    else if (e.key === "End") p.onScrub(range.end);
     else return;
     e.preventDefault();
   };
 
-  const delta = selectedTime - now;
-  let label = "Ahora";
-  if (mode === "ahead" && Math.abs(delta) > MINUTE) {
-    label = delta > 0 ? `Dentro de ${formatDuration(delta)}` : `Hace ${formatDuration(-delta)}`;
-  } else if (dayOffset > 0) {
-    label = dayChoiceLabel(dayStartFor(now, dayOffset), now);
-  } else if (mode === "now" && isNight) {
-    label = "Ahora · fuera de luz solar";
+  let label: string;
+  if (isNow) label = p.isNight ? "Ahora · sin sol" : "Ahora";
+  else {
+    const delta = selectedTime - now;
+    label =
+      p.dayOffset === 0 && Math.abs(delta) < 12 * HOUR
+        ? delta > 0
+          ? `En ${formatDuration(delta)}`
+          : `Hace ${formatDuration(-delta)}`
+        : dayChoiceLabel(dayStartFor(now, p.dayOffset), now);
   }
-  if (provenance && !(mode === "now" && isNight)) label += ` · ${provenance}`;
+  if (p.provenance && !(isNow && p.isNight)) label += ` · ${p.provenance}`;
 
-  const ticks: number[] = [];
-  for (let t = Math.ceil(range.start / HOUR) * HOUR; t < range.end; t += HOUR) ticks.push(t);
+  // Etiquetas horarias cada 4 h (o 3 h si el día es corto), más el orto y el ocaso a los lados.
+  const every = span < 11 * HOUR ? 3 : 4;
+  const marks: number[] = [];
+  for (let t = Math.ceil(range.start / HOUR) * HOUR; t < range.end; t += HOUR) {
+    if (getZoneParts(t).hour % every === 0) marks.push(t);
+  }
+  const obs = p.zones?.observedUntil != null && p.dayOffset === 0 ? frac(p.zones.observedUntil) : 0;
+  const pres = p.zones?.presentUntil != null && p.dayOffset === 0 ? Math.max(obs, frac(p.zones.presentUntil)) : 0;
 
   return (
-    <div className="fts-glass fts-rise w-full rounded-[28px] px-4 pb-4 pt-3.5 sm:px-7 sm:pb-5 sm:pt-4" style={{ animationDelay: "700ms" }}>
-      <div className="flex items-end justify-between gap-3">
-        <div className="min-w-0">
-          <p className="fts-caps truncate">{label}</p>
-          <p className="mt-1 font-serif text-[32px] leading-none tabular-nums text-ink sm:text-[40px]">
-            {formatClock(selectedTime)}
-          </p>
-        </div>
-
-        <div className="flex shrink-0 items-end gap-2">
-          <div
-            role="group"
-            aria-label="Momento"
-            className="flex rounded-full border border-line bg-ink/[0.04] p-[3px] text-[9px] font-semibold uppercase tracking-[0.14em] sm:text-[10px] sm:tracking-[0.18em]"
-          >
-            <button
-              type="button"
-              onClick={onNow}
-              aria-pressed={mode === "now"}
-              className={cn(
-                "rounded-full px-3 py-2 transition-all duration-500 sm:px-4",
-                mode === "now" ? "bg-ink text-paper shadow-sm" : "text-ink-soft hover:text-ink"
-              )}
-            >
-              Ahora
-            </button>
+    <div
+      className={cn("fts-glass fts-rise w-full rounded-[24px]", p.compact ? "px-3.5 pb-3 pt-2.5" : "px-5 pb-3.5 pt-3")}
+      style={{ animationDelay: "600ms" }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div role="group" aria-label="Día" className="flex min-w-0 items-center gap-0.5">
+          <button type="button" className={chip(p.dayOffset === 0)} onClick={() => p.onSelectDay(0)} aria-pressed={p.dayOffset === 0}>
+            Hoy
+          </button>
+          <button type="button" className={chip(p.dayOffset === 1)} onClick={() => p.onSelectDay(1)} aria-pressed={p.dayOffset === 1}>
+            Mañana
+          </button>
+          <label className="relative">
+            <span className="sr-only">Otro día</span>
             <select
-              aria-label="Día"
-              title="Elegir el día"
-              value={dayOffset}
-              onChange={(e) => onSelectDay(Number(e.target.value))}
-              className={cn(
-                "cursor-pointer rounded-full px-2.5 py-2 font-semibold uppercase tracking-[0.14em] outline-none transition-all duration-500 sm:px-3.5",
-                mode === "ahead" ? "bg-sun-soft text-sun-deep" : "text-ink-soft hover:text-ink"
-              )}
+              value={p.dayOffset > 1 ? p.dayOffset : ""}
+              onChange={(e) => e.target.value && p.onSelectDay(Number(e.target.value))}
+              className={cn(chip(p.dayOffset > 1), "appearance-none bg-transparent pr-3")}
             >
-              {DAY_OFFSETS.map((d) => (
+              <option value="">{p.compact ? "Fecha" : "Otra fecha"}</option>
+              {[2, 3, 4, 5, 6].map((d) => (
                 <option key={d} value={d}>
                   {dayChoiceLabel(dayStartFor(now, d), now)}
                 </option>
               ))}
             </select>
-          </div>
+          </label>
+        </div>
 
+        <div className="flex shrink-0 items-center gap-2">
+          {!isNow && (
+            <button
+              type="button"
+              onClick={p.onNow}
+              className="fts-fade-in rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold text-ink outline-none transition-colors hover:bg-ink/[0.05] focus-visible:ring-2 focus-visible:ring-sun/60"
+            >
+              Ahora
+            </button>
+          )}
           <button
             type="button"
-            onClick={onHide}
+            onClick={p.onHide}
             aria-label="Ocultar la línea de tiempo"
             title="Ocultar la línea de tiempo"
-            className="flex h-[30px] w-[30px] items-center justify-center rounded-full border border-line text-ink-soft transition-colors hover:bg-ink/[0.06] hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
-            <span aria-hidden className="-mt-0.5 text-[11px]">▾</span>
+            <span aria-hidden className="-mt-0.5 text-[11px]">
+              ▾
+            </span>
           </button>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2.5 sm:mt-4 sm:gap-4">
-        <span className="w-9 text-right text-[11px] tabular-nums text-ink-soft sm:w-11 sm:text-[12px]">
-          {formatClock(range.start)}
-        </span>
+      <div className={cn("flex items-end justify-between gap-3", p.compact ? "mt-1.5" : "mt-2")}>
+        <p className="min-w-0 truncate text-[10.5px] font-medium text-ink-soft">{label}</p>
+        <p className={cn("shrink-0 font-serif leading-none tabular-nums text-ink", p.compact ? "text-[24px]" : "text-[30px]")}>
+          {formatClock(selectedTime)}
+        </p>
+      </div>
+
+      <div
+        ref={trackRef}
+        role="slider"
+        tabIndex={0}
+        aria-label="Hora del día"
+        aria-valuemin={range.start}
+        aria-valuemax={range.end}
+        aria-valuenow={Math.round(selectedTime)}
+        aria-valuetext={formatClock(selectedTime)}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onKeyDown={onKeyDown}
+        className="relative mt-1 h-9 cursor-pointer touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-sun/50 rounded-full"
+      >
+        <div className="fts-track absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" />
+
+        {p.intervals?.map((iv, i) => {
+          const a = frac(iv.start) * 100;
+          const w = Math.max(0.4, (frac(iv.end) - frac(iv.start)) * 100);
+          return (
+            <div
+              key={`${iv.start}-${i}`}
+              className={cn(
+                "fts-fade-in absolute top-1/2 h-[6px] -translate-y-1/2 rounded-full",
+                iv.state === "sun" && "bg-sun",
+                iv.state === "partial" && "bg-sun/45",
+                iv.state === "cloud" && "bg-ink/30",
+                iv.state === "shade" && "bg-shade/50"
+              )}
+              style={{ left: `calc(${a}% + 1px)`, width: `calc(${w}% - 2px)` }}
+            />
+          );
+        })}
+
+        {!p.intervals && (
+          <div
+            className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-sun/80"
+            style={{ width: `${thumb * 100}%`, transition: dragging ? "none" : "width 120ms linear" }}
+          />
+        )}
+
+        {/* procedencia: observado (continuo) · presente (ámbar) · previsión (discontinuo) */}
+        {p.dayOffset === 0 && (obs > 0 || pres > 0) && (
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+9px)] h-[2px]">
+            {obs > 0 && <i className="absolute inset-y-0 left-0 rounded-full bg-ink/35" style={{ width: `${obs * 100}%` }} />}
+            {pres > obs && (
+              <i className="absolute inset-y-0 rounded-full bg-sun" style={{ left: `${obs * 100}%`, width: `${(pres - obs) * 100}%` }} />
+            )}
+            {pres < 1 && <i className="fts-forecast-dash absolute inset-y-0 right-0" style={{ left: `${pres * 100}%` }} />}
+          </div>
+        )}
+
+        {presentInRange && (
+          <span
+            title="Ahora"
+            className="absolute top-[calc(50%-13px)] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-ink"
+            style={{ left: `${frac(present) * 100}%` }}
+          />
+        )}
 
         <div
-          ref={trackRef}
-          role="slider"
-          tabIndex={0}
-          aria-label="Hora del día"
-          aria-valuemin={range.start}
-          aria-valuemax={range.end}
-          aria-valuenow={Math.round(selectedTime)}
-          aria-valuetext={formatClock(selectedTime)}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onKeyDown={onKeyDown}
-          className="relative h-[60px] flex-1 cursor-pointer touch-none select-none outline-none"
+          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ left: `${thumb * 100}%`, transition: dragging ? "none" : "left 120ms linear" }}
         >
-          {/* línea base con degradado de luz del día */}
-          <div className="fts-track absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" />
-
-          {/* tramos de sol / sombra del punto seleccionado (solo los que tocan la franja visible) */}
-          {intervals
-            ?.filter((iv) => iv.end > range.start && iv.start < range.end)
-            .map((iv, i) => {
-            const a = frac(iv.start) * 100;
-            const w = Math.max(0.4, (frac(iv.end) - frac(iv.start)) * 100);
-            return (
-              <div
-                key={`${iv.start}-${i}`}
-                className={cn(
-                  "fts-fade-in absolute top-1/2 h-[6px] -translate-y-1/2 rounded-full",
-                  iv.state === "sun" && "bg-sun",
-                  iv.state === "partial" && "bg-sun/45",
-                  iv.state === "cloud" && "bg-ink/30",
-                  iv.state === "shade" && "bg-shade/50"
-                )}
-                style={{ left: `calc(${a}% + 1px)`, width: `calc(${w}% - 2px)` }}
-              />
-            );
-          })}
-
-          {/* recorrido hasta ahora (solo sin punto seleccionado) */}
-          {!intervals && (
-            <div
-              className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-sun/80"
-              style={{
-                width: `${thumb * 100}%`,
-                transition: dragging ? "none" : "width 120ms linear",
-              }}
-            />
-          )}
-
-          {/* marcas horarias */}
-          {ticks.map((t) => (
-            <span
-              key={t}
-              className="absolute top-[calc(50%+9px)] h-[5px] w-px -translate-x-1/2 bg-ink/20"
-              style={{ left: `${frac(t) * 100}%` }}
-            />
-          ))}
-
-          {/* procedencia del dato: observado (trazo continuo) · presente (ámbar) · previsión (discontinuo) */}
-          {(() => {
-            const obs = zones?.observedUntil != null ? frac(zones.observedUntil) : 0;
-            const pres = zones?.presentUntil != null ? Math.max(obs, frac(zones.presentUntil)) : 0;
-            return (
-              <div className="pointer-events-none absolute inset-x-0 top-[calc(50%+25px)]" aria-hidden>
-                <div className="relative h-[2px]">
-                  {obs > 0 && (
-                    <i className="absolute inset-y-0 left-0 rounded-full bg-ink/40" style={{ width: `${obs * 100}%` }} />
-                  )}
-                  {pres > obs && (
-                    <i
-                      className="absolute inset-y-0 rounded-full bg-sun"
-                      style={{ left: `${obs * 100}%`, width: `${(pres - obs) * 100}%` }}
-                    />
-                  )}
-                  {pres < 1 && (
-                    <i className="fts-forecast-dash absolute inset-y-0 right-0" style={{ left: `${pres * 100}%` }} />
-                  )}
-                </div>
-                <div className="relative mt-1.5 h-3 text-[8px] font-semibold uppercase tracking-[0.16em] text-ink-faint">
-                  {obs > 0.2 && <span className="absolute left-0">Observado</span>}
-                  {1 - pres > 0.2 && <span className="absolute right-0">Previsión</span>}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* hora presente */}
-          {presentInRange && (
-            <span
-              title="Ahora"
-              className="absolute top-[calc(50%+17px)] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-ink"
-              style={{ left: `${frac(present) * 100}%` }}
-            />
-          )}
-
-          {/* indicador solar */}
-          <div
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{
-              left: `${thumb * 100}%`,
-              transition: dragging ? "none" : "left 120ms linear",
-            }}
-          >
-            <span className="fts-thumb-halo absolute -inset-3 rounded-full" />
-            <span
-              className={cn(
-                "fts-thumb relative block h-[22px] w-[22px] rounded-full transition-transform duration-300",
-                dragging && "scale-[1.18]"
-              )}
-            />
-          </div>
+          <span className="fts-thumb-halo absolute -inset-3 rounded-full" />
+          <span className={cn("fts-thumb relative block h-[20px] w-[20px] rounded-full transition-transform duration-300", dragging && "scale-[1.18]")} />
         </div>
+      </div>
 
-        <span className="w-9 text-[11px] tabular-nums text-ink-soft sm:w-11 sm:text-[12px]">
-          {formatClock(range.end)}
-        </span>
+      <div className="relative h-3.5 text-[9.5px] tabular-nums text-ink-faint">
+        <span className="absolute left-0">{formatClock(range.start)}</span>
+        {marks.map((t) =>
+          frac(t) > 0.1 && frac(t) < 0.9 ? (
+            <span key={t} className="absolute -translate-x-1/2" style={{ left: `${frac(t) * 100}%` }}>
+              {formatClock(t)}
+            </span>
+          ) : null
+        )}
+        <span className="absolute right-0">{formatClock(range.end)}</span>
       </div>
     </div>
   );
 }
 
-/**
- * Línea de tiempo ocultada: una sola fila con la hora que se está viendo y el botón para
- * volver a desplegarla. Ocupa el mismo hueco que `TimeSlider`.
- */
+/** Versión compacta de la línea de tiempo: la hora elegida y el día, con un toque para desplegarla. */
 export function TimelineCollapsed({
   selectedTime,
   dayLabel,
@@ -309,14 +268,12 @@ export function TimelineCollapsed({
       onClick={onShow}
       aria-label="Mostrar la línea de tiempo"
       title="Mostrar la línea de tiempo"
-      className="fts-glass fts-rise flex w-full items-center justify-between gap-3 rounded-[24px] px-4 py-3 text-left sm:px-7"
-      style={{ animationDelay: "700ms" }}
+      className="fts-glass fts-rise flex w-full items-center justify-between gap-3 rounded-[24px] px-5 pb-3.5 pt-3 text-left"
+      style={{ animationDelay: "600ms" }}
     >
       <span className="min-w-0">
         <span className="fts-caps block truncate">{dayLabel}</span>
-        <span className="mt-1 block font-serif text-[20px] leading-none tabular-nums text-ink">
-          {formatClock(selectedTime)}
-        </span>
+        <span className="mt-1 block font-serif text-[26px] leading-none tabular-nums text-ink">{formatClock(selectedTime)}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
         Hora

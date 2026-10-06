@@ -94,6 +94,84 @@ export function GhostButton({
   );
 }
 
+/** Interruptor accesible (role="switch"). */
+export function Switch({
+  checked,
+  onChange,
+  label,
+  hint,
+  swatch,
+}: {
+  checked: boolean;
+  onChange(v: boolean): void;
+  label: string;
+  hint?: string;
+  swatch?: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="flex w-full items-center gap-3 rounded-[14px] px-2 py-2 text-left outline-none transition-colors hover:bg-ink/[0.04] focus-visible:ring-2 focus-visible:ring-sun/60"
+    >
+      {swatch && <span className="flex w-4 shrink-0 justify-center">{swatch}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-medium text-ink">{label}</span>
+        {hint && <span className="block text-[10.5px] leading-snug text-ink-faint">{hint}</span>}
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          "relative h-[20px] w-[34px] shrink-0 rounded-full transition-colors duration-300",
+          checked ? "bg-ink" : "bg-ink/15"
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-[2px] h-4 w-4 rounded-full bg-paper shadow transition-transform duration-300",
+            checked ? "translate-x-[16px]" : "translate-x-[2px]"
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
+/** Selector segmentado pequeño (unidades, prioridad…). */
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: Array<{ id: T; label: string }>;
+  onChange(v: T): void;
+  label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="inline-flex rounded-full border border-line bg-ink/[0.03] p-[3px]">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "rounded-full px-3 py-1.5 text-[11.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+            value === o.id ? "bg-ink text-paper" : "text-ink-soft hover:text-ink"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /** Tres barras + palabra: la confianza de un vistazo. */
 export function ConfidenceBars({ value, showWord = true }: { value: number; showWord?: boolean }) {
   const word = confidenceWord(value);

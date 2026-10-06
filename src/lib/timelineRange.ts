@@ -1,4 +1,6 @@
 import type { SunTimes } from "./solarCalculations";
+import { dayStartFor } from "./planningTime";
+import { startOfZoneDay } from "../services/timeService";
 
 /**
  * Franja visible de la línea de tiempo.
@@ -17,4 +19,9 @@ export function timelineRange(
   if (present < sun.sunset) return { start: present, end: sun.sunset };
   if (nextSunrise != null) return { start: present, end: nextSunrise };
   return { start: sun.sunrise, end: sun.sunset };
+}
+
+/** Mismo reloj de pared que `now`, pero sobre el día `dayOffset` días después del de hoy. */
+export function presentOnDay(now: number, dayOffset: number): number {
+  return dayStartFor(now, dayOffset) + (now - startOfZoneDay(now));
 }

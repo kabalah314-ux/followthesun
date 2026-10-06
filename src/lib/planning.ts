@@ -123,10 +123,7 @@ export function buildSearchRequest(p: PlannerState, ctx: PlannerContext): SunSea
 /*  Atajos de primera clase                                                    */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Franja con la que arranca el planificador: lo que queda de hoy (si queda luz) o, si ya se ha
- * puesto el sol, la mañana de mañana. Siempre en bloques de 15 min.
- */
+/** Franja por defecto del planificador: lo que queda de hoy (o mañana si ya es tarde). */
 export function defaultPlannerWindow(now: number): { dayOffset: number; fromMinutes: number; toMinutes: number } {
   const sunsetToday = minutesOfDay(sunOf(now, 0).sunset);
   const nowMin = minutesOfDay(now);
@@ -209,5 +206,5 @@ export function whenLabel(p: PlannerState, now: number): string {
 }
 
 export function distanceLabel(maxWalkingMinutes: number | null): string {
-  return maxWalkingMinutes === null ? "Cualquier distancia" : `≤ ${maxWalkingMinutes} min a pie`;
+  return maxWalkingMinutes === null ? "Cualquier sitio" : `≤ ${maxWalkingMinutes} min a pie`;
 }

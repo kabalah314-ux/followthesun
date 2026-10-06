@@ -7,4 +7,4 @@ import type { SolarOverlayEngine } from "../../engine/SolarOverlayEngine";
  */
 export const SolarEngineContext = createContext<SolarOverlayEngine | null>(null);
 
-export const useSolarEngine = (): SolarOverlayEngine | null => useContext(SolarEngineContext);
+export const useSolarEngine = () => useContext(SolarEngineContext);

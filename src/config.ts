@@ -1,10 +1,11 @@
-import { log } from "./lib/log";
-
 /**
- * I Follow the Sun — configuración central.
+ * Follow the Sun — configuración central.
  * Todo lo que dependa de una fuente de datos externa vive aquí para poder
  * sustituirlo sin tocar la lógica de la aplicación.
  */
+
+export const APP_NAME = "I Follow the Sun";
+export const APP_VERSION = "0.7.0";
 
 export const BARCELONA = {
   name: "Barcelona",
@@ -22,17 +23,26 @@ export const MAP_CONFIG = {
   minZoom: 11.6,
   maxZoom: 18.4,
   maxPitch: 60,
-  /** A zoom cercano activa volúmenes urbanos; en ese punto la cámara toma un pitch editorial. */
-  buildings3DZoom: 15.35,
-  buildings3DZoomOut: 14.7,
-  buildings3DAutoPitch: 38,
-  buildings3DPitchDurationMs: 850,
   maxBounds: [
     [1.92, 41.27],
     [2.42, 41.57],
   ] as [[number, number], [number, number]],
   /** A partir de este zoom las teselas incluyen edificios. */
   buildingMinZoom: 13,
+} as const;
+
+/**
+ * Relieve 3D: entre estos zooms los edificios crecen desde el suelo hasta su altura real (el mapa y
+ * la capa solar usan exactamente la misma transición, para que siluetas y sombras coincidan).
+ */
+export const BUILDINGS_3D = {
+  fromZoom: 14.9,
+  fullZoom: 16.2,
+  /** Inclinación automática al acercarse (si la persona no ha inclinado el mapa a mano). */
+  autoTiltZoom: 15.35,
+  autoTiltPitch: 38,
+  /** Por debajo de este zoom se vuelve a la vista cenital (si la inclinación fue automática). */
+  autoTiltResetZoom: 14.9,
 } as const;
 
 /** Teselas vectoriales abiertas (esquema OpenMapTiles) — mapa de respaldo, sin token. */
@@ -331,14 +341,12 @@ export const DEBUG = {
 /* -------------------------------------------------------------------------- */
 
 const overpassOverride = (import.meta.env.VITE_OVERPASS_URL as string | undefined)?.trim() ?? "";
-const placesSource = (import.meta.env.VITE_PLACES_SOURCE as string | undefined)?.trim() === "osm" ? "osm" : "curated";
 
 /**
- * Inventario de lugares. Por defecto, la selección revisada de Barcelona incluida en la app
- * (`src/data/barcelonaPlaces.ts`). Con `VITE_PLACES_SOURCE=osm` se usa OpenStreetMap (Overpass).
+ * Inventario de lugares: OpenStreetMap a través de Overpass. NO hay lugares escritos a mano:
+ * si no se consigue el inventario, la búsqueda lo dice en lugar de inventar resultados.
  */
 export const PLACES_CONFIG = {
-  source: placesSource as "curated" | "osm",
   /** Barcelona (término municipal, aproximado). */
   bbox: { south: 41.317, west: 2.052, north: 41.468, east: 2.229 },
   endpoints: [
@@ -350,10 +358,10 @@ export const PLACES_CONFIG = {
   /** OpenStreetMap cambia despacio: una semana de caché, y hasta dos meses como respaldo. */
   ttlMs: 7 * 24 * 3_600_000,
   maxStaleMs: 60 * 24 * 3_600_000,
-  timeoutMs: 12_000,
+  timeoutMs: 40_000,
   /** Superficie mínima (m²) para que un área sea un lugar donde quedarse. */
   minAreaM2: { beach: 3000, park: 2500, square: 600, open_space: 1500 },
-  attribution: placesSource === "osm" ? "© OpenStreetMap contributors (ODbL)" : "Selección revisada de Barcelona",
+  attribution: "© OpenStreetMap contributors (ODbL)",
 } as const;
 
 export const SEARCH_CONFIG = {
@@ -473,27 +481,25 @@ export function getMapboxToken(): string | null {
   const fromEnv = (import.meta.env.VITE_MAPBOX_TOKEN as string | undefined)?.trim();
   if (valid(fromEnv)) return fromEnv;
 
-  // Alternativa para probar sin recompilar: ?mapbox_token=pk.… Solo dura esta pestaña
-  // (sessionStorage): un enlace no puede dejar un token fijado para siempre en el navegador.
+  // Alternativa para probar sin recompilar: ?mapbox_token=pk.… (se recuerda en este navegador).
   try {
     const fromUrl = new URLSearchParams(window.location.search).get("mapbox_token");
     if (valid(fromUrl)) {
-      window.sessionStorage.setItem(TOKEN_STORAGE_KEY, fromUrl.trim());
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, fromUrl.trim());
       return fromUrl.trim();
     }
-    const stored = window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
     if (valid(stored)) return stored.trim();
-  } catch (error) {
-    log.warn("almacenamiento de sesión no disponible", error);
+  } catch {
+    /* almacenamiento no disponible */
   }
   return null;
 }
 
 export function forgetMapboxToken() {
   try {
-    window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-    window.localStorage.removeItem(TOKEN_STORAGE_KEY); // limpia tokens guardados por versiones anteriores
-  } catch (error) {
-    log.warn("no se pudo borrar el token", error);
+    window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    /* noop */
   }
 }

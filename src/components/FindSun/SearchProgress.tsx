@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type { SearchPhase, SearchProgress as Progress } from "../../types";
 import { cn } from "../../utils/cn";
 import { GhostButton } from "./ui";
@@ -22,11 +21,6 @@ export default function SearchProgress({
   onCancel(): void;
 }) {
   const phase = progress?.phase ?? "places";
-  const [slow, setSlow] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setSlow(true), 10_000);
-    return () => window.clearTimeout(t);
-  }, []);
   const activeIdx = Math.max(
     0,
     STAGES.findIndex((s) => s.phases.includes(phase))
@@ -38,7 +32,7 @@ export default function SearchProgress({
   return (
     <div className="fts-fade-in" role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-serif text-[22px] leading-none text-ink">Calculando sol y sombras…</p>
+        <p className="font-serif text-[22px] leading-none text-ink">Buscando sol…</p>
         <GhostButton onClick={onCancel}>Cancelar</GhostButton>
       </div>
 
@@ -71,9 +65,7 @@ export default function SearchProgress({
         ))}
       </ol>
       <p className="mt-3 text-[11px] leading-snug text-ink-faint">
-        {slow
-          ? "Está tardando más de lo normal (los edificios se descargan la primera vez). Puedes cancelar y volver a intentarlo."
-          : "Miramos la sombra de cada edificio y las nubes previstas en cada sitio."}
+        Calculando el sol, las sombras de los edificios y las nubes de cada lugar.
       </p>
     </div>
   );

@@ -1,11 +1,10 @@
-import { MAP_CONFIG, OPEN_TILES } from "../../config";
+import { BUILDINGS_3D, MAP_CONFIG, OPEN_TILES } from "../../config";
 import type { Theme } from "../../types";
 import { BUILDINGS_QUERY_LAYER } from "../buildingService";
-import type { Buildings3DMode, MapLike } from "./types";
-import { log } from "../../lib/log";
+import type { MapLike } from "./types";
 
 /**
- * Estilos cartográficos de I Follow the Sun.
+ * Estilos cartográficos de Follow the Sun.
  *
  * Un único diseño editorial (crema cálido de día, azul medianoche de noche) construido sobre
  * dos esquemas vectoriales:
@@ -29,8 +28,6 @@ interface Palette {
   water: string;
   building: string;
   buildingLine: string;
-  building3d: string;
-  building3dHigh: string;
   path: string;
   minor: string;
   minorCasing: string;
@@ -53,8 +50,6 @@ const PALETTE: Record<Theme, Palette> = {
     water: "#bbd4df",
     building: "#eadfcc",
     buildingLine: "#d9ccb5",
-    building3d: "#dccbb3",
-    building3dHigh: "#c7ae91",
     path: "#e6dcc9",
     minor: "#fdfaf4",
     minorCasing: "#e8dfcd",
@@ -75,8 +70,6 @@ const PALETTE: Record<Theme, Palette> = {
     water: "#0d1730",
     building: "#1c2442",
     buildingLine: "#252f55",
-    building3d: "#263153",
-    building3dHigh: "#304064",
     path: "#222b4d",
     minor: "#2a3359",
     minorCasing: "#1b2340",
@@ -92,7 +85,49 @@ const PALETTE: Record<Theme, Palette> = {
 };
 
 /** Propiedades de color por capa (fuente única para crear el estilo y para cambiar de tema). */
-function colorPaint(theme: Theme): Record<string, Record<string, any>> {
+/**
+ * Color de los edificios en 3D según su altura: los altos, un tono más profundo, para que el relieve
+ * de la ciudad se lea de un vistazo. Sirve para ambos esquemas (Mapbox `height`, OMT `render_height`).
+ */
+const HEIGHT = ["coalesce", ["get", "render_height"], ["get", "height"], 5];
+const EXTRUSION_COLORS: Record<Theme, [string, string, string, string]> = {
+  day: ["#f3ebdd", "#eadfcb", "#dccdb2", "#c9b593"],
+  night: ["#252f54", "#2d3962", "#384676", "#46558d"],
+};
+
+function extrusionColor(theme: Theme): unknown[] {
+  const [a, b, c, d] = EXTRUSION_COLORS[theme];
+  return ["interpolate", ["linear"], HEIGHT, 4, a, 18, b, 40, c, 90, d];
+}
+
+/** Altura y opacidad de la extrusión: los edificios crecen desde el suelo al acercarse. */
+function extrusionPaint(heightProp: string, baseProp: string): Record<string, unknown> {
+  const { fromZoom, fullZoom } = BUILDINGS_3D;
+  return {
+    "fill-extrusion-height": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      fromZoom,
+      0,
+      fullZoom,
+      ["coalesce", ["get", heightProp], 5],
+    ],
+    "fill-extrusion-base": [
+      "interpolate",
+      ["linear"],
+      ["zoom"],
+      fromZoom,
+      0,
+      fullZoom,
+      ["coalesce", ["get", baseProp], 0],
+    ],
+    "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], fromZoom, 0, fromZoom + 0.4, 0.94],
+    "fill-extrusion-vertical-gradient": true,
+  };
+}
+
+function colorPaint(theme: Theme): Record<string, Record<string, unknown>> {
   const p = PALETTE[theme];
   return {
     background: { "background-color": p.land },
@@ -102,23 +137,7 @@ function colorPaint(theme: Theme): Record<string, Record<string, any>> {
     water: { "fill-color": p.water },
     waterway: { "line-color": p.water },
     buildings: { "fill-color": p.building, "fill-outline-color": p.buildingLine },
-    // Los tejados altos son ligeramente más profundos que los edificios bajos: el relieve también
-    // se lee por el tono, pero la diferencia sigue siendo editorial y monocromática.
-    "buildings-3d": {
-      "fill-extrusion-color": [
-        "interpolate",
-        ["linear"],
-        ["coalesce", ["to-number", ["get", "height"]], ["to-number", ["get", "render_height"]], 9],
-        3,
-        p.building3d,
-        24,
-        p.building3d,
-        70,
-        p.building3dHigh,
-        150,
-        p.building3dHigh,
-      ],
-    },
+    "buildings-3d": { "fill-extrusion-color": extrusionColor(theme) },
     "road-path": { "line-color": p.path },
     "road-minor-casing": { "line-color": p.minorCasing },
     "road-minor": { "line-color": p.minor },
@@ -307,28 +326,15 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24) },
     },
     {
-      // Los volúmenes aparecen automáticamente al acercar. Hasta entonces la vista es cartográfica.
+      // Edificios 3D: aparecen al acercarse y crecen hasta su altura real. Ver BuildingLayer.
       id: "buildings-3d",
       type: "fill-extrusion",
       source: S,
       "source-layer": "building",
-      minzoom: MAP_CONFIG.buildings3DZoom - 0.35,
+      minzoom: BUILDINGS_3D.fromZoom,
       filter: ["all", notUnderground, ["==", ["get", "extrude"], "true"]],
-      layout: { visibility: "none" },
-      paint: {
-        ...c["buildings-3d"],
-        "fill-extrusion-height": [
-          "max",
-          3,
-          ["coalesce", ["to-number", ["get", "height"]], ["*", ["to-number", ["get", "levels"], 3], 3.2], 9],
-        ],
-        "fill-extrusion-base": ["max", 0, ["coalesce", ["to-number", ["get", "min_height"]], 0]],
-        "fill-extrusion-opacity": [
-          "interpolate", ["linear"], ["zoom"],
-          14.95, 0, 15.35, 0.18, 16.1, 0.42, 17.4, 0.57
-        ],
-        "fill-extrusion-vertical-gradient": true,
-      },
+      layout: { visibility: "visible" },
+      paint: { ...c["buildings-3d"], ...extrusionPaint("height", "min_height") },
     },
     {
       id: "label-water",
@@ -573,24 +579,15 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24) },
     },
     {
-      // Relieve 3D editorial: entra gradualmente al acercar, con altura de las teselas OSM.
+      // Edificios 3D: aparecen al acercarse y crecen hasta su altura real. Ver BuildingLayer.
       id: "buildings-3d",
       type: "fill-extrusion",
       source: S,
       "source-layer": "building",
-      minzoom: MAP_CONFIG.buildings3DZoom - 0.35,
+      minzoom: BUILDINGS_3D.fromZoom,
       filter: ["!=", ["get", "hide_3d"], true],
-      layout: { visibility: "none" },
-      paint: {
-        ...c["buildings-3d"],
-        "fill-extrusion-height": ["max", 3, ["coalesce", ["to-number", ["get", "render_height"]], ["*", ["to-number", ["get", "render_min_height"], 2], 3.2], 9]],
-        "fill-extrusion-base": ["max", 0, ["coalesce", ["to-number", ["get", "render_min_height"]], 0]],
-        "fill-extrusion-opacity": [
-          "interpolate", ["linear"], ["zoom"],
-          14.95, 0, 15.35, 0.18, 16.1, 0.42, 17.4, 0.57
-        ],
-        "fill-extrusion-vertical-gradient": true,
-      },
+      layout: { visibility: "visible" },
+      paint: { ...c["buildings-3d"], ...extrusionPaint("render_height", "render_min_height") },
     },
     {
       id: "label-water",
@@ -696,9 +693,8 @@ export function applyMapTheme(map: MapLike, theme: Theme) {
     for (const [prop, value] of Object.entries(props)) {
       try {
         map.setPaintProperty(layerId, prop, value);
-      } catch (error) {
-        // Normal mientras el estilo termina de cargar; se reintenta en el siguiente cambio.
-        log.debug("estilo aún no listo", layerId, prop, error);
+      } catch {
+        /* estilo aún no listo */
       }
     }
   }
@@ -707,28 +703,18 @@ export function applyMapTheme(map: MapLike, theme: Theme) {
 export function setFootprintsVisible(map: MapLike, visible: boolean) {
   try {
     if (map.getLayer("buildings")) map.setPaintProperty("buildings", "fill-opacity", visible ? 1 : 0);
-  } catch (error) {
-    log.debug("estilo aún no listo", error);
+  } catch {
+    /* estilo aún no listo */
   }
 }
 
-const AUTO_EXTRUSION_OPACITY = [
-  "interpolate", ["linear"], ["zoom"],
-  14.95, 0, 15.35, 0.18, 16.1, 0.42, 17.4, 0.57,
-];
-
-export function setExtrusionEnabled(map: MapLike, mode: Buildings3DMode) {
+export function setExtrusionEnabled(map: MapLike, enabled: boolean) {
   try {
     if (map.getLayer("buildings-3d")) {
-      map.setLayoutProperty("buildings-3d", "visibility", mode === "off" ? "none" : "visible");
-      if (mode === "auto") {
-        map.setPaintProperty("buildings-3d", "fill-extrusion-opacity", AUTO_EXTRUSION_OPACITY);
-      } else if (mode === "on") {
-        map.setPaintProperty("buildings-3d", "fill-extrusion-opacity", 0.72);
-      }
+      map.setLayoutProperty("buildings-3d", "visibility", enabled ? "visible" : "none");
     }
-  } catch (error) {
-    log.debug("estilo aún no listo", error);
+  } catch {
+    /* estilo aún no listo */
   }
 }
 
@@ -789,4 +775,110 @@ export function installFallbackBasemap(map: MapLike, theme: Theme) {
     source: "fts-fallback",
     paint: { "line-color": p.majorCasing, "line-width": 1.6 },
   });
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Vista satélite                                                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Fuentes de imagen disponibles, en orden de preferencia.
+ *
+ *  · **Mapbox Satellite** (`mapbox.mapbox-satellite-v9`): la mejor calidad y la que mejor encaja
+ *    con el estilo propio. Requiere token de Mapbox, que es lo que se usa cuando existe.
+ *  · **Esri World Imagery**: buena cobertura global, sin token. Es la alternativa cuando no hay
+ *    token de Mapbox. **Ojo con la licencia**: Esri permite el uso gratuito con atribución para
+ *    uso no comercial; un producto comercial necesita una licencia de Esri. Atribución obligatoria
+ *    en el mapa.
+ */
+export const SATELLITE_SOURCES = {
+  mapbox: {
+    id: "fts-satellite",
+    label: "Mapbox Satellite",
+    url: "mapbox://mapbox.mapbox-satellite-v9",
+    attribution: "© Maxar · Mapbox",
+    commercial: "requiere token de Mapbox",
+  },
+  esri: {
+    id: "fts-satellite",
+    label: "Esri World Imagery",
+    tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+    attribution: "© Esri, Maxar, Earthstar Geographics",
+    commercial: "uso no comercial; licencia Esri para producto comercial",
+  },
+} as const;
+
+export type SatelliteSourceKey = keyof typeof SATELLITE_SOURCES;
+
+/** Capas que deben desaparecer bajo la imagen de satélite. */
+const SAT_FADE = new Set([
+  "background",
+  "landcover",
+  "park",
+  "sand",
+  "water",
+  "waterway",
+  "fallback-sea",
+]);
+
+/**
+ * Convierte un estilo vectorial en vista satélite **híbrida**:
+ * la imagen de satélite va al fondo y encima se mantienen las carreteras, los edificios y las
+ * etiquetas, atenuados. Así las sombras y el relieve 3D siguen viéndose sobre la ciudad real, y las
+ * calles continúan siendo legibles. No es un simple cambio de fondo.
+ */
+export function createSatelliteStyle(
+  base: StyleJSON,
+  theme: Theme,
+  satKey: SatelliteSourceKey
+): StyleJSON {
+  const style = JSON.parse(JSON.stringify(base)) as StyleJSON;
+  const night = theme === "night";
+  const src = SATELLITE_SOURCES[satKey];
+  style.sources = {
+    ...style.sources,
+    [src.id]: "url" in src
+      ? { type: "raster", url: src.url, tileSize: 256 }
+      : { type: "raster", tiles: src.tiles, tileSize: 256, attribution: src.attribution },
+  } as StyleJSON["sources"];
+
+  style.layers.unshift({
+    id: "satellite-base",
+    type: "raster",
+    source: src.id,
+    paint: { "raster-opacity": night ? 0.5 : 1 },
+  } as unknown as StyleJSON["layers"][number]);
+
+  const halo = night ? "rgba(10,14,28,0.88)" : "rgba(10,14,26,0.7)";
+
+  for (const layer of style.layers) {
+    if (layer.id === "satellite-base") continue;
+    const paint = (layer.paint ?? {}) as Record<string, unknown>;
+    const id = String(layer.id);
+
+    if (SAT_FADE.has(id)) {
+      // El mar y el verde ya se ven en la foto: el vectorial solo estorbaría.
+      layer.paint = {
+        ...paint,
+        "fill-opacity": 0,
+        "line-opacity": 0,
+        "background-opacity": 0,
+      } as typeof layer.paint;
+    } else if (id === "buildings") {
+      // Velo muy tenue: marca las manzanas sin tapar la imagen.
+      layer.paint = { ...paint, "fill-opacity": 0.22 } as typeof layer.paint;
+    } else if (id === "buildings-3d") {
+      layer.paint = { ...paint, "fill-extrusion-opacity": 0.62 } as typeof layer.paint;
+    } else if (id.startsWith("road-")) {
+      layer.paint = { ...paint, "line-opacity": 0.55 } as typeof layer.paint;
+    } else if (id.startsWith("label-")) {
+      layer.paint = {
+        ...paint,
+        "text-halo-color": halo,
+        "text-halo-width": 2,
+      } as typeof layer.paint;
+    }
+  }
+
+  return style;
 }

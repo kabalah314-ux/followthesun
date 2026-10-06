@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SunPlace, SunSearchRequest } from "../../types";
+import type { SunPlace, SunSample, SunSearchRequest, SunWindowKind } from "../../types";
 
 // Los edificios se descargan de la red: en los tests no hay ninguno cargado.
 vi.mock("../urbanGeometryService", () => ({
@@ -16,6 +16,7 @@ import {
   allowedTypes,
   buildTimes,
   findBestSunPlaces,
+  invertForShade,
   normalizeRequest,
   selectCandidates,
 } from "../sunSearchService";
@@ -210,5 +211,53 @@ describe("búsqueda de extremo a extremo (sin meteorología)", () => {
     const out = await search({ ...REQUEST, locationType: "beach" }, [PARK_A]);
     expect(out.status).toBe("no_results");
     expect(out.noSunReason).toBe("no_places");
+  });
+});
+
+describe("modo sombra", () => {
+  const sample = (kind: SunWindowKind, score: number): SunSample => ({
+    time: NOON,
+    kind,
+    score,
+    urbanShadow: true,
+    terrainShadow: false,
+    cloudInfluence: 0,
+    confidence: 1,
+    geometryConfidence: 1,
+    weatherConfidence: 1,
+    unverified: true,
+    origin: "estimated",
+    elevationDeg: 60,
+  });
+
+  it("invierte sol y sombra, pero la noche sigue sin contar como sombra útil", () => {
+    const sun = invertForShade(sample("sun", 1));
+    expect(sun.kind).toBe("shadow");
+    expect(sun.score).toBe(0);
+    expect(sun.urbanShadow).toBe(false);
+    expect(sun.unverified).toBe(false);
+
+    expect(invertForShade(sample("shadow", 0.2)).kind).toBe("sun");
+    expect(invertForShade(sample("shadow", 0.2)).score).toBeCloseTo(0.8, 6);
+    expect(invertForShade(sample("cloud", 0.5)).kind).toBe("sun");
+
+    const night = sample("night", 0);
+    expect(invertForShade(night)).toEqual(night);
+  });
+
+  it("si el sitio está todo al sol, no se inventa una ventana de sombra", async () => {
+    const out = await search({ ...REQUEST, intent: "shade" }, [PARK_A]);
+    expect(out.results).toHaveLength(0);
+    expect(out.status).toBe("no_results");
+    expect(out.noSunReason).toBe("none");
+  });
+
+  it("la intención de sombra usa los tipos con sombra natural (parques, plazas, terrazas)", () => {
+    const types = allowedTypes(normalizeRequest({ ...REQUEST, intent: "shade" }));
+    expect(types).toContain("park");
+    expect(types).toContain("square");
+    expect(types).toContain("open_space");
+    expect(types).toContain("terrace");
+    expect(types).not.toContain("beach");
   });
 });

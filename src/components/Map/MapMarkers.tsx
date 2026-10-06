@@ -41,39 +41,36 @@ export default function MapMarkers(props: MapMarkersProps) {
   }, [map]);
 
   // Punto seleccionado.
-  const selId = props.selection?.id;
-  const selLng = props.selection?.lng;
-  const selLat = props.selection?.lat;
+  const sel = props.selection;
   useEffect(() => {
     if (!map || !provider) return;
-    if (selId !== undefined && selLng !== undefined && selLat !== undefined) {
+    if (sel) {
       if (!pinRef.current) {
-        pinRef.current = provider.createMarker(map, createPinElement(), [selLng, selLat]);
+        pinRef.current = provider.createMarker(map, createPinElement(), [sel.lng, sel.lat]);
       } else {
-        pinRef.current.setLngLat([selLng, selLat]);
+        pinRef.current.setLngLat([sel.lng, sel.lat]);
       }
     } else {
       pinRef.current?.remove();
       pinRef.current = null;
     }
-  }, [map, provider, selId, selLng, selLat]);
+  }, [map, provider, sel]);
 
   // Ubicación del usuario.
-  const userLng = props.userLocation?.lng;
-  const userLat = props.userLocation?.lat;
+  const user = props.userLocation;
   useEffect(() => {
     if (!map || !provider) return;
-    if (userLng !== undefined && userLat !== undefined) {
+    if (user) {
       if (!userRef.current) {
-        userRef.current = provider.createMarker(map, createUserElement(), [userLng, userLat]);
+        userRef.current = provider.createMarker(map, createUserElement(), [user.lng, user.lat]);
       } else {
-        userRef.current.setLngLat([userLng, userLat]);
+        userRef.current.setLngLat([user.lng, user.lat]);
       }
     } else {
       userRef.current?.remove();
       userRef.current = null;
     }
-  }, [map, provider, userLng, userLat]);
+  }, [map, provider, user]);
 
   // Lugares destacados por Find the Sun.
   useEffect(() => {

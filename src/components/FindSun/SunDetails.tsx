@@ -8,12 +8,19 @@ import {
 } from "../../lib/formatSun";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { formatClock } from "../../services/timeService";
-import type { NormalizedSunRequest, SunSearchResult, SunlightOrigin, SunWindowKind } from "../../types";
+import { venueFeedbackService } from "../../services/venueFeedbackService";
+import type {
+  NormalizedSunRequest,
+  SunSearchResult,
+  SunlightOrigin,
+  SunWindowKind,
+  TerraceCertainty,
+  VenueCategory,
+} from "../../types";
 import { cn } from "../../utils/cn";
 import { CloseIcon } from "../Icons";
 import { Caps, ConfidenceBars } from "./ui";
 import WindowStrip from "./WindowStrip";
-import { reliabilityWord, windowPhrase } from "./ResultCards";
 
 const ORIGIN_ES: Record<SunlightOrigin, string> = {
   observed: "Basado en observación satelital",
@@ -165,15 +172,124 @@ interface Props {
   onShare(): void;
   onClose(): void;
   className?: string;
+  /** Dentro de un panel contextual: sin cristal ni anchura propios. */
+  embedded?: boolean;
+  /** Confirmación de si el negocio tiene terraza (solo para resultados de tipo negocio). */
+  onTerraceFeedback?(hasTerrace: boolean): void;
 }
 
-/** Cifras clave del resultado. */
-function MetricsGrid({ result, shade }: { result: SunSearchResult; shade: boolean }) {
+/**
+ * Detalle de un resultado: cuánto sol, cuándo, por qué gana y con qué confianza. Explica el
+ * resultado en lugar de limitarse a dar una puntuación.
+ */
+export default function SunDetails({
+  result,
+  peers,
+  request,
+  saved,
+  onToggleSave,
+  onShare,
+  onClose,
+  className,
+  embedded,
+  onTerraceFeedback,
+}: Props) {
+  const [howOpen, setHowOpen] = useState(false);
+  const [feedback, setFeedback] = useState(() => venueFeedbackService.get(result.placeId));
+  const meta = result.place.metadata ?? {};
+  const openingHours = typeof meta.openingHours === "string" ? meta.openingHours : null;
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const other = peers.find((p) => p.placeId === compareId && p.placeId !== result.placeId) ?? null;
+  const others = peers.filter((p) => p.placeId !== result.placeId);
+  const d = result.confidenceDetail;
+  const R = result.rankingDetail;
   const D = result.requestedMinutes;
+
+  /* Negocios: certeza de terraza + feedback de la persona. */
+  const isVenue = meta.venue === true;
+  const terrace = meta.terrace as TerraceCertainty | undefined;
+  const terraceNote =
+    terrace === "confirmed"
+      ? "Terraza confirmada en OpenStreetMap: se calcula el sol del local y de un anillo a su alrededor, porque no se sabe dónde están las mesas."
+      : terrace === "likely"
+        ? "Candidato: el local está en planta baja, pero nadie ha confirmado que saque mesas a la calle. Compruébalo y dínoslo."
+        : terrace === "none"
+          ? "Según los datos, este local no tiene terraza."
+          : "No sabemos si este local tiene terraza.";
+
+  const handleTerraceFeedback = (hasTerrace: boolean) => {
+    venueFeedbackService.record({
+      venue: {
+        id: result.placeId,
+        name: result.place.name,
+        category: (meta.category as VenueCategory) ?? "cafe",
+        latitude: result.place.latitude,
+        longitude: result.place.longitude,
+        terrace: "unknown",
+        terraceSource: "",
+      },
+      hasTerrace,
+      sunAtMoment: result.score >= 50,
+    });
+    setFeedback(venueFeedbackService.get(result.placeId));
+    onTerraceFeedback?.(hasTerrace);
+  };
+
   return (
-    <>
+    <section
+      className={cn(
+        !embedded &&
+          "fts-glass fts-slide-in fts-scroll-y w-[min(calc(100vw-1.5rem),340px)] overflow-y-auto rounded-[26px] p-4 sm:p-5",
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Caps>
+            {PLACE_TYPE_LABEL[result.locationType].singular}
+            {result.walking ? ` · ≈ ${result.walking.durationMinutes} min a pie` : ""}
+          </Caps>
+          <h2 className="mt-1.5 font-serif text-[24px] leading-[1.08] text-ink">{result.place.name}</h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+        >
+          <CloseIcon />
+        </button>
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div>
+          <p className="font-serif text-[54px] leading-[0.82] tracking-tight text-ink">{result.score}</p>
+          <Caps className="mt-2">Sun Score</Caps>
+        </div>
+        <div className="text-right">
+          <p className="text-[12px] font-medium text-ink">
+            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
+          </p>
+          <p className="mt-1 max-w-[150px] text-[10.5px] leading-snug text-ink-soft">
+            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <WindowStrip
+          windows={result.windows}
+          start={request.startTime}
+          end={request.endTime}
+          highlight={result.searchWindow}
+        />
+        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
+          El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
+        </p>
+      </div>
+
       <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl bg-ink/[0.035] px-3.5 py-3">
-        <Row label={shade ? "Sombra" : result.weatherAvailable ? "Sol directo" : "Sol posible"}>
+        <Row label={result.weatherAvailable ? "Sol directo" : "Sol posible"}>
           {fmtMin(result.sunlightMinutes)}
           <span className="font-normal text-ink-faint"> de {fmtMin(D)}</span>
         </Row>
@@ -192,16 +308,13 @@ function MetricsGrid({ result, shade }: { result: SunSearchResult; shade: boolea
           <ConfidenceBars value={result.confidence} />
         </Row>
         <Row label="Distancia">{walkText(result)}</Row>
+        {openingHours && (
+          <div className="col-span-2">
+            <Row label="Horario (OpenStreetMap)">{openingHours}</Row>
+          </div>
+        )}
       </dl>
-    </>
-  );
-}
 
-/** Confianza por componente (geometría, meteorología, global). */
-function ConfidenceSection({ result }: { result: SunSearchResult }) {
-  const d = result.confidenceDetail;
-  return (
-    <>
       <div className="mt-4 space-y-2 border-t border-line pt-3.5">
         <Caps>Confianza</Caps>
         <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
@@ -212,19 +325,12 @@ function ConfidenceSection({ result }: { result: SunSearchResult }) {
           una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
         </p>
       </div>
-    </>
-  );
-}
 
-/** Por qué gana este lugar. */
-function ReasonsList({ result }: { result: SunSearchResult }) {
-  return (
-    <>
       <div className="mt-4 border-t border-line pt-3.5">
         <Caps>¿Por qué este lugar?</Caps>
         <ul className="mt-2.5 space-y-1.5">
-          {result.reasons.map((reason) => (
-            <li key={`${reason.tone}:${reason.text}`} className="flex gap-2.5 text-[12px] leading-snug text-ink-soft">
+          {result.reasons.map((reason, i) => (
+            <li key={i} className="flex gap-2.5 text-[12px] leading-snug text-ink-soft">
               <span
                 aria-hidden
                 className={cn(
@@ -241,20 +347,13 @@ function ReasonsList({ result }: { result: SunSearchResult }) {
           ))}
         </ul>
       </div>
-    </>
-  );
-}
 
-/** La franja contada paso a paso (solo si aporta). */
-function Narrative({ result }: { result: SunSearchResult }) {
-  return (
-    <>
       {result.narrative.length >= 3 && (
         <div className="mt-4 border-t border-line pt-3.5">
           <Caps>Tu franja</Caps>
           <ol className="mt-2.5 space-y-2">
-            {result.narrative.map((e) => (
-              <li key={`${e.time}:${e.kind}:${e.label}`} className="flex items-center gap-3 text-[12px]">
+            {result.narrative.map((e, i) => (
+              <li key={i} className="flex items-center gap-3 text-[12px]">
                 <span className="w-11 shrink-0 tabular-nums text-ink-faint">{formatClock(e.time)}</span>
                 <i className={cn("block h-[8px] w-[8px] shrink-0 rounded-full", DOT[e.kind])} />
                 <span className={cn("text-ink-soft", e.kind === "best" && "font-medium text-ink")}>{e.label}</span>
@@ -263,16 +362,7 @@ function Narrative({ result }: { result: SunSearchResult }) {
           </ol>
         </div>
       )}
-    </>
-  );
-}
 
-/** Desglose de la puntuación, plegado por defecto. */
-function HowItsCalculated({ result }: { result: SunSearchResult }) {
-  const [howOpen, setHowOpen] = useState(false);
-  const R = result.rankingDetail;
-  return (
-    <>
       <div className="mt-4 border-t border-line pt-3">
         <button
           type="button"
@@ -314,17 +404,46 @@ function HowItsCalculated({ result }: { result: SunSearchResult }) {
           </div>
         )}
       </div>
-    </>
-  );
-}
 
-/** Comparar con otro resultado de la lista. */
-function ComparePicker({ result, peers }: { result: SunSearchResult; peers: SunSearchResult[] }) {
-  const [compareId, setCompareId] = useState<string | null>(null);
-  const other = peers.find((p) => p.placeId === compareId && p.placeId !== result.placeId) ?? null;
-  const others = peers.filter((p) => p.placeId !== result.placeId);
-  return (
-    <>
+      {/* Negocios: la gente confirma si de verdad hay mesas al sol. */}
+      {isVenue && (
+        <div className="mt-3.5 border-t border-line pt-3.5">
+          <Caps>¿Hay mesas al sol aquí?</Caps>
+          <p className="mt-2 text-[11px] leading-snug text-ink-soft">{terraceNote}</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => handleTerraceFeedback(true)}
+              className={cn(
+                "rounded-full border px-3 py-2 text-[11.5px] font-medium transition-colors duration-300",
+                feedback?.hasTerrace
+                  ? "border-sun/60 bg-sun-soft text-sun-deep"
+                  : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
+              )}
+            >
+              Sí, hay terraza
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTerraceFeedback(false)}
+              className={cn(
+                "rounded-full border px-3 py-2 text-[11.5px] font-medium transition-colors duration-300",
+                feedback && !feedback.hasTerrace
+                  ? "border-ink/40 bg-ink/[0.06] text-ink"
+                  : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
+              )}
+            >
+              No hay terraza
+            </button>
+          </div>
+          {feedback && (
+            <p className="mt-2 text-[10.5px] text-ink-faint">
+              Gracias — lo tendremos en cuenta en tus próximas búsquedas.
+            </p>
+          )}
+        </div>
+      )}
+
       {others.length > 0 && (
         <div className="mt-3.5 border-t border-line pt-3.5">
           <Caps>Comparar con</Caps>
@@ -346,92 +465,6 @@ function ComparePicker({ result, peers }: { result: SunSearchResult; peers: SunS
           {other && <Compare a={result} b={other} />}
         </div>
       )}
-    </>
-  );
-}
-
-/**
- * Detalle de un resultado: cuánto sol, cuándo, por qué gana y con qué confianza. Explica el
- * resultado en lugar de limitarse a dar una puntuación.
- */
-export default function SunDetails({
-  result,
-  peers,
-  request,
-  saved,
-  onToggleSave,
-  onShare,
-  onClose,
-  className,
-}: Props) {
-  const D = result.requestedMinutes;
-  const shade = request.intent === "shade";
-  const tip = result.place.metadata?.tip as string | undefined;
-  const barrio = result.place.metadata?.barrio as string | undefined;
-
-  return (
-    <section
-      className={cn(
-        "fts-glass fts-slide-in fts-scroll-y w-[min(calc(100vw-1.5rem),340px)] overflow-y-auto rounded-[26px] p-4 sm:p-5",
-        className
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Caps>
-            {PLACE_TYPE_LABEL[result.locationType].singular}
-            {barrio ? ` · ${barrio}` : ""}
-            {result.walking ? ` · ≈ ${result.walking.durationMinutes} min a pie` : ""}
-          </Caps>
-          <h2 className="mt-1.5 font-serif text-[24px] leading-[1.08] text-ink">{result.place.name}</h2>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Cerrar"
-          className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <CloseIcon />
-        </button>
-      </div>
-
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="font-serif text-[26px] leading-[1.05] tracking-tight text-ink" data-testid="details-window">
-            {windowPhrase(result, shade)}
-          </p>
-          <Caps className="mt-2">Fiabilidad {reliabilityWord(result.confidence).toLowerCase()}</Caps>
-        </div>
-        <div className="text-right">
-          <p className="text-[12px] font-medium text-ink">
-            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
-          </p>
-          <p className="mt-1 max-w-[150px] text-[10.5px] leading-snug text-ink-soft">
-            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
-          </p>
-        </div>
-      </div>
-
-      {tip && <p className="mt-3 text-[12px] italic leading-snug text-ink-soft">{tip}</p>}
-
-      <div className="mt-4">
-        <WindowStrip
-          windows={result.windows}
-          start={request.startTime}
-          end={request.endTime}
-          highlight={result.searchWindow}
-        />
-        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
-          El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
-        </p>
-      </div>
-
-      <MetricsGrid result={result} shade={shade} />
-      <ConfidenceSection result={result} />
-      <ReasonsList result={result} />
-      <Narrative result={result} />
-      <HowItsCalculated result={result} />
-      <ComparePicker result={result} peers={peers} />
 
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3.5">
         <ActionButton onClick={onToggleSave} active={saved}>

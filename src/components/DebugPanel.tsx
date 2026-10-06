@@ -68,7 +68,8 @@ export default function DebugPanel({ latitude, longitude, time, source, onSource
   const minute = Math.round(time / 60_000);
 
   const report = useMemo(
-    () => ({ ...lightFusionService.debugReport(latitude, longitude, minute * 60_000, now), version }),
+    () => lightFusionService.debugReport(latitude, longitude, time, now),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [latitude, longitude, minute, now, version]
   );
 
@@ -190,8 +191,8 @@ export default function DebugPanel({ latitude, longitude, time, source, onSource
 
           <Section title="Decision log">
             <ol className="list-decimal space-y-1 pl-4 text-white/75">
-              {fusion.decision.map((line) => (
-                <li key={line}>{line}</li>
+              {fusion.decision.map((line, i) => (
+                <li key={i}>{line}</li>
               ))}
             </ol>
           </Section>
@@ -206,8 +207,8 @@ export default function DebugPanel({ latitude, longitude, time, source, onSource
                 {chart.sel !== null && <line x1={chart.sel} x2={chart.sel} y1="2" y2={H - 4} stroke="#fbbf24" strokeOpacity="0.8" />}
                 <path d={chart.model} fill="none" stroke="#7dd3fc" strokeWidth="1.4" strokeDasharray="3 3" />
                 <path d={chart.satellite} fill="none" stroke="#fbbf24" strokeWidth="1.6" />
-                {chart.dots.map(([cx, cy]) => (
-                  <circle key={`${cx}:${cy}`} cx={cx} cy={cy} r="1.4" fill="#fbbf24" />
+                {chart.dots.map(([cx, cy], i) => (
+                  <circle key={i} cx={cx} cy={cy} r="1.4" fill="#fbbf24" />
                 ))}
                 <path d={chart.fused} fill="none" stroke="white" strokeWidth="2" />
               </svg>

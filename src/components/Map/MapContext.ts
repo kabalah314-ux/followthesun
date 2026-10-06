@@ -12,4 +12,4 @@ export interface MapContextValue {
 
 export const MapContext = createContext<MapContextValue>({ map: null, provider: null });
 
-export const useMapContext = (): MapContextValue => useContext(MapContext);
+export const useMapContext = () => useContext(MapContext);

@@ -1,159 +1,102 @@
-import type { ReactNode } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "../LineIcons";
+import type { AppView } from "../../lib/routing";
 import { cn } from "../../utils/cn";
+import { LAYOUT } from "../Layout/layout";
 import { LogoMark, Wordmark } from "../Logo";
-import {
-  AboutIcon,
-  CollapseIcon,
-  ExploreIcon,
-  FindIcon,
-  PlacesIcon,
-  PlanIcon,
-  SavedIcon,
-  SettingsIcon,
-  StarIcon,
-} from "./NavIcons";
-import type { AppView } from "./viewTypes";
+import NavigationItem from "./NavigationItem";
+import { NAV_ITEMS, PRIMARY_NAV, SECONDARY_NAV } from "./navItems";
 
 interface Props {
   view: AppView;
-  collapsed: boolean;
-  onCollapsedChange(value: boolean): void;
+  compact: boolean;
+  /** En tableta la barra siempre es compacta: no se puede expandir. */
+  canExpand: boolean;
   onNavigate(view: AppView): void;
-}
-
-interface Item {
-  id: AppView;
-  label: string;
-  description: string;
-  icon: (p: React.SVGProps<SVGSVGElement>) => ReactNode;
-}
-
-const PRIMARY: Item[] = [
-  { id: "explore", label: "Mapa", description: "Ver dónde da el sol ahora", icon: ExploreIcon },
-  { id: "find", label: "Buscar sol/sombra", description: "Sitios con sol (o sombra) cerca de ti", icon: FindIcon },
-  { id: "plan", label: "Planificar", description: "Elegir otro momento u otro día", icon: PlanIcon },
-  { id: "places", label: "Sitios", description: "Parques, plazas, playas, terrazas y miradores", icon: PlacesIcon },
-  { id: "recommended", label: "Recomendados", description: "9 sitios por categoría, siempre distintos", icon: StarIcon },
-  { id: "saved", label: "Favoritos", description: "Tus sitios y su sol de hoy", icon: SavedIcon },
-];
-
-const SECONDARY: Item[] = [
-  { id: "settings", label: "Ajustes", description: "Preferencias del mapa", icon: SettingsIcon },
-  { id: "about", label: "Acerca de", description: "El proyecto y sus datos", icon: AboutIcon },
-];
-
-function NavButton({
-  item,
-  active,
-  collapsed,
-  onClick,
-}: {
-  item: Item;
-  active: boolean;
-  collapsed: boolean;
-  onClick(): void;
-}) {
-  const Icon = item.icon;
-  return (
-    <button
-      type="button"
-      title={collapsed ? `${item.label} · ${item.description}` : item.description}
-      aria-current={active ? "page" : undefined}
-      onClick={onClick}
-      className={cn(
-        "group pointer-events-auto relative flex h-11 w-full items-center rounded-[15px] text-left transition-all duration-300",
-        collapsed ? "justify-center px-0" : "gap-3 px-3 md:max-lg:justify-center md:max-lg:gap-0 md:max-lg:px-0",
-        active
-          ? "bg-ink/[0.075] text-ink"
-          : "text-ink-soft hover:bg-ink/[0.045] hover:text-ink"
-      )}
-    >
-      {active && <span className="absolute bottom-[10px] left-0 top-[10px] w-[2px] rounded-full bg-sun" />}
-      <Icon className={cn("shrink-0", active ? "text-sun-deep" : "text-current")} />
-      <span className={cn("min-w-0 flex-1 truncate text-[12.5px] font-medium md:max-lg:hidden", collapsed && "hidden")}>
-        {item.label}
-      </span>
-      {collapsed && (
-        <span className="pointer-events-none absolute left-[calc(100%+12px)] z-[80] hidden whitespace-nowrap rounded-full bg-ink px-3 py-2 text-[11px] font-medium text-paper opacity-0 shadow-xl transition-opacity duration-200 group-hover:block group-hover:opacity-100">
-          {item.label}
-        </span>
-      )}
-    </button>
-  );
+  onToggleCompact(): void;
 }
 
 /**
- * Navegación desktop/tablet: rail translúcido sobre el mapa. El mapa sigue ocupando todo el
- * viewport; expandir/contraer solo mueve el contenido contextual, nunca desmonta el mapa.
+ * Barra lateral (escritorio y tableta): estrecha, translúcida, flotando sobre el mapa para que este
+ * parezca continuar por debajo. Navegación principal arriba; Ajustes y Acerca de separados abajo.
  */
-export default function Sidebar({ view, collapsed, onCollapsedChange, onNavigate }: Props) {
+export default function Sidebar({ view, compact, canExpand, onNavigate, onToggleCompact }: Props) {
+  const width = compact ? LAYOUT.sidebarCompact : LAYOUT.sidebarExpanded;
+
   return (
-    <aside
+    <nav
       aria-label="Navegación principal"
-      className={cn(
-      "fts-glass fts-nav-rail pointer-events-none fixed bottom-[54px] left-3 top-3 z-40 hidden flex-col rounded-[25px] p-2.5 transition-[width] duration-300 ease-out md:flex",
-        collapsed ? "w-[68px]" : "w-[224px] md:max-lg:w-[68px]"
-      )}
+      // El fondo translúcido no captura el gesto: el mapa se puede arrastrar por debajo.
+      className="fts-glass fts-rise pointer-events-none absolute bottom-3 left-3 top-3 z-30 flex flex-col rounded-[24px] py-4 transition-[width] duration-300 ease-out"
+      style={{ width, animationDelay: "200ms" }}
     >
-      <div className={cn("flex h-[54px] shrink-0 items-center", collapsed ? "justify-center" : "gap-3 px-2")}>
-        <LogoMark size={34} animate className="shrink-0 text-ink" />
-        {!collapsed && (
-          <div className="min-w-0 leading-none md:max-lg:hidden">
-            <p className="whitespace-nowrap text-[10px] font-semibold tracking-[0.22em] text-ink">
-              <Wordmark />
-            </p>
-            <p className="mt-1.5 font-serif text-[12px] italic text-ink-soft">Barcelona</p>
-          </div>
+      <button
+        type="button"
+        onClick={() => onNavigate("explore")}
+        aria-label="Follow the Sun — volver al mapa"
+        className={cn(
+          "pointer-events-auto mb-6 flex items-center gap-3 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-sun/60",
+          compact ? "justify-center px-0" : "px-4"
         )}
-      </div>
+      >
+        <LogoMark size={compact ? 30 : 32} className="shrink-0 text-ink" />
+        {!compact && (
+          <span className="min-w-0 text-left leading-none">
+            <span className="block whitespace-nowrap text-[11.5px] font-semibold tracking-[0.24em] text-ink">
+              <Wordmark />
+            </span>
+            <span className="mt-1.5 block font-serif text-[12.5px] italic text-ink-soft">Barcelona</span>
+          </span>
+        )}
+      </button>
 
-      <div className={cn("mt-5 px-1", collapsed && "px-0")}>
-        {!collapsed && <p className="fts-caps mb-2.5 px-2 !text-[8px] md:max-lg:hidden">Descubre</p>}
-        <nav className="flex flex-col gap-1" aria-label="Producto">
-          {PRIMARY.map((item) => (
-            <NavButton
-              key={item.id}
-              item={item}
-              active={view === item.id}
-              collapsed={collapsed}
-              onClick={() => onNavigate(item.id)}
-            />
-          ))}
-        </nav>
-      </div>
+      <ul className={cn("flex flex-col gap-1", compact ? "px-2" : "px-2.5")}>
+        {PRIMARY_NAV.map((v) => (
+          <NavigationItem
+            key={v}
+            item={NAV_ITEMS[v]}
+            active={view === v}
+            compact={compact}
+            onSelect={() => onNavigate(v)}
+          />
+        ))}
+      </ul>
 
-      <div className="mt-auto px-1">
-        <div className="mb-2 h-px bg-line" />
-        {!collapsed && <p className="fts-caps mb-2.5 px-2 !text-[8px] md:max-lg:hidden">Aplicación</p>}
-        <nav className="flex flex-col gap-1" aria-label="Aplicación">
-          {SECONDARY.map((item) => (
-            <NavButton
-              key={item.id}
-              item={item}
-              active={view === item.id}
-              collapsed={collapsed}
-              onClick={() => onNavigate(item.id)}
-            />
-          ))}
-        </nav>
+      <div className="flex-1" />
+
+      <div className={cn("mb-2 h-px bg-line", compact ? "mx-3" : "mx-4")} />
+      <ul className={cn("flex flex-col gap-1", compact ? "px-2" : "px-2.5")}>
+        {SECONDARY_NAV.map((v) => (
+          <NavigationItem
+            key={v}
+            item={NAV_ITEMS[v]}
+            active={view === v}
+            compact={compact}
+            onSelect={() => onNavigate(v)}
+          />
+        ))}
+      </ul>
+
+      {canExpand && (
         <button
           type="button"
-          onClick={() => onCollapsedChange(!collapsed)}
-          aria-label={collapsed ? "Expandir menú" : "Contraer menú"}
-          title={collapsed ? "Expandir menú" : "Contraer menú"}
-        className={cn(
-          "pointer-events-auto mt-2 flex h-10 w-full items-center rounded-[14px] text-ink-faint transition-colors hover:bg-ink/[0.045] hover:text-ink",
-            collapsed ? "justify-center" : "justify-between px-3",
-            "md:max-lg:hidden"
+          onClick={onToggleCompact}
+          aria-label={compact ? "Expandir menú" : "Plegar menú"}
+          aria-expanded={!compact}
+          className={cn(
+            "pointer-events-auto mt-2 flex h-9 items-center gap-3 rounded-[14px] text-[11.5px] text-ink-faint outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60",
+            compact ? "mx-2 justify-center" : "mx-2.5 px-3"
           )}
         >
-          {!collapsed && <span className="text-[10px] font-medium md:max-lg:hidden">Más mapa</span>}
-          <CollapseIcon expanded={!collapsed} className="h-[18px] w-[18px] md:max-lg:rotate-180" />
+          {compact ? (
+            <PanelLeftOpen size={17} strokeWidth={1.5} absoluteStrokeWidth />
+          ) : (
+            <>
+              <PanelLeftClose size={17} strokeWidth={1.5} absoluteStrokeWidth />
+              <span>Plegar</span>
+            </>
+          )}
         </button>
-      </div>
-    </aside>
+      )}
+    </nav>
   );
 }
-
-export const SIDEBAR_EXPANDED = 224;
-export const SIDEBAR_COLLAPSED = 68;

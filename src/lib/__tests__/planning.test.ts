@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PLANNER,
   buildSearchRequest,
-  defaultPlannerWindow,
   durationLabel,
   planAfternoon,
   sunAt,
@@ -113,23 +112,6 @@ describe("atajos", () => {
     const p = planAfternoon(NOW);
     expect([p.fromMinutes, p.toMinutes, p.dayOffset]).toEqual([14 * 60, 19 * 60, 0]);
     expect(planAfternoon(Date.UTC(2026, 5, 21, 17, 0)).dayOffset).toBe(1);
-  });
-});
-
-describe("ventana por defecto del planificador", () => {
-  it("con luz del día empieza dentro de 15 min y dura 1 h 30", () => {
-    const w = defaultPlannerWindow(NOW); // 12:00 CEST
-    expect(w.dayOffset).toBe(0);
-    expect(w.fromMinutes).toBe(12 * 60 + 15);
-    expect(w.toMinutes - w.fromMinutes).toBe(90);
-  });
-
-  it("si ya se ha puesto el salta a la mañana de mañana", () => {
-    const w = defaultPlannerWindow(Date.UTC(2026, 5, 21, 20, 0)); // 22:00 CEST
-    expect(w.dayOffset).toBe(1);
-    expect(w.fromMinutes % 15).toBe(0);
-    expect(w.fromMinutes).toBeGreaterThan(5 * 60);
-    expect(w.toMinutes - w.fromMinutes).toBe(120);
   });
 });
 

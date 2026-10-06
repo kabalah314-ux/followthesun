@@ -1,27 +1,25 @@
-/** Elementos DOM de los marcadores del mapa (se estilan en index.css). Sin innerHTML. */
+/** Elementos DOM de los marcadores del mapa (se estilan en index.css). */
 
-/** Crea un `<div>` con hijos `<span>` vacíos de las clases dadas. */
-function withSpans(className: string, spans: string[]): HTMLDivElement {
+export function createPinElement(): HTMLDivElement {
   const el = document.createElement("div");
-  el.className = className;
-  for (const cls of spans) {
-    const span = document.createElement("span");
-    span.className = cls;
-    el.appendChild(span);
-  }
+  el.className = "fts-pin";
+  el.innerHTML =
+    '<span class="fts-pin__ring"></span><span class="fts-pin__ring fts-pin__ring--b"></span><span class="fts-pin__core"></span>';
   return el;
 }
 
-export function createPinElement(): HTMLDivElement {
-  return withSpans("fts-pin", ["fts-pin__ring", "fts-pin__ring fts-pin__ring--b", "fts-pin__core"]);
-}
-
 export function createUserElement(): HTMLDivElement {
-  return withSpans("fts-user", ["fts-user__pulse", "fts-user__dot"]);
+  const el = document.createElement("div");
+  el.className = "fts-user";
+  el.innerHTML = '<span class="fts-user__pulse"></span><span class="fts-user__dot"></span>';
+  return el;
 }
 
 export function createFindElement(onClick: () => void): HTMLDivElement {
-  const el = withSpans("fts-find", ["fts-find__halo", "fts-find__badge", "fts-find__score", "fts-find__label"]);
+  const el = document.createElement("div");
+  el.className = "fts-find";
+  el.innerHTML =
+    '<span class="fts-find__halo"></span><span class="fts-find__badge"></span><span class="fts-find__score"></span><span class="fts-find__label"></span>';
   el.addEventListener("click", (e) => {
     e.stopPropagation();
     onClick();

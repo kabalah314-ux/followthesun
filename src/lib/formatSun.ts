@@ -1,4 +1,5 @@
 import { formatDuration } from "../services/timeService";
+import { getPreferences } from "./preferences";
 import type { SunWindowKind } from "../types";
 import { influenceLevel } from "./sunlightCalculations";
 
@@ -34,5 +35,15 @@ export const KIND_ES: Record<SunWindowKind, string> = {
   night: "Sin sol",
 };
 
-export const fmtMeters = (m: number): string =>
-  m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+/** Distancia en la unidad elegida en Ajustes. */
+export const fmtMeters = (m: number): string => {
+  if (getPreferences().distanceUnit === "mi") {
+    const mi = m / 1609.344;
+    return mi < 0.2 ? `${Math.round((m * 3.28084) / 10) * 10} ft` : `${mi.toFixed(1).replace(".", ",")} mi`;
+  }
+  return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace(".", ",")} km`;
+};
+
+/** Temperatura en la unidad elegida en Ajustes. */
+export const fmtTemp = (c: number): string =>
+  getPreferences().temperatureUnit === "f" ? `${Math.round((c * 9) / 5 + 32)} °F` : `${Math.round(c)} °C`;
