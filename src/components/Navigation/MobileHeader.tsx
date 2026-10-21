@@ -67,7 +67,7 @@ export default function MobileHeader({ view, layersOpen, onToggleLayers, onLocat
         <button
           type="button"
           onClick={onBrand}
-          aria-label="Follow the Sun — volver al mapa"
+          aria-label="I Follow the Sun — volver al inicio"
           className="pointer-events-auto flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
         >
           <LogoMark size={26} className="text-ink" />

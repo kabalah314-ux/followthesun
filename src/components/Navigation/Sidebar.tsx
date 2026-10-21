@@ -32,7 +32,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
       <button
         type="button"
         onClick={() => onNavigate("explore")}
-        aria-label="Follow the Sun — volver al mapa"
+        aria-label="I Follow the Sun — volver al inicio"
         className={cn(
           "pointer-events-auto mb-6 flex items-center gap-3 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-sun/60",
           compact ? "justify-center px-0" : "px-4"

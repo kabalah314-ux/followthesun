@@ -32,6 +32,7 @@ export interface MapLike {
   zoomOut(options?: any): unknown;
   /** Cambia el estilo en caliente (p. ej. a vista satélite) sin recrear el mapa. */
   setStyle(style: any): unknown;
+  isStyleLoaded(): boolean | void;
   /** Luz de los edificios en 3D (ambas librerías la tienen). */
   setLight?(light: any, options?: any): unknown;
 }

@@ -42,15 +42,29 @@ export const DEFAULT_PREFERENCES: Preferences = {
   buildings3D: true,
   autoTilt: true,
   sidebarCollapsed: false,
-  satelliteView: true,
+  satelliteView: false,
   timelineHidden: false,
 };
 
-const KEY = "fts:prefs:v1";
+const KEY = "fts:prefs:v2";
+/** v1 guardaba `satelliteView: true` por defecto (estilo que dejaba el mapa en blanco sin Mapbox). */
+const LEGACY_KEY = "fts:prefs:v1";
+
+function migrateLegacy(): string | null {
+  const raw = window.localStorage.getItem(LEGACY_KEY);
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as Record<string, unknown> | null;
+  if (!parsed || typeof parsed !== "object") return null;
+  delete parsed.satelliteView;
+  const next = JSON.stringify(parsed);
+  window.localStorage.setItem(KEY, next);
+  window.localStorage.removeItem(LEGACY_KEY);
+  return next;
+}
 
 function load(): Preferences {
   try {
-    const raw = window.localStorage.getItem(KEY);
+    const raw = window.localStorage.getItem(KEY) ?? migrateLegacy();
     if (!raw) return DEFAULT_PREFERENCES;
     const parsed = JSON.parse(raw) as Partial<Preferences> | null;
     return { ...DEFAULT_PREFERENCES, ...(parsed && typeof parsed === "object" ? parsed : {}) };

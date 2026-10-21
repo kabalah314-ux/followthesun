@@ -157,7 +157,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           duration: 1700,
           easing: easeOutCubic,
         });
-        if (provider.id === "maplibre") {
+        if (provider.id === "maplibre" && new URLSearchParams(window.location.search).has("debug")) {
           try {
             if (window.sessionStorage.getItem(OPEN_MAP_NOTICE)) return;
             window.sessionStorage.setItem(OPEN_MAP_NOTICE, "1");
@@ -194,6 +194,25 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           propsRef.current.onToast("Mapa base no disponible: mostrando una versión simplificada.");
         }
       });
+
+      // Vigilante: si el estilo no ha cargado a los 4,5 s (estilo inválido o fuente caída), se
+      // vuelve al estilo base dibujado. Un estilo rechazado no emite `load` y dejaría el mapa vacío.
+      later(() => {
+        if (disposed || !m) return;
+        let ok = true;
+        try {
+          ok = !!m.isStyleLoaded();
+        } catch {
+          ok = false;
+        }
+        if (ok) return;
+        try {
+          if (preferences.get().satelliteView) preferences.set({ satelliteView: false });
+          m.setStyle(provider.createStyle(propsRef.current.theme, false));
+        } catch {
+          /* sin estilo base: queda la pantalla de bienvenida y el aviso */
+        }
+      }, 4500);
 
       // Si la red tarda demasiado, no dejar la pantalla de bienvenida indefinidamente.
       later(() => {

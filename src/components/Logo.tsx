@@ -64,7 +64,7 @@ export function LogoMark({
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={className}>
-      FOLLOW THE <span className="text-sun-deep">SUN</span>
+      I FOLLOW THE <span className="text-sun-deep">SUN</span>
     </span>
   );
 }

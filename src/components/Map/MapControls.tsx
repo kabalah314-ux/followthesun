@@ -115,7 +115,11 @@ export default function MapControls(p: Props) {
             <Layers {...icon} />
             {!p.layersOpen && <Tip>Capas</Tip>}
           </button>
-          {p.layersOpen && <div className="absolute right-full top-1/2 mr-3 -translate-y-1/2">{p.layerPanel}</div>}
+          {p.layersOpen && (
+            <div className="absolute right-full top-0 mr-3 max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain rounded-2xl">
+              {p.layerPanel}
+            </div>
+          )}
         </div>
       </div>
 

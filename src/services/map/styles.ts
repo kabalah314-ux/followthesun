@@ -827,6 +827,18 @@ const SAT_FADE = new Set([
  * etiquetas, atenuados. Así las sombras y el relieve 3D siguen viéndose sobre la ciudad real, y las
  * calles continúan siendo legibles. No es un simple cambio de fondo.
  */
+/** Propiedades de opacidad válidas para cada tipo de capa (style-spec v8). */
+const OPACITY_PROPS: Record<string, string[]> = {
+  background: ["background-opacity"],
+  fill: ["fill-opacity"],
+  line: ["line-opacity"],
+  "fill-extrusion": ["fill-extrusion-opacity"],
+  symbol: ["text-opacity", "icon-opacity"],
+  circle: ["circle-opacity", "circle-stroke-opacity"],
+  raster: ["raster-opacity"],
+  heatmap: ["heatmap-opacity"],
+};
+
 export function createSatelliteStyle(
   base: StyleJSON,
   theme: Theme,
@@ -855,21 +867,22 @@ export function createSatelliteStyle(
     if (layer.id === "satellite-base") continue;
     const paint = (layer.paint ?? {}) as Record<string, unknown>;
     const id = String(layer.id);
+    const type = String(layer.type);
 
     if (SAT_FADE.has(id)) {
       // El mar y el verde ya se ven en la foto: el vectorial solo estorbaría.
-      layer.paint = {
-        ...paint,
-        "fill-opacity": 0,
-        "line-opacity": 0,
-        "background-opacity": 0,
-      } as typeof layer.paint;
-    } else if (id === "buildings") {
+      // Solo la opacidad del tipo de la capa: una propiedad de otro tipo invalida el estilo entero
+      // (MapLibre lo rechaza y el mapa se queda en blanco).
+      const props = OPACITY_PROPS[type] ?? [];
+      const faded: Record<string, unknown> = { ...paint };
+      for (const p of props) faded[p] = 0;
+      layer.paint = faded as typeof layer.paint;
+    } else if (id === "buildings" && type === "fill") {
       // Velo muy tenue: marca las manzanas sin tapar la imagen.
       layer.paint = { ...paint, "fill-opacity": 0.22 } as typeof layer.paint;
-    } else if (id === "buildings-3d") {
+    } else if (id === "buildings-3d" && type === "fill-extrusion") {
       layer.paint = { ...paint, "fill-extrusion-opacity": 0.62 } as typeof layer.paint;
-    } else if (id.startsWith("road-")) {
+    } else if (id.startsWith("road-") && type === "line") {
       layer.paint = { ...paint, "line-opacity": 0.55 } as typeof layer.paint;
     } else if (id.startsWith("label-")) {
       layer.paint = {
