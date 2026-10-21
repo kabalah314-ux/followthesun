@@ -19,7 +19,8 @@ import type { View } from "../../types";
  * Produce dos máscaras opacas: `canvas` (sombras) y `silhouettes` (edificios en 3D).
  */
 
-const SHADOW_COLOR = "#22295a";
+/** Azul pizarra de la guía (#24345E); su opacidad (≈ 46 → 58 % al acercar) la fija el motor. */
+const SHADOW_COLOR = "#24345e";
 const SIL_COLOR = "#000";
 
 export interface ShadowRenderOptions {

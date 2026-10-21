@@ -1,5 +1,7 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
+import { useComfort } from "../hooks/useComfort";
 import { describePoint, type SunAnswer, type SunShadeMode } from "../lib/answer";
+import { feelsLine, uvLine, windLine, type Comfort } from "../lib/comfort";
 import { solarService } from "../services/solarService";
 import {
   confidenceLevel,
@@ -162,7 +164,17 @@ function Breakdown({ b }: { b: ConfidenceBreakdown }) {
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const km = (v: number | null) => (v == null ? null : String(v).replace(".", ","));
 
-function SunlightBlock({ r, now, answer }: { r: SunlightResult | null; now: number; answer: SunAnswer | null }) {
+function SunlightBlock({
+  r,
+  now,
+  answer,
+  comfort,
+}: {
+  r: SunlightResult | null;
+  now: number;
+  answer: SunAnswer | null;
+  comfort: Comfort | null;
+}) {
   const [open, setOpen] = useState(false);
 
   if (!r || !answer) {
@@ -202,6 +214,9 @@ function SunlightBlock({ r, now, answer }: { r: SunlightResult | null; now: numb
           <Row label="Fiabilidad">
             <ConfidenceMeter value={r.confidence} />
           </Row>
+          {comfort && <Row label="Sensación">{feelsLine(comfort)}</Row>}
+          {comfort && windLine(comfort) && <Row label="Viento">{windLine(comfort)}</Row>}
+          {comfort && uvLine(comfort) && <Row label="UV">{uvLine(comfort)}</Row>}
         </dl>
       )}
       {note && <p className="mt-2 text-[13px] leading-snug text-ink-soft">{note}</p>}
@@ -254,6 +269,7 @@ interface Props {
 }
 
 function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave, mode, apparentC }: Props) {
+  const comfort = useComfort(time);
   const intervalLabel = (state: SunState) =>
     state === "sun"
       ? timeline?.weatherAvailable
@@ -313,7 +329,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
         </button>
       </div>
 
-      <SunlightBlock r={sunlight} now={now} answer={answer} />
+      <SunlightBlock r={sunlight} now={now} answer={answer} comfort={comfort} />
 
       <div className="mt-4 border-t border-line pt-3.5">
         <p className="fts-caps !text-[12px]">{dayChoiceLabel(dayStart, now)} en este punto</p>

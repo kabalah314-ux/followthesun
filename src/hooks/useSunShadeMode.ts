@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { SUN_SHADE_AUTO } from "../config";
 import { onIdle } from "../lib/idle";
-import { comfortService } from "../services/comfortService";
+import { comfortAt, comfortService } from "../services/comfortService";
 import { zoneDayKey } from "../services/timeService";
 import { usePreferences } from "./usePreferences";
 
@@ -16,6 +16,8 @@ export interface SunShadeState {
   /** Temperatura y sensación térmica del modelo en la próxima media hora, si se conocen. */
   temperatureC: number | null;
   apparentC: number | null;
+  /** Sensación al sol directo (lib/comfort.ts), si se conoce. */
+  sunExposedC: number | null;
   /** Elección manual: dura hasta la medianoche de Barcelona. */
   choose(mode: SunShadeMode): void;
 }
@@ -29,7 +31,7 @@ const HALF_HOUR = 30 * 60_000;
  */
 export function useSunShadeMode(now: number): SunShadeState {
   const [prefs, setPrefs] = usePreferences();
-  const [comfort, setComfort] = useState<{ temp: number; apparent: number } | null>(null);
+  const [comfort, setComfort] = useState<{ temp: number; apparent: number; sun: number | null } | null>(null);
   const slot = Math.floor(now / HALF_HOUR);
 
   useEffect(() => {
@@ -39,7 +41,8 @@ export function useSunShadeMode(now: number): SunShadeState {
         if (!alive || !ok) return;
         const t = Date.now();
         const s = comfortService.summarize(t, t + HALF_HOUR);
-        setComfort(s ? { temp: s.meanTemperatureC, apparent: s.meanApparentC } : null);
+        const sun = comfortAt(t + HALF_HOUR / 2)?.alSolC ?? null;
+        setComfort(s ? { temp: s.meanTemperatureC, apparent: s.meanApparentC, sun } : null);
       });
     }, 3500);
     return () => {
@@ -50,7 +53,17 @@ export function useSunShadeMode(now: number): SunShadeState {
 
   const today = zoneDayKey(now);
   const override = prefs.sunShadeOverride && prefs.sunShadeOverride.day === today ? prefs.sunShadeOverride.mode : null;
-  const auto: SunShadeMode = comfort && comfort.apparent >= SUN_SHADE_AUTO.shadeFromApparentC ? "shade" : "sun";
+  // Con la sensación al sol (incluye la radiación) se decide con su propio umbral; si falta, con la
+  // sensación térmica del modelo, como antes.
+  const auto: SunShadeMode = !comfort
+    ? "sun"
+    : comfort.sun !== null
+      ? comfort.sun >= SUN_SHADE_AUTO.shadeFromSunExposedC
+        ? "shade"
+        : "sun"
+      : comfort.apparent >= SUN_SHADE_AUTO.shadeFromApparentC
+        ? "shade"
+        : "sun";
 
   const choose = useCallback(
     (mode: SunShadeMode) => setPrefs({ sunShadeOverride: { mode, day: zoneDayKey(Date.now()) } }),
@@ -63,6 +76,7 @@ export function useSunShadeMode(now: number): SunShadeState {
     overridden: override !== null,
     temperatureC: comfort?.temp ?? null,
     apparentC: comfort?.apparent ?? null,
+    sunExposedC: comfort?.sun ?? null,
     choose,
   };
 }

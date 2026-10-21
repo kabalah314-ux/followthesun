@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useComfort } from "../../hooks/useComfort";
+import { comfortShort } from "../../lib/comfort";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import type { NearbyLine } from "../../lib/placeAnswer";
 import type { SunSearchResult } from "../../types";
@@ -21,6 +24,9 @@ export default function NearbyCard({
   showWalk?: boolean;
 }) {
   const type = PLACE_TYPE_LABEL[result.locationType]?.singular ?? "Lugar";
+  // Sensación en el momento de la franja de la tarjeta (ahora o, si es mañana, su inicio).
+  const [openedAt] = useState(() => Date.now());
+  const comfort = useComfort(Math.max(openedAt, result.searchWindow.start));
   const walk = showWalk && result.walking ? ` · ${result.walking.durationMinutes} min a pie` : "";
   return (
     <button
@@ -47,6 +53,11 @@ export default function NearbyCard({
           {walk}
         </span>
         <span className="mt-1 block text-[13.5px] font-medium text-ink">{line.text}</span>
+        {comfort && (
+          <span className="mt-0.5 block text-[12.5px] text-ink-soft">
+            {comfortShort(comfort, line.tone === "shade" ? "shade" : "sun")}
+          </span>
+        )}
       </span>
     </button>
   );

@@ -23,22 +23,25 @@ import type { View } from "../../types";
 
 const CELL = 12;
 /** Sombra de relieve: azul profundo. */
-const SHADE: [number, number, number] = [36, 46, 96];
+/** Azul pizarra de la sombra (#24345E), el mismo que las sombras de edificios. */
+const SHADE: [number, number, number] = [36, 52, 94];
 /** Distancia máxima sobre el suelo que se pinta (m): evita calcular el horizonte con mucha inclinación. */
 const MAX_GROUND_M = 16_000;
 
 /**
- * Escala de color de la intensidad (0-1 → rgba). Paradas: crema pálido → dorado → ámbar → naranja
- * intenso. Opacidades moderadas para que el mapa se siga leyendo.
+ * Escala de color de la intensidad (0-1 → rgba), paleta de la guía: sol suave crema #FCE7B0 (~45 %)
+ * → sol directo fuerte ámbar #FFB340 (~55 %). Todo el sol en el lado cálido y la sombra en azul
+ * pizarra (SHADE y ShadowLayer): el contraste cálido-frío se distingue también con daltonismo
+ * rojo-verde. Sin datos de nubes la escala se queda a media altura (ver `cap`).
  */
 const RAMP: Array<[number, number, number, number, number]> = [
   // [intensidad, r, g, b, alfa]
-  [0.0, 255, 246, 214, 0.0],
-  [0.12, 255, 238, 190, 0.1],
-  [0.35, 255, 216, 120, 0.2],
-  [0.6, 255, 186, 64, 0.3],
-  [0.82, 252, 152, 30, 0.38],
-  [1.0, 240, 116, 14, 0.44],
+  [0.0, 252, 231, 176, 0.0],
+  [0.12, 252, 231, 176, 0.2],
+  [0.35, 252, 231, 176, 0.45],
+  [0.6, 254, 205, 118, 0.5],
+  [0.82, 255, 179, 64, 0.55],
+  [1.0, 255, 168, 44, 0.58],
 ];
 
 const OUT = new Float64Array(4);
@@ -164,11 +167,12 @@ export class SolarHeatmap {
           L[p + 3] = 0;
         }
 
-        // Velo de nubes: gris frío, más denso donde las nubes tapan más el sol.
+        // Velo de nubes: gris frío #C9CED6 que apaga el ámbar, más denso donde las nubes tapan más
+        // el sol; transición continua, sin dibujar bordes de nube que el modelo no conoce.
         const core = d * d;
-        C[p] = lerp(214, 118, nightK) - 22 * core;
-        C[p + 1] = lerp(222, 130, nightK) - 18 * core;
-        C[p + 2] = lerp(234, 176, nightK) - 8 * core;
+        C[p] = lerp(201, 118, nightK) - 20 * core;
+        C[p + 1] = lerp(206, 130, nightK) - 18 * core;
+        C[p + 2] = lerp(214, 176, nightK) - 10 * core;
         C[p + 3] = veilMax * smoothstep(0.08, 0.9, d) * 255;
       }
     }

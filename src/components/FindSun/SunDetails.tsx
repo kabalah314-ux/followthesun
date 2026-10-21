@@ -6,6 +6,8 @@ import {
   fmtMin,
   influenceWord,
 } from "../../lib/formatSun";
+import { useComfort } from "../../hooks/useComfort";
+import { comfortSentence } from "../../lib/comfort";
 import { describeResult } from "../../lib/placeAnswer";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { formatClock } from "../../services/timeService";
@@ -209,6 +211,10 @@ export default function SunDetails({
   const [howOpen, setHowOpen] = useState(false);
   const [openedAt] = useState(() => Date.now());
   const answer = describeResult(result, now ?? openedAt, request.intent === "shade" ? "shade" : "sun");
+  // Confort del momento que importa: ahora si cae dentro de la franja; si no, el mejor momento.
+  const ref = now ?? openedAt;
+  const inWindow = ref >= result.searchWindow.start && ref < result.searchWindow.end;
+  const comfort = useComfort(inWindow ? ref : (result.bestWindow ?? result.searchWindow).start);
   const [feedback, setFeedback] = useState(() => venueFeedbackService.get(result.placeId));
   const meta = result.place.metadata ?? {};
   const openingHours = typeof meta.openingHours === "string" ? meta.openingHours : null;
@@ -285,6 +291,7 @@ export default function SunDetails({
       >
         <p className="text-[18px] font-semibold leading-snug text-ink">{answer.headline}</p>
         {answer.detail && <p className="mt-1 text-[14px] leading-snug text-ink-soft">{answer.detail}</p>}
+        {comfort && <p className="mt-1.5 text-[14px] leading-snug text-ink">{comfortSentence(comfort)}</p>}
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

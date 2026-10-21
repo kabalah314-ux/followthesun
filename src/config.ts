@@ -419,7 +419,14 @@ export const SEARCH_CONFIG = {
  * Open-Meteo) la app propone sombra por defecto. Valor inicial a calibrar con el uso real.
  */
 export const SUN_SHADE_AUTO = {
+  /** Respaldo: sensación térmica del modelo a partir de la cual se propone sombra. */
   shadeFromApparentC: 27,
+  /**
+   * Sensación al sol (lib/comfort.ts) a partir de la cual se propone sombra. Más alta que la anterior
+   * porque incluye la radiación: 22 °C con sol pleno en octubre dan ≈ 28 °C al sol y aún se busca sol;
+   * a partir de ~32 °C al sol (junio a septiembre en Barcelona) se busca sombra. A calibrar.
+   */
+  shadeFromSunExposedC: 32,
 } as const;
 
 export const SUN_SCORE_CONFIG = {

@@ -1,4 +1,5 @@
 import { BARCELONA, WEATHER_API } from "../config";
+import { comfortFrom, type Comfort, type WeatherSample } from "../lib/comfort";
 import type { ComfortSummary } from "../types";
 import { fetchJson } from "./weatherService";
 
@@ -18,6 +19,11 @@ interface ComfortData {
   temp: number[];
   apparent: number[];
   wind: number[];
+  /** Opcionales: si el modelo no los devuelve, el confort los deja en null. */
+  humidity: number[] | null;
+  gust: number[] | null;
+  uv: number[] | null;
+  dni: number[] | null;
   fetchedAt: number;
 }
 
@@ -39,7 +45,8 @@ class ComfortService {
       try {
         let url =
           `${WEATHER_API.baseUrl}/v1/forecast?latitude=${BARCELONA.lat}&longitude=${BARCELONA.lng}` +
-          `&hourly=temperature_2m,apparent_temperature,wind_speed_10m&timeformat=unixtime&forecast_days=8`;
+          `&hourly=temperature_2m,apparent_temperature,wind_speed_10m,relative_humidity_2m,wind_gusts_10m,` +
+          `uv_index,direct_normal_irradiance_instant&timeformat=unixtime&forecast_days=8`;
         if (WEATHER_API.apiKey) url += `&apikey=${encodeURIComponent(WEATHER_API.apiKey)}`;
         const json = (await fetchJson(url, 12_000)) as { hourly?: Record<string, unknown> };
         const h = json.hourly;
@@ -48,7 +55,17 @@ class ComfortService {
         const apparent = asNumbers(h?.apparent_temperature);
         const wind = asNumbers(h?.wind_speed_10m);
         if (!times || !temp || !apparent || !wind || times.length < 3) throw new Error("respuesta");
-        this.data = { t0: times[0] * 1000, temp, apparent, wind, fetchedAt: Date.now() };
+        this.data = {
+          t0: times[0] * 1000,
+          temp,
+          apparent,
+          wind,
+          humidity: asNumbers(h?.relative_humidity_2m),
+          gust: asNumbers(h?.wind_gusts_10m),
+          uv: asNumbers(h?.uv_index),
+          dni: asNumbers(h?.direct_normal_irradiance_instant),
+          fetchedAt: Date.now(),
+        };
         return true;
       } catch {
         return this.data !== null;
@@ -57,6 +74,22 @@ class ComfortService {
       }
     })();
     return this.promise;
+  }
+
+  hasData(): boolean {
+    return this.data !== null;
+  }
+
+  /** Muestra interpolada en un instante (null en lo que no haya dato). */
+  sampleAt(t: number): WeatherSample | null {
+    const d = this.data;
+    if (!d) return null;
+    const v = (arr: number[] | null) => {
+      if (!arr) return null;
+      const x = this.sample(arr, t);
+      return Number.isNaN(x) ? null : x;
+    };
+    return { tempC: v(d.temp), humidity: v(d.humidity), windKmh: v(d.wind), gustKmh: v(d.gust), uv: v(d.uv), dni: v(d.dni) };
   }
 
   private sample(arr: number[], t: number): number {
@@ -102,3 +135,13 @@ class ComfortService {
 }
 
 export const comfortService = new ComfortService();
+
+/**
+ * Confort en un instante: { tempC, alSolC, aLaSombraC, vientoKmh, rachasKmh, uv, consejo }.
+ * La serie es de escala de ciudad (un punto del modelo para Barcelona): `lugar` queda para cuando
+ * haya series por barrio. null si no hay datos o el instante cae fuera de la previsión.
+ */
+export function comfortAt(time: number, _lugar?: { lat: number; lng: number }): Comfort | null {
+  const s = comfortService.sampleAt(time);
+  return s ? comfortFrom(s) : null;
+}
