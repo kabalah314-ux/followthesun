@@ -22,6 +22,7 @@ import { PROVENANCE_WORD } from "./components/SourceStatusLine";
 import Splash from "./components/Splash";
 import { MapPin, Star } from "./components/LineIcons";
 import Toast from "./components/Toast";
+import AnswerCard from "./components/Now/AnswerCard";
 
 /**
  * Los paneles de cada sección se descargan al abrirlas: la carga inicial solo trae el mapa, el sol
@@ -54,9 +55,12 @@ import { usePreferences } from "./hooks/usePreferences";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useTimeController } from "./hooks/useTimeController";
+import { useSunShadeMode } from "./hooks/useSunShadeMode";
+import { describeCity, type SunShadeMode } from "./lib/answer";
+import { SUN_INTENTS } from "./lib/placeTypes";
 import { distanceMeters } from "./lib/coordinates";
 import { onIdle } from "./lib/idle";
-import { DEFAULT_PLANNER, buildSearchRequest, type PlannerState } from "./lib/planning";
+import { DEFAULT_PLANNER, buildSearchRequest, oneHourOfSun, type PlannerState } from "./lib/planning";
 import { dayChoiceLabel, dayStartFor, minutesOfDay, zonedMs } from "./lib/planningTime";
 import { presentOnDay, timelineRange } from "./lib/timelineRange";
 import { cloudService } from "./services/cloudService";
@@ -68,7 +72,7 @@ import { createShareablePlan, shareOrCopy } from "./services/planShareService";
 import { satelliteService } from "./services/satelliteService";
 import { SUN_UP_RAD, solarService } from "./services/solarService";
 import { venueToSunPlace, venueService } from "./services/venueService";
-import { startOfZoneDay, zoneDayKey } from "./services/timeService";
+import { formatClock, startOfZoneDay, zoneDayKey } from "./services/timeService";
 import type {
   CameraState,
   CityStats,
@@ -527,6 +531,84 @@ export default function App() {
     setToast(toggle(target) ? "Punto guardado" : "Quitado de guardados");
   }, [selection, pointSaved, toggle]);
 
+  /* ------------------------------ Ahora: respuesta y modo sol/sombra ------------------------------ */
+  const sunShade = useSunShadeMode(now);
+  const [answerHidden, setAnswerHidden] = useState(false);
+  const [nearbyBusy, setNearbyBusy] = useState(false);
+  const nextSunrise = useMemo(
+    () => solarService.getSunTimes(dayStartFor(Date.now(), dayOffset + 1), BARCELONA.lat, BARCELONA.lng).sunrise,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dayKey, dayOffset]
+  );
+  const cityAnswer = useMemo(
+    () =>
+      describeCity({
+        time: selectedTime,
+        sunrise: sunTimes.sunrise,
+        sunset: sunTimes.sunset,
+        nextSunrise,
+        sunPercent: up && stats ? stats.sunPercent : null,
+        shadePercent: up && stats ? stats.shadePercent : null,
+        cloudPercent: up && stats ? stats.cloudPercent : null,
+        temperatureC: isNow ? sunShade.temperatureC : null,
+        apparentC: isNow ? sunShade.apparentC : null,
+        mode: sunShade.mode,
+      }),
+    [selectedTime, sunTimes, nextSunrise, up, stats, isNow, sunShade.temperatureC, sunShade.apparentC, sunShade.mode]
+  );
+
+  /** «Sol / Sombra cerca de mí»: ubicación (si se da), 1 h desde ahora y búsqueda en Buscar. */
+  const startNearby = useCallback(
+    async (mode: SunShadeMode) => {
+      if (mode !== sunShade.mode) sunShade.choose(mode);
+      setNearbyBusy(true);
+      const origin = userLocation ?? (await requestUserLocation());
+      setNearbyBusy(false);
+      const plan: PlannerState = { ...oneHourOfSun(60, !!origin), intent: mode, preference: SUN_INTENTS[mode].preference };
+      go("find");
+      void runFind(plan, origin);
+    },
+    [sunShade, userLocation, requestUserLocation, go, runFind]
+  );
+
+  const showMyPoint = useCallback(() => {
+    if (!userLocation) return;
+    handleSelect({ id: ++selCounter.current, lng: userLocation.lng, lat: userLocation.lat, name: "Tu ubicación" });
+    mapController.current?.flyToPoint(userLocation.lng, userLocation.lat, 16);
+  }, [userLocation, handleSelect]);
+
+  const handleRename = useCallback((id: number, name: string, area: string) => {
+    setSelection((s) => (s && s.id === id ? { ...s, name, area } : s));
+  }, []);
+
+  // Buscar sigue al modo (sol o sombra) mientras no haya una búsqueda en marcha ni otra intención elegida.
+  const findStatus = findSearch.state.status;
+  useEffect(() => {
+    if (findStatus !== "idle") return;
+    setFindPlanner((p) =>
+      p.locationType === "any" && (p.intent === "sun" || p.intent === "shade") && p.intent !== sunShade.mode
+        ? { ...p, intent: sunShade.mode, preference: SUN_INTENTS[sunShade.mode].preference }
+        : p
+    );
+  }, [sunShade.mode, findStatus]);
+
+  const answerVisible = view === "explore" && !activeResult && !selection && !answerHidden;
+  const answerTimeLabel = isNow ? `Ahora · ${formatClock(selectedTime)}` : `${dayChoiceLabel(dayStart, now)} · ${formatClock(selectedTime)}`;
+  const answerCard = (compact: boolean) => (
+    <AnswerCard
+      compact={compact}
+      answer={cityAnswer}
+      timeLabel={answerTimeLabel}
+      mode={sunShade.mode}
+      heatSuggested={sunShade.auto === "shade" && !sunShade.overridden}
+      hasLocation={!!userLocation}
+      busy={nearbyBusy}
+      onNearby={(m) => void startNearby(m)}
+      onMyPoint={showMyPoint}
+      onHide={() => setAnswerHidden(true)}
+    />
+  );
+
   /* ------------------------------ teclado ------------------------------ */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -612,6 +694,8 @@ export default function App() {
             onClose={closeDetail}
             saved={!!pointSaved}
             onToggleSave={toggleSavePoint}
+            mode={sunShade.mode}
+            apparentC={sunShade.apparentC}
           />
         )}
       </Suspense>
@@ -627,7 +711,13 @@ export default function App() {
           <FindSunPanel
             search={findSearch}
             planner={findPlanner}
-            onChange={(patch) => setFindPlanner((p) => ({ ...p, ...patch }))}
+            onChange={(patch) => {
+              // Elegir «Máximo sol» o «Sombra» es una elección de modo: se respeta hasta medianoche.
+              if ((patch.intent === "sun" || patch.intent === "shade") && (patch.locationType ?? "any") === "any") {
+                sunShade.choose(patch.intent);
+              }
+              setFindPlanner((p) => ({ ...p, ...patch }));
+            }}
             onSearch={runFind}
             venuesLoading={venuesLoading}
             now={now}
@@ -731,6 +821,7 @@ export default function App() {
       onToast={setToast}
       onCamera={handleCamera}
       onUserLocation={setUserLocation}
+      onRename={handleRename}
       autoTilt={prefs.autoTilt && buildings3D}
     >
       <BuildingLayer visible={prefs.showBuildings} extrude={prefs.buildings3D || FEATURES.buildings3D} />
@@ -836,6 +927,7 @@ export default function App() {
               azimuthDeg={sunPos.azimuthDeg}
               light={light}
             />
+            {answerVisible && <div className="mt-2">{answerCard(false)}</div>}
           </div>
 
           <div className="pointer-events-none absolute right-3 z-20" style={{ top: LAYOUT.gap }}>
@@ -897,6 +989,7 @@ export default function App() {
               azimuthDeg={sunPos.azimuthDeg}
               light={light}
             />
+            {answerVisible && !sheetOpen && !layersOpen && <div className="mt-2">{answerCard(true)}</div>}
           </div>
           <div
             className={cn("pointer-events-auto fixed right-3 z-20 transition-opacity duration-300", layersOpen && "pointer-events-none opacity-0")}

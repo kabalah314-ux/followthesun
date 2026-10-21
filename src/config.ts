@@ -409,6 +409,14 @@ export const SEARCH_CONFIG = {
  * Sun Score: cada número está aquí y se explica. No son pesos aleatorios: la puntuación es una
  * combinación lineal de tres magnitudes que la persona puede leer en el resultado.
  */
+/**
+ * Modo automático «busco sol / busco sombra». Por encima de esta sensación térmica (modelo de
+ * Open-Meteo) la app propone sombra por defecto. Valor inicial a calibrar con el uso real.
+ */
+export const SUN_SHADE_AUTO = {
+  shadeFromApparentC: 27,
+} as const;
+
 export const SUN_SCORE_CONFIG = {
   weights: {
     /** Minutos de sol directo / minutos pedidos. */

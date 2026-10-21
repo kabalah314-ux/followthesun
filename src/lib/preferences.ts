@@ -28,6 +28,11 @@ export interface Preferences {
   satelliteView: boolean;
   /** Línea de tiempo oculta: solo queda el acceso compacto con la hora. */
   timelineHidden: boolean;
+  /**
+   * Elección manual de «busco sol / busco sombra» y el día (clave de día de Barcelona) en que se
+   * hizo: manda sobre el modo automático hasta medianoche.
+   */
+  sunShadeOverride: { mode: "sun" | "shade"; day: string } | null;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -44,6 +49,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   sidebarCollapsed: false,
   satelliteView: false,
   timelineHidden: false,
+  sunShadeOverride: null,
 };
 
 const KEY = "fts:prefs:v2";

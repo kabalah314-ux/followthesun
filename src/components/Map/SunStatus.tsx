@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { BARCELONA } from "../../config";
 import type { LightSourceState } from "../../hooks/useLightSource";
-import { compassLabel, type SunTimes } from "../../services/solarService";
-import { formatClock } from "../../services/timeService";
+import { sunPositionPhrase } from "../../lib/answer";
+import { solarService, type SunTimes } from "../../services/solarService";
+import { formatClock, startOfZoneDay } from "../../services/timeService";
 import type { CityStats } from "../../types";
 import { cn } from "../../utils/cn";
 import InfoPanel from "../InfoPanel";
@@ -19,8 +21,9 @@ interface Props {
 }
 
 /**
- * Estado del sol en una sola línea: «Barcelona · Hoy 17:42 · 42° SO». Es todo lo que se ve por
- * defecto; al pulsarlo se despliega el resumen de la zona y las fuentes de datos.
+ * Estado del sol en una sola línea y en palabras: «L'Eixample · 62 % al sol · Hoy 17:42 · Sol bajo
+ * por el suroeste» (en móvil, «Hoy 17:42 · se pone a las 19:03»). Al pulsarlo se despliega el
+ * resumen de la zona y las fuentes de datos.
  */
 export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitudeDeg, azimuthDeg, light, compact }: Props) {
   const [open, setOpen] = useState(false);
@@ -41,6 +44,17 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
   }, [open]);
 
   const kind = light.summary.kind;
+  // Tras la puesta, la próxima salida es la de mañana.
+  const nextSunrise = useMemo(
+    () =>
+      time >= sunTimes.sunset
+        ? solarService.getSunTimes(startOfZoneDay(time + 30 * 3_600_000), BARCELONA.lat, BARCELONA.lng).sunrise
+        : sunTimes.sunrise,
+    [time, sunTimes]
+  );
+  const sunPhrase = up ? sunPositionPhrase(altitudeDeg, azimuthDeg) : "De noche";
+  const timesPhrase = up ? `se pone a las ${formatClock(sunTimes.sunset)}` : `sale a las ${formatClock(nextSunrise)}`;
+  const pct = up && stats ? stats.sunPercent : null;
 
   return (
     <div ref={ref} className="pointer-events-auto relative">
@@ -62,18 +76,18 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
           )}
         />
         {!compact && <span className="font-medium text-ink">{stats?.area ?? "Barcelona"}</span>}
+        {!compact && pct !== null && (
+          <>
+            <span className="text-ink-faint">·</span>
+            <span className="tabular-nums text-ink">{pct} % al sol</span>
+          </>
+        )}
         {!compact && <span className="text-ink-faint">·</span>}
         <span className="text-ink-soft">
           {dayLabel} <span className="tabular-nums text-ink">{formatClock(time)}</span>
         </span>
-        {up && (
-          <>
-            <span className="text-ink-faint">·</span>
-            <span className="tabular-nums text-ink-soft">
-              {Math.round(altitudeDeg)}° {compassLabel(azimuthDeg)}
-            </span>
-          </>
-        )}
+        <span className="text-ink-faint">·</span>
+        <span className="text-ink-soft">{compact ? timesPhrase : up ? sunPhrase : `${sunPhrase} · ${timesPhrase}`}</span>
         <svg
           width="10"
           height="10"
