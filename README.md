@@ -395,9 +395,33 @@ escenarios de luz efectiva, fusión y satélite de la fase anterior.
 **No se han podido ejecutar en el entorno de desarrollo** (solo se dispone de `npm run build`); se
 han revisado a mano. Ejecútalos antes de fiarte.
 
+## App instalable y SEO
+
+`npm run build` hace tres cosas: `vite build`, `scripts/seo/prerender.ts` y `scripts/pwa/build-sw.ts`
+(los dos últimos con `vite-node`, que ya viene con vitest).
+
+* **App instalable (PWA).** `public/manifest.webmanifest`, iconos en `public/icons/` (192, 512,
+  maskable y apple-touch) y un service worker propio, `public/sw.js`. El build le pone versión (hash
+  de la app) y la lista de precarga. Estrategias: HTML con red primero (copia si la red tarda más de
+  4 s o no hay red), `/assets/*` caché primero (llevan hash), `/data/*.json` y teselas de OpenFreeMap
+  con caché y revalidación (con tope de entradas). Las APIs (Open-Meteo, Overpass, Open Data BCN) no
+  pasan por la caché del service worker. Solo se registra en producción con HTTPS; `?sw=off` lo
+  desinstala. Si tras un despliegue falta un fragmento antiguo, la página se recarga una vez.
+* **Páginas para buscadores.** `prerender.ts` genera `dist/lugar/<slug>/index.html` para hasta
+  1.500 lugares con nombre de `public/data/places.json` (título, descripción, canonical, Open Graph,
+  Twitter, JSON-LD con coordenadas y un texto breve que React sustituye al arrancar), además de
+  `sitemap.xml` y `robots.txt`. Las páginas de barrio (`/barrio/<slug>`) salen solas cuando el
+  inventario traiga el barrio de cada lugar (`metadata.neighborhood`); hoy no lo trae.
+* **URL pública.** `SITE_URL` (o `VITE_SITE_URL`) en el build; por defecto,
+  `https://followthesun-kabalah314-uxs-projects.vercel.app`. Al tener dominio, basta con definir
+  `SITE_URL` en Vercel.
+* **Imágenes de marca.** `python3 scripts/brand/make-images.py` regenera los iconos y
+  `public/og-image.png` (1200×630) con Pillow.
+
 ## Variables de entorno
 
 Ver `.env.example`. Mapbox: `VITE_MAPBOX_TOKEN` (sin token, mapa abierto equivalente).
+`SITE_URL`: URL pública para canonical, Open Graph y sitemap (solo en el build).
 
 **Licencias.** Open-Meteo: gratis solo para uso **no comercial** (< 10.000 llamadas/día); para
 producción, `VITE_OPEN_METEO_API_KEY` o, mejor, un proxy propio. **Overpass**: servidores públicos con
