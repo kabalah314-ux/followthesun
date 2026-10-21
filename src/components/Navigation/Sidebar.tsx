@@ -4,7 +4,7 @@ import { cn } from "../../utils/cn";
 import { LAYOUT } from "../Layout/layout";
 import { LogoMark, Wordmark } from "../Logo";
 import NavigationItem from "./NavigationItem";
-import { NAV_ITEMS, PRIMARY_NAV, SECONDARY_NAV } from "./navItems";
+import { NAV_ITEMS, PRIMARY_NAV, SECONDARY_NAV, isNavActive } from "./navItems";
 
 interface Props {
   view: AppView;
@@ -31,7 +31,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
     >
       <button
         type="button"
-        onClick={() => onNavigate("explore")}
+        onClick={() => onNavigate("now")}
         aria-label="I Follow the Sun — volver al inicio"
         className={cn(
           "pointer-events-auto mb-6 flex items-center gap-3 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-sun/60",
@@ -54,7 +54,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
           <NavigationItem
             key={v}
             item={NAV_ITEMS[v]}
-            active={view === v}
+            active={isNavActive(v, view)}
             compact={compact}
             onSelect={() => onNavigate(v)}
           />

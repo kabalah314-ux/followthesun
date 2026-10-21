@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import type { Device } from "./layout";
 
@@ -126,6 +126,12 @@ export default function ContextPanel({
   );
 }
 
+/**
+ * Contexto de un panel incrustado en otro (las pestañas de Buscar): el contenedor ya pone el título
+ * y el botón de cerrar, así que la cabecera propia del panel se reduce a su «atrás» y su subtítulo.
+ */
+export const PanelChrome = createContext<{ embedded: boolean }>({ embedded: false });
+
 /** Cabecera estándar de un panel: título, subtítulo y cerrar. */
 export function PanelHeader({
   title,
@@ -138,6 +144,28 @@ export function PanelHeader({
   onClose?(): void;
   onBack?(): void;
 }) {
+  const { embedded } = useContext(PanelChrome);
+  if (embedded) {
+    const text = onBack ? title : subtitle;
+    if (!onBack && !text) return null;
+    return (
+      <div className="mb-3 flex min-h-[44px] items-center gap-1.5">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Atrás"
+            className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+        )}
+        {text && <p className={cn("text-[14px] leading-snug", onBack ? "font-semibold text-ink" : "text-ink-soft")}>{text}</p>}
+      </div>
+    );
+  }
   return (
     <div className="mb-4 flex items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-2">

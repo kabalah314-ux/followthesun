@@ -140,3 +140,10 @@ export const Shuffle = (p: LineIconProps) => (
     <path d="M16.5 20.5h4v-4M16.5 3.5l-4 4M3.5 3.5l6.4 6.4M3.5 20.5l4-4" />
   </Svg>
 );
+
+export const Search = (p: LineIconProps) => (
+  <Svg {...p}>
+    <circle cx="10.8" cy="10.8" r="6.8" />
+    <path d="M15.8 15.8l4.7 4.7" />
+  </Svg>
+);
