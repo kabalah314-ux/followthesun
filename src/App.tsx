@@ -92,6 +92,7 @@ import type {
   SavedPlace,
   SelectedPoint,
   SunPlace,
+  SunSearchOutcome,
   SunSearchResult,
   SunlightResult,
   Theme,
@@ -107,6 +108,23 @@ const themeFor = (altDeg: number, prev?: Theme): Theme => {
   if (!prev) return altDeg < -2 ? "night" : "day";
   return prev === "day" ? (altDeg < -3 ? "night" : "day") : altDeg > -1 ? "day" : "night";
 };
+
+/** Por qué «Cerca de ti ahora» está vacío, en palabras (las nubes, la noche o los edificios, no «no hay sitios»). */
+function nearbyEmptyText(outcome: SunSearchOutcome | null | undefined, tomorrow: boolean, modeWord: string): string {
+  const when = tomorrow ? "mañana a primera hora" : "en la próxima hora";
+  switch (outcome?.noSunReason) {
+    case "clouds":
+      return `Las nubes taparán el sol ${when}. Prueba más tarde en Buscar.`;
+    case "shade":
+      return `Los edificios dan sombra a los sitios cercanos ${when}. Prueba en Buscar.`;
+    case "night":
+      return "Ya no queda sol hoy. Mañana te proponemos sitios.";
+    case "no_places":
+      return "No hemos podido cargar los sitios de la zona. Prueba en Buscar.";
+    default:
+      return `No encontramos sitios con ${modeWord} seguida ${when}. Prueba en Buscar.`;
+  }
+}
 
 /** Plan por defecto: hoy a partir de las 17:00 (o de ahora), mañana si ya es tarde. */
 function initialPlan(now: number): PlannerState {
@@ -704,9 +722,7 @@ export default function App() {
         : `Con ${modeWord} cerca del centro`,
     results: shownResults(nowSearch.state.outcome).slice(0, 3),
     loading: nowSearch.state.status === "searching" || (view === "now" && nowSearch.state.status === "idle"),
-    emptyText: nowTomorrow
-      ? "Todavía no hay sitios para mañana."
-      : `No encontramos sitios con ${modeWord} seguida en la próxima hora. Prueba en Buscar.`,
+    emptyText: nearbyEmptyText(nowSearch.state.outcome, nowTomorrow, modeWord),
     mode: sunShade.mode,
     now,
     sunset: todaySunset,
