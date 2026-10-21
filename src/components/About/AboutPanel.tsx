@@ -33,6 +33,11 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
         <Block title="Datos">
           <p>Sol: cálculo astronómico (posición, orto y ocaso).</p>
           <p>Edificios, lugares y mapa: OpenStreetMap (OpenFreeMap / Mapbox).</p>
+          <p>
+            Terrazas con licencia, áreas de juego, refugios climáticos, fuentes, lavabos y miradores:
+            Ajuntament de Barcelona · Open Data BCN (CC BY 4.0). Los nombres de los locales se cruzan
+            con OpenStreetMap.
+          </p>
           <p>Previsión: Météo-France AROME y ARPEGE vía Open-Meteo.</p>
           <p>Observación: radiación solar por satélite EUMETSAT MTG (DWD) vía Open-Meteo.</p>
         </Block>
@@ -52,7 +57,8 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
         </Block>
 
         <p className="border-t border-line pt-3 text-[12px] text-ink-faint">
-          {APP_NAME} · versión {APP_VERSION} · © OpenStreetMap contributors · Open-Meteo (CC BY 4.0)
+          {APP_NAME} · versión {APP_VERSION} · © OpenStreetMap contributors · Open-Meteo (CC BY 4.0) ·
+          Ajuntament de Barcelona · Open Data BCN (CC BY 4.0)
         </p>
       </div>
     </>

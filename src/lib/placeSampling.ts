@@ -8,8 +8,13 @@ import { ringAround, samplePath, samplePolygon } from "./geometry";
  *   polígono (parque, plaza, playa…)  → rejilla de puntos dentro del polígono
  *   línea (playa mapeada como línea)  → puntos a lo largo
  *   terraza                           → el local y un anillo alrededor (no se sabe dónde están las mesas)
- *   mirador                           → el propio punto
+ *   área de juego, refugio, lavabo    → el punto y un anillo (el dato es un punto de referencia:
+ *                                       el centro del área o la dirección del equipamiento)
+ *   mirador, fuente                   → el propio punto
  */
+
+/** Tipos puntuales que se analizan con un anillo alrededor. */
+const RING_TYPES = new Set<SunPlace["type"]>(["terrace", "playground", "climate_shelter", "toilet"]);
 
 export type SampleKind = "interior" | "path" | "ring" | "node";
 
@@ -41,7 +46,7 @@ export function planSamples(place: SunPlace): SamplePoint[] {
   }
 
   const node: SamplePoint = { lng: place.longitude, lat: place.latitude, kind: "node" };
-  if (place.type === "terrace") {
+  if (RING_TYPES.has(place.type)) {
     const ring = ringAround(place.longitude, place.latitude, cfg.ringRadiusM, cfg.ringPoints).map(
       ([lng, lat]) => ({ lng, lat, kind: "ring" as const })
     );

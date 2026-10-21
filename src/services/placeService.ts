@@ -9,8 +9,10 @@ import {
   stitchRings,
   type LL,
 } from "../lib/geometry";
-import { PLACE_TYPE_ORDER } from "../lib/placeTypes";
+import { ALL_PLACE_TYPES } from "../lib/placeTypes";
 import type { PlaceInventoryStatus, SunPlace, SunPlaceType } from "../types";
+import { OPEN_DATA_CONFIG } from "./openData/config";
+import { openDataService } from "./openData/openDataService";
 
 /**
  * placeService — inventario de lugares candidatos. Siempre de una fuente REAL.
@@ -223,9 +225,26 @@ export function normalizeOverpass(elements: OvElement[]): SunPlace[] {
 }
 
 export function countByType(places: SunPlace[]): Record<SunPlaceType, number> {
-  const counts = Object.fromEntries(PLACE_TYPE_ORDER.map((t) => [t, 0])) as Record<SunPlaceType, number>;
-  for (const p of places) counts[p.type]++;
+  const counts = Object.fromEntries(ALL_PLACE_TYPES.map((t) => [t, 0])) as Record<SunPlaceType, number>;
+  for (const p of places) counts[p.type] = (counts[p.type] ?? 0) + 1;
   return counts;
+}
+
+/**
+ * Inventario completo = OpenStreetMap + Open Data BCN (áreas de juego, refugios, fuentes,
+ * lavabos y miradores). Un mirador del Ajuntament que ya está en OSM no se duplica.
+ */
+export function mergeOpenDataPlaces(osm: SunPlace[], open: SunPlace[]): SunPlace[] {
+  if (open.length === 0) return osm;
+  const osmViewpoints = osm.filter((p) => p.type === "viewpoint");
+  const extra = open.filter(
+    (p) =>
+      p.type !== "viewpoint" ||
+      !osmViewpoints.some(
+        (v) => distanceMeters(v.longitude, v.latitude, p.longitude, p.latitude) < OPEN_DATA_CONFIG.viewpointDedupeM
+      )
+  );
+  return [...osm, ...extra];
 }
 
 /** Un punto exacto como lugar (arquitectura para muestreo en rejilla, bancos, árboles, etc.). */
@@ -305,6 +324,8 @@ const CACHE_KEY = () => {
 
 /** Tras un fallo con respaldo caducado no se vuelve a insistir antes de este tiempo. */
 const RETRY_AFTER_MS = 5 * 60_000;
+/** Lo que se espera a Open Data BCN cuando OSM ya está listo; si tarda más, llega después. */
+const OPEN_DATA_WAIT_MS = 3000;
 
 export interface PlaceInventory {
   places: SunPlace[];
@@ -315,6 +336,11 @@ export interface PlaceInventory {
 
 class PlaceService {
   private places: SunPlace[] | null = null;
+  /** Lugares de OpenStreetMap (lo que se guarda en la caché del inventario). */
+  private osm: SunPlace[] | null = null;
+  /** Lugares de Open Data BCN (cada conjunto con su propia caché). */
+  private open: SunPlace[] = [];
+  private openPromise: Promise<void> | null = null;
   private fetchedAt: number | null = null;
   private stale = false;
   private loading = false;
@@ -339,11 +365,29 @@ class PlaceService {
   }
 
   private set(places: SunPlace[], at: number, stale: boolean) {
-    this.places = places;
+    this.osm = places;
+    this.places = mergeOpenDataPlaces(places, this.open);
     this.fetchedAt = at;
     this.stale = stale;
     this.failed = false;
     this.nextRetryAt = stale ? Date.now() + RETRY_AFTER_MS : 0;
+  }
+
+  /** Open Data BCN en paralelo a OSM. Nunca falla: un conjunto caído solo no aporta lugares. */
+  private startOpenData(force: boolean): Promise<void> {
+    if (!this.openPromise || force) {
+      this.openPromise = openDataService
+        .loadPlaces(undefined, force)
+        .then((r) => {
+          this.open = r.places;
+          if (this.osm) {
+            this.places = mergeOpenDataPlaces(this.osm, this.open);
+            this.emit();
+          }
+        })
+        .catch(() => undefined);
+    }
+    return this.openPromise;
   }
 
   getPlaces(): SunPlace[] | null {
@@ -383,6 +427,7 @@ class PlaceService {
     this.emit();
 
     this.promise = (async (): Promise<PlaceInventory> => {
+      const openData = this.startOpenData(force);
       try {
         const key = CACHE_KEY();
         const hit = force ? null : placeCache.get(key);
@@ -404,6 +449,9 @@ class PlaceService {
             this.set(old.value, old.storedAt, true);
           }
         }
+        // Si Open Data BCN ya está (o llega enseguida) entra en este mismo inventario.
+        await Promise.race([openData, new Promise((r) => setTimeout(r, OPEN_DATA_WAIT_MS))]);
+        this.places = mergeOpenDataPlaces(this.osm ?? [], this.open);
         return {
           places: this.places as SunPlace[],
           stale: this.stale,

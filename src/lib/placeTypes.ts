@@ -20,9 +20,16 @@ export const PLACE_TYPE_LABEL: Record<SunPlaceType, { singular: string; plural: 
   terrace: { singular: "Terraza", plural: "Terrazas" },
   viewpoint: { singular: "Mirador", plural: "Miradores" },
   open_space: { singular: "Espacio abierto", plural: "Espacios abiertos" },
+  playground: { singular: "Área de juego", plural: "Áreas de juego" },
+  climate_shelter: { singular: "Refugio climático", plural: "Refugios climáticos" },
+  fountain: { singular: "Fuente", plural: "Fuentes" },
+  toilet: { singular: "Lavabo público", plural: "Lavabos públicos" },
 };
 
-/** Orden en el que se ofrecen en la interfaz. */
+/**
+ * Destinos: sitios a los que se va a estar (se buscan por su sol o su sombra). Orden en el que se
+ * ofrecen en la interfaz (Lugares, Recomendados, Planificar).
+ */
 export const PLACE_TYPE_ORDER: SunPlaceType[] = [
   "beach",
   "park",
@@ -30,7 +37,22 @@ export const PLACE_TYPE_ORDER: SunPlaceType[] = [
   "terrace",
   "viewpoint",
   "open_space",
+  "playground",
 ];
+
+/**
+ * Servicios: no son un destino de sol, sino apoyo (agua, un sitio fresco, un aseo). No entran en
+ * Lugares ni Recomendados; se buscan cuando se piden explícitamente, sobre todo en modo sombra.
+ */
+export const SERVICE_PLACE_TYPES: SunPlaceType[] = ["climate_shelter", "fountain", "toilet"];
+
+/** Servicios que tiene sentido ofrecer al buscar sombra (contra el calor). */
+export const SHADE_SERVICE_TYPES: SunPlaceType[] = ["climate_shelter", "fountain"];
+
+export const ALL_PLACE_TYPES: SunPlaceType[] = [...PLACE_TYPE_ORDER, ...SERVICE_PLACE_TYPES];
+
+/** Tipos que vienen de Open Data BCN (atribución CC BY 4.0). */
+export const OPEN_DATA_PLACE_TYPES: SunPlaceType[] = ["playground", ...SERVICE_PLACE_TYPES];
 
 /**
  * «Cualquier lugar» incluye espacios públicos abiertos. Las terrazas NO entran: en OpenStreetMap

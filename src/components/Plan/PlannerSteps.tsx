@@ -1,8 +1,9 @@
-import { PLACE_TYPE_LABEL, PLACE_TYPE_ORDER } from "../../lib/placeTypes";
+import { PLACE_TYPE_LABEL, PLACE_TYPE_ORDER, SHADE_SERVICE_TYPES } from "../../lib/placeTypes";
 import type { PlannerState } from "../../lib/planning";
 import type { PlaceInventoryStatus } from "../../types";
 import { cn } from "../../utils/cn";
 import { Chip } from "../FindSun/ui";
+import PlaceTypeIcon from "../Places/PlaceTypeIcon";
 
 const DISTANCES: Array<number | null> = [5, 10, 20, 30, null];
 
@@ -41,9 +42,13 @@ interface TypeProps {
   onChange(patch: Partial<PlannerState>): void;
 }
 
-/** Paso 1 · ¿Dónde te gustaría ir? Solo se ofrecen los tipos con datos reales. */
+/**
+ * Paso 1 · ¿Dónde te gustaría ir? Solo se ofrecen los tipos con datos reales. Buscando sombra se
+ * añaden los refugios climáticos y las fuentes (Open Data BCN), que contra el calor sí son destino.
+ */
 export function PlaceTypeChips({ state, inventory, onChange }: TypeProps) {
-  const typesAvailable = PLACE_TYPE_ORDER.filter((t) => inventory.counts[t] > 0);
+  const offered = state.intent === "shade" ? [...PLACE_TYPE_ORDER, ...SHADE_SERVICE_TYPES] : PLACE_TYPE_ORDER;
+  const typesAvailable = offered.filter((t) => (inventory.counts[t] ?? 0) > 0);
   return (
     <div>
       <div className="flex flex-wrap gap-1.5">
@@ -52,7 +57,10 @@ export function PlaceTypeChips({ state, inventory, onChange }: TypeProps) {
         </Chip>
         {typesAvailable.map((t) => (
           <Chip key={t} active={state.locationType === t} onClick={() => onChange({ locationType: t })}>
-            {PLACE_TYPE_LABEL[t].singular}
+            <span className="inline-flex items-center gap-1.5">
+              <PlaceTypeIcon type={t} size={15} className="shrink-0 opacity-80" />
+              {PLACE_TYPE_LABEL[t].singular}
+            </span>
           </Chip>
         ))}
       </div>

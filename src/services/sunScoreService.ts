@@ -6,6 +6,7 @@ import type {
   ComfortSummary,
   RankingDetail,
   ResultReason,
+  SunPlace,
   SunPreference,
   SunScore,
   SunScoreAdjustment,
@@ -131,7 +132,8 @@ export function calculateSunScore(i: SunScoreInputs): SunScore {
 export function calculateRankingValue(
   score: number,
   confidence: number,
-  walkingMinutes?: number
+  walkingMinutes?: number,
+  placeAdjustment = 0
 ): RankingDetail {
   const R = SC.ranking;
   const confidenceAdjustment = -(R.confidencePenalty * 100 * (1 - clamp01(confidence)));
@@ -143,8 +145,22 @@ export function calculateRankingValue(
     score,
     confidenceAdjustment,
     distanceAdjustment,
-    value: score + confidenceAdjustment + distanceAdjustment,
+    ...(placeAdjustment !== 0 ? { placeAdjustment } : {}),
+    value: score + confidenceAdjustment + distanceAdjustment + placeAdjustment,
   };
+}
+
+/**
+ * Certeza de la terraza en el ranking: una licencia municipal (Open Data BCN) o una terraza
+ * confirmada en OSM no restan; un local «probable» o sin datos sí. El resto de lugares, 0.
+ */
+export function terraceRankingAdjustment(place: Pick<SunPlace, "metadata">): number {
+  const m = place.metadata;
+  if (!m || m.venue !== true || m.licensed) return 0;
+  const P = SC.ranking.terracePenalty;
+  if (m.terrace === "likely") return -P.likely;
+  if (m.terrace === "unknown") return -P.unknown;
+  return 0;
 }
 
 interface Rankable {

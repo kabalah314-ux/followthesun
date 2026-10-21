@@ -563,7 +563,21 @@ export interface Highlight {
 /*  FIND THE SUN · lugares                                                     */
 /* -------------------------------------------------------------------------- */
 
-export type SunPlaceType = "beach" | "park" | "square" | "terrace" | "viewpoint" | "open_space";
+export type SunPlaceType =
+  | "beach"
+  | "park"
+  | "square"
+  | "terrace"
+  | "viewpoint"
+  | "open_space"
+  /** Área de juego infantil (Open Data BCN). */
+  | "playground"
+  /** Refugio climático de la red municipal (Open Data BCN). */
+  | "climate_shelter"
+  /** Fuente de agua de boca (Open Data BCN). */
+  | "fountain"
+  /** Lavabo público (Open Data BCN). */
+  | "toilet";
 
 /**
  * Categorías RESERVADAS: previstas pero sin datos reales detrás todavía (bancos, cafés y
@@ -582,7 +596,8 @@ export interface GeoPolygon {
 /* -------------------------------------------------------------------------- */
 
 /** Categoría de negocio. Ampliable sin tocar el motor. */
-export type VenueCategory = "cafe" | "bar" | "restaurant" | "ice_cream" | "pub" | "biergarten";
+/** `terrace`: terraza con licencia municipal cuyo local no se ha identificado en OpenStreetMap. */
+export type VenueCategory = "cafe" | "bar" | "restaurant" | "ice_cream" | "pub" | "biergarten" | "terrace";
 
 /**
  * Certeza sobre si el negocio tiene terraza:
@@ -784,6 +799,8 @@ export interface RankingDetail {
   score: number;
   confidenceAdjustment: number;
   distanceAdjustment: number;
+  /** Certeza de la terraza (licencia o confirmada: 0; «probable» o desconocida: resta). */
+  placeAdjustment?: number;
   value: number;
 }
 

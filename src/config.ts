@@ -440,7 +440,16 @@ export const SUN_SCORE_CONFIG = {
    *   valor = score − 20·(1 − confianza)·k − penalización por distancia
    * Un 95 con confianza baja no gana a un 91 con confianza alta, pero un 95 sí gana a un 70.
    */
-  ranking: { confidencePenalty: 0.2, walkPenaltyPerMinute: 0.2, walkPenaltyCap: 8 },
+  ranking: {
+    confidencePenalty: 0.2,
+    walkPenaltyPerMinute: 0.2,
+    walkPenaltyCap: 8,
+    /**
+     * Terrazas: con licencia municipal o confirmada en OSM no restan; un «probable» (planta baja,
+     * sin confirmar) o un local sin datos sí, porque quizá no haya mesas fuera.
+     */
+    terracePenalty: { likely: 4, unknown: 8 },
+  },
   /** Modo equilibrado: el sol cuesta puntos cuando hace mucho calor o mucho viento. */
   comfort: { heatFrom: 26, heatTo: 34, heatFloor: 0.7, windFrom: 20, windTo: 40, windFloor: 0.8 },
   presets: {
