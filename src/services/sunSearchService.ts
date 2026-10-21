@@ -128,7 +128,7 @@ export interface Candidate {
  * Filtro de candidatos: tipo, distancia y tope. No se analiza todo Barcelona a ciegas:
  * se ordenan por cercanía (o por tamaño si no hay ubicación) y se limita su número.
  */
-export function selectCandidates(places: SunPlace[], req: NormalizedSunRequest): Candidate[] {
+export function selectCandidates(places: SunPlace[], req: NormalizedSunRequest, max: number = S.maxCandidates): Candidate[] {
   const types = new Set(allowedTypes(req));
   const origin = req.origin ?? null;
   const limit = req.maximumWalkingMinutes;
@@ -156,7 +156,7 @@ export function selectCandidates(places: SunPlace[], req: NormalizedSunRequest):
   }
 
   out.sort((a, b) => a.sort - b.sort || a.priority - b.priority);
-  return out.slice(0, S.maxCandidates).map((e) => ({ place: e.place, walkingMinutes: e.walkingMinutes }));
+  return out.slice(0, max).map((e) => ({ place: e.place, walkingMinutes: e.walkingMinutes }));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -391,7 +391,7 @@ export async function findBestSunPlaces(
   report("places", 1, 1, true);
 
   /* 2 · Candidatos */
-  const candidates = selectCandidates(places, req);
+  const candidates = selectCandidates(places, req, options.maxCandidates);
   if (req.maximumWalkingMinutes !== undefined && !req.origin) notices.add("no_location");
   if (candidates.length === 0) {
     return outcome("no_results", { noSunReason: "no_places" });
@@ -419,7 +419,14 @@ export async function findBestSunPlaces(
   if (weatherLoaded && ceilingSamples.some((s) => s.unverified)) notices.add("beyond_forecast");
 
   /* 4 · Puntos de análisis y edificios de la zona */
-  const plan = candidates.map((c) => ({ c, points: planSamples(c.place) }));
+  const cap = options.maxSamplePoints;
+  const plan = candidates.map((c) => {
+    const all = planSamples(c.place);
+    if (!cap || all.length <= cap) return { c, points: all };
+    // Submuestra repartida por todo el lugar, no los primeros puntos.
+    const step = all.length / cap;
+    return { c, points: Array.from({ length: cap }, (_, i) => all[Math.floor(i * step)]) };
+  });
   const allPoints = plan.flatMap((p) => p.points);
   let geometry: UrbanGeometry | null = null;
   try {

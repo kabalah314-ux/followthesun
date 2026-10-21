@@ -682,6 +682,10 @@ export default function App() {
       intent: mode,
       preference: SUN_INTENTS[mode].preference,
       limit: 3,
+    }, {
+      // Respuesta rápida en la pantalla de inicio: los 40 lugares más cercanos y 4 puntos por lugar.
+      maxCandidates: 40,
+      maxSamplePoints: 4,
     });
   }, [view, sunShade.mode, dayKey, now, userLocation, nowTomorrow, nowSearch, todaySunset]);
 

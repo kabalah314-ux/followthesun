@@ -944,6 +944,10 @@ export interface SunSearchOptions {
   signal?: AbortSignal;
   now?: number;
   onProgress?: (p: SearchProgress) => void;
+  /** Tope de candidatos (por defecto `SEARCH_CONFIG.maxCandidates`). Para respuestas rápidas, p. ej. «Ahora». */
+  maxCandidates?: number;
+  /** Tope de puntos de análisis por lugar (por defecto, los del muestreo). */
+  maxSamplePoints?: number;
 }
 
 /* -------------------------------------------------------------------------- */
