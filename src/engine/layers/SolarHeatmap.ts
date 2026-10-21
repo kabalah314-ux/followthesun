@@ -36,12 +36,13 @@ const MAX_GROUND_M = 16_000;
  */
 const RAMP: Array<[number, number, number, number, number]> = [
   // [intensidad, r, g, b, alfa]
+  // Alfas moderadas: con más de ~0,5 el ámbar tapa el mapa y la sombra pierde contraste.
   [0.0, 252, 231, 176, 0.0],
-  [0.12, 252, 231, 176, 0.2],
-  [0.35, 252, 231, 176, 0.45],
-  [0.6, 254, 205, 118, 0.5],
-  [0.82, 255, 179, 64, 0.55],
-  [1.0, 255, 168, 44, 0.58],
+  [0.12, 252, 231, 176, 0.14],
+  [0.35, 252, 222, 160, 0.26],
+  [0.6, 254, 205, 118, 0.34],
+  [0.82, 255, 179, 64, 0.42],
+  [1.0, 255, 168, 44, 0.48],
 ];
 
 const OUT = new Float64Array(4);

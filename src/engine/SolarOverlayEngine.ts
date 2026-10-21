@@ -562,7 +562,8 @@ export class SolarOverlayEngine {
     this.heatmap.drawLight(ctx);
 
     // 2 · Sombras de edificios (geometría; independientes de las nubes) y relieve 3D.
-    const zoomFade = smoothstep(12.9, 13.5, v.zoom);
+    // Las sombras se ven enteras desde el zoom inicial del móvil (13,2): son la información clave.
+    const zoomFade = smoothstep(12.2, 13.0, v.zoom);
     const bFade = this.shadowsFade * zoomFade * shadeK;
     // Misma transición que la capa 3D del mapa (altura interpolada linealmente con el zoom).
     const extrudeK = this.buildings3D ? clamp((v.zoom - EXTRUDE_FROM_ZOOM) / (EXTRUDE_FULL_ZOOM - EXTRUDE_FROM_ZOOM), 0, 1) : 0;
