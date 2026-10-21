@@ -35,8 +35,12 @@ export function runsAround(windows: SunWindow[], t: number, kinds: SunWindowKind
       j++;
     }
     const run = { start: ws[i].start, end };
-    if (t >= run.start && t < run.end) current = run;
-    else if (run.start >= t && !next) next = run;
+    if (t >= run.start && t < run.end) {
+      // Con un tramo en curso no hace falta el siguiente: quien llama solo lo usa si no hay actual.
+      current = run;
+      break;
+    }
+    if (run.start >= t && !next) next = run;
     if (next) break;
     i = j - 1;
   }
