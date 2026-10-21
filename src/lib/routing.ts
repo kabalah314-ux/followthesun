@@ -10,6 +10,9 @@
  *   /settings  Ajustes
  *   /about     Acerca de
  *
+ * Enlaces profundos (ver `deepLinks.ts`), que no son vistas: `/mapa` (alias de Explorar) y
+ * `/lugar/<slug>` (la ficha de un lugar, sobre Explorar).
+ *
  * Modo «path» (rutas limpias, History API) por defecto. Modo «hash» (#/find) cuando la app se
  * abre como archivo (`file:`), desde una ruta que termina en `.html`, o con `VITE_ROUTER_MODE=hash`
  * (para servidores estáticos sin redirección de rutas desconocidas a index.html).
@@ -50,12 +53,17 @@ interface RouterBase {
   base: string;
 }
 
+/** Final de ruta de un enlace profundo: `/lugar/<slug>` o `/mapa`. */
+const DEEP_TAIL = /(?:lugar\/[^/]+|mapa)\/?$/;
+
 function detect(): RouterBase {
   const forced = (import.meta.env.VITE_ROUTER_MODE as string | undefined)?.trim();
-  const { protocol, pathname } = window.location;
-  if (forced === "hash" || protocol === "file:" || pathname.endsWith(".html")) {
-    return { mode: "hash", base: pathname };
+  const { protocol } = window.location;
+  if (forced === "hash" || protocol === "file:" || window.location.pathname.endsWith(".html")) {
+    return { mode: "hash", base: window.location.pathname };
   }
+  // El prefijo de la app se calcula sin el enlace profundo (si no, `/lugar/x/` sería la base).
+  const pathname = window.location.pathname.replace(DEEP_TAIL, "");
   const parts = pathname.split("/");
   const last = parts[parts.length - 1] || parts[parts.length - 2] || "";
   const base = fromSegment(last)
@@ -81,8 +89,19 @@ export function parseLocation(): AppView {
 
 /** URL de una vista (conserva la query, p. ej. `?debug=weather`). */
 export function buildUrl(view: AppView): string {
+  return urlWith({ view }, window.location.search);
+}
+
+/**
+ * URL (sin origen) de una vista o de la ficha de un lugar con la query dada. En modo «hash» no hay
+ * rutas de lugar: se queda en la vista principal con la query.
+ */
+export function urlWith(target: { view: AppView } | { slug: string }, search: string): string {
   const r = getRouter();
-  const search = window.location.search;
-  if (r.mode === "hash") return `${r.base}${search}${SEGMENT[view] ? `#/${SEGMENT[view]}` : ""}`;
-  return `${r.base}${SEGMENT[view]}${search}`;
+  if ("slug" in target) {
+    return r.mode === "hash" ? `${r.base}${search}` : `${r.base}lugar/${encodeURIComponent(target.slug)}${search}`;
+  }
+  const seg = SEGMENT[target.view];
+  if (r.mode === "hash") return `${r.base}${search}${seg ? `#/${seg}` : ""}`;
+  return `${r.base}${seg}${search}`;
 }

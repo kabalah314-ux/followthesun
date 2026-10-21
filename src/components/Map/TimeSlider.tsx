@@ -2,8 +2,8 @@ import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TimeMode, TimeRange } from "../../hooks/useTimeController";
 import { clamp } from "../../lib/coordinates";
 import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
-import { presentOnDay } from "../../lib/timelineRange";
-import { formatClock, formatDuration, getZoneParts, HOUR, MINUTE } from "../../services/timeService";
+import type { TimelineSun } from "../../lib/timelineRange";
+import { formatClock, formatDuration, getZoneParts, HOUR, MINUTE, startOfZoneDay } from "../../services/timeService";
 import type { TimeZones, TimelineInterval } from "../../types";
 import { cn } from "../../utils/cn";
 
@@ -26,18 +26,26 @@ interface Props {
   onNow(): void;
   onHide(): void;
   compact?: boolean;
+  /** Horas del sol del día enseñado; `nextDay` = de noche se enseña el de mañana. */
+  day?: { sun: TimelineSun; nextDay: boolean };
 }
 
 const chip = (active: boolean) =>
   cn(
-    "rounded-full px-3 py-1.5 text-[12.5px] font-medium leading-none outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+    "relative rounded-full px-3 py-1.5 text-[12.5px] font-medium leading-none outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
     active ? "bg-ink text-paper" : "text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
   );
 
+/** Amplía la zona táctil de un botón pequeño (~44 px de alto) sin cambiar su tamaño visible. */
+function HitArea() {
+  return <span aria-hidden className="absolute -inset-x-1 -inset-y-2.5" />;
+}
+
 /**
- * Línea de tiempo del día solar: el día (Hoy · Mañana · otra fecha), la hora elegida, «Ahora» para
- * volver al presente y la barra con el indicador solar. Al moverla cambian el sol, las sombras y
- * las nubes del mapa (sin peticiones de red).
+ * Línea de tiempo del día solar completo: del amanecer a la puesta, con media hora de crepúsculo a
+ * cada lado. Lo ya pasado queda atenuado pero se puede recorrer; la hora dorada va marcada y
+ * «Ahora» devuelve al presente. De noche enseña el día siguiente. Al moverla cambian el sol, las
+ * sombras y las nubes del mapa (sin peticiones de red).
  */
 export default function TimeSlider(p: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -48,10 +56,21 @@ export default function TimeSlider(p: Props) {
   const span = Math.max(1, range.end - range.start);
   const frac = (ms: number) => clamp((ms - range.start) / span, 0, 1);
   const thumb = frac(selectedTime);
-  /** Hora presente del día elegido; se marca solo cuando no coincide con el indicador. */
-  const present = presentOnDay(now, p.dayOffset);
-  const presentInRange = p.mode === "ahead" && present >= range.start && present <= range.end;
   const isNow = p.mode === "now" && p.dayOffset === 0;
+  const sun = p.day?.sun ?? null;
+  const nextDay = !!p.day?.nextDay;
+  /** El presente cae dentro de la franja: se atenúa lo pasado y se marca «ahora». */
+  const presentInRange = p.dayOffset === 0 && !nextDay && now >= range.start && now <= range.end;
+  const nowFrac = presentInRange ? frac(now) : 0;
+  const golden = sun
+    ? [
+        { start: sun.sunrise, end: sun.goldenMorningEnd },
+        { start: sun.goldenEveningStart, end: sun.sunset },
+      ].filter((g) => g.end > g.start)
+    : [];
+  const inGolden = golden.some((g) => selectedTime >= g.start && selectedTime <= g.end);
+  const sunriseFrac = sun ? frac(sun.sunrise) : 0;
+  const sunsetFrac = sun ? frac(sun.sunset) : 1;
 
   const scrubFromX = (clientX: number) => {
     const el = trackRef.current;
@@ -84,20 +103,23 @@ export default function TimeSlider(p: Props) {
   };
 
   let label: string;
-  if (isNow) label = p.isNight ? "Ahora · sin sol" : "Ahora";
-  else {
+  if (isNow) {
+    label = p.isNight ? "Ahora · sin sol" : "Ahora";
+    if (p.isNight && nextDay && sun) label += ` · mañana sale a las ${formatClock(sun.sunrise)}`;
+  } else {
     const delta = selectedTime - now;
     label =
-      p.dayOffset === 0 && Math.abs(delta) < 12 * HOUR
+      Math.abs(delta) < 12 * HOUR
         ? delta > 0
           ? `En ${formatDuration(delta)}`
           : `Hace ${formatDuration(-delta)}`
-        : dayChoiceLabel(dayStartFor(now, p.dayOffset), now);
+        : dayChoiceLabel(startOfZoneDay(selectedTime), now);
   }
+  if (inGolden && !p.isNight) label += " · hora dorada";
   if (p.provenance && !(isNow && p.isNight)) label += ` · ${p.provenance}`;
 
-  // Etiquetas horarias cada 4 h (o 3 h si el día es corto), más el orto y el ocaso a los lados.
-  const every = span < 11 * HOUR ? 3 : 4;
+  // Etiquetas horarias cada 4 h (o 3 h si el día es corto), entre el amanecer y la puesta.
+  const every = span < 12 * HOUR ? 3 : 4;
   const marks: number[] = [];
   for (let t = Math.ceil(range.start / HOUR) * HOUR; t < range.end; t += HOUR) {
     if (getZoneParts(t).hour % every === 0) marks.push(t);
@@ -113,9 +135,11 @@ export default function TimeSlider(p: Props) {
       <div className="flex items-center justify-between gap-2">
         <div role="group" aria-label="Día" className="flex min-w-0 items-center gap-0.5">
           <button type="button" className={chip(p.dayOffset === 0)} onClick={() => p.onSelectDay(0)} aria-pressed={p.dayOffset === 0}>
+            <HitArea />
             Hoy
           </button>
           <button type="button" className={chip(p.dayOffset === 1)} onClick={() => p.onSelectDay(1)} aria-pressed={p.dayOffset === 1}>
+            <HitArea />
             Mañana
           </button>
           <label className="relative">
@@ -140,8 +164,11 @@ export default function TimeSlider(p: Props) {
             <button
               type="button"
               onClick={p.onNow}
-              className="fts-fade-in rounded-full border border-line px-3 py-1.5 text-[12.5px] font-semibold text-ink outline-none transition-colors hover:bg-ink/[0.05] focus-visible:ring-2 focus-visible:ring-sun/60"
+              aria-label="Volver a ahora"
+              className="fts-fade-in relative inline-flex items-center gap-1.5 rounded-full bg-sun px-3.5 py-1.5 text-[13px] font-semibold leading-none text-ink shadow-sm outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sun-deep/60"
             >
+              <HitArea />
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ink" />
               Ahora
             </button>
           )}
@@ -150,8 +177,9 @@ export default function TimeSlider(p: Props) {
             onClick={p.onHide}
             aria-label="Ocultar la línea de tiempo"
             title="Ocultar la línea de tiempo"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+            className="relative flex h-8 w-8 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
+            <HitArea />
             <span aria-hidden className="-mt-0.5 text-[12.5px]">
               ▾
             </span>
@@ -160,7 +188,7 @@ export default function TimeSlider(p: Props) {
       </div>
 
       <div className={cn("flex items-end justify-between gap-3", p.compact ? "mt-1.5" : "mt-2")}>
-        <p className="min-w-0 truncate text-[12px] font-medium text-ink-soft">{label}</p>
+        <p className="min-w-0 truncate text-[12.5px] font-medium text-ink-soft">{label}</p>
         <p className={cn("shrink-0 font-serif leading-none tabular-nums text-ink", p.compact ? "text-[24px]" : "text-[30px]")}>
           {formatClock(selectedTime)}
         </p>
@@ -170,10 +198,10 @@ export default function TimeSlider(p: Props) {
         ref={trackRef}
         role="slider"
         tabIndex={0}
-        aria-label="Hora del día"
+        aria-label={nextDay ? "Hora de mañana" : "Hora del día"}
         aria-valuemin={range.start}
         aria-valuemax={range.end}
-        aria-valuenow={Math.round(selectedTime)}
+        aria-valuenow={Math.round(clamp(selectedTime, range.start, range.end))}
         aria-valuetext={formatClock(selectedTime)}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -183,6 +211,33 @@ export default function TimeSlider(p: Props) {
         className="relative mt-1 h-9 cursor-pointer touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-sun/50 rounded-full"
       >
         <div className="fts-track absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full" />
+
+        {/* crepúsculo antes del amanecer y después de la puesta */}
+        {sun && (
+          <>
+            <div
+              aria-hidden
+              className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-l-full bg-shade/30"
+              style={{ width: `${sunriseFrac * 100}%` }}
+            />
+            <div
+              aria-hidden
+              className="absolute right-0 top-1/2 h-[3px] -translate-y-1/2 rounded-r-full bg-shade/30"
+              style={{ width: `${(1 - sunsetFrac) * 100}%` }}
+            />
+          </>
+        )}
+
+        {/* hora dorada: la primera hora con sol y la última */}
+        {golden.map((g) => (
+          <div
+            key={g.start}
+            aria-hidden
+            title="Hora dorada"
+            className="absolute top-[calc(50%-10px)] h-[3px] rounded-full bg-sun-deep/60"
+            style={{ left: `${frac(g.start) * 100}%`, width: `${Math.max(0.6, (frac(g.end) - frac(g.start)) * 100)}%` }}
+          />
+        ))}
 
         {p.intervals?.map((iv, i) => {
           const a = frac(iv.start) * 100;
@@ -204,13 +259,26 @@ export default function TimeSlider(p: Props) {
 
         {!p.intervals && (
           <div
-            className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-sun/80"
-            style={{ width: `${thumb * 100}%`, transition: dragging ? "none" : "width 120ms linear" }}
+            className="absolute top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-sun/80"
+            style={{
+              left: `${sunriseFrac * 100}%`,
+              width: `${Math.max(0, Math.min(thumb, sunsetFrac) - sunriseFrac) * 100}%`,
+              transition: dragging ? "none" : "width 120ms linear",
+            }}
+          />
+        )}
+
+        {/* lo ya pasado de hoy: atenuado, pero se puede volver a él */}
+        {presentInRange && nowFrac > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-1 left-0 rounded-l-full bg-paper/55"
+            style={{ width: `${nowFrac * 100}%` }}
           />
         )}
 
         {/* procedencia: observado (continuo) · presente (ámbar) · previsión (discontinuo) */}
-        {p.dayOffset === 0 && (obs > 0 || pres > 0) && (
+        {p.dayOffset === 0 && !nextDay && (obs > 0 || pres > 0) && (
           <div aria-hidden className="pointer-events-none absolute inset-x-0 top-[calc(50%+9px)] h-[2px]">
             {obs > 0 && <i className="absolute inset-y-0 left-0 rounded-full bg-ink/35" style={{ width: `${obs * 100}%` }} />}
             {pres > obs && (
@@ -220,11 +288,11 @@ export default function TimeSlider(p: Props) {
           </div>
         )}
 
-        {presentInRange && (
+        {presentInRange && p.mode === "ahead" && (
           <span
             title="Ahora"
             className="absolute top-[calc(50%-13px)] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-ink"
-            style={{ left: `${frac(present) * 100}%` }}
+            style={{ left: `${nowFrac * 100}%` }}
           />
         )}
 
@@ -237,16 +305,41 @@ export default function TimeSlider(p: Props) {
         </div>
       </div>
 
-      <div className="relative h-3.5 text-[11.5px] tabular-nums text-ink-faint">
-        <span className="absolute left-0">{formatClock(range.start)}</span>
-        {marks.map((t) =>
-          frac(t) > 0.1 && frac(t) < 0.9 ? (
-            <span key={t} className="absolute -translate-x-1/2" style={{ left: `${frac(t) * 100}%` }}>
-              {formatClock(t)}
+      <div className="relative h-4 text-[12px] tabular-nums text-ink-faint">
+        {sun ? (
+          <>
+            <span className="absolute flex items-center gap-0.5 whitespace-nowrap" style={{ left: `${sunriseFrac * 100}%` }} title="Amanecer">
+              <span aria-hidden className="text-sun-deep">
+                ↑
+              </span>
+              <span className="sr-only">Amanecer a las</span>
+              {formatClock(sun.sunrise)}
             </span>
-          ) : null
+            {marks.map((t) =>
+              frac(t) > sunriseFrac + 0.13 && frac(t) < sunsetFrac - 0.13 ? (
+                <span key={t} className="absolute -translate-x-1/2" style={{ left: `${frac(t) * 100}%` }}>
+                  {formatClock(t)}
+                </span>
+              ) : null
+            )}
+            <span
+              className="absolute flex items-center gap-0.5 whitespace-nowrap"
+              style={{ right: `${(1 - sunsetFrac) * 100}%` }}
+              title="Puesta de sol"
+            >
+              <span className="sr-only">Puesta de sol a las</span>
+              {formatClock(sun.sunset)}
+              <span aria-hidden className="text-sun-deep">
+                ↓
+              </span>
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="absolute left-0">{formatClock(range.start)}</span>
+            <span className="absolute right-0">{formatClock(range.end)}</span>
+          </>
         )}
-        <span className="absolute right-0">{formatClock(range.end)}</span>
       </div>
     </div>
   );

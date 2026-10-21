@@ -2,23 +2,35 @@ import type { SunTimes } from "./solarCalculations";
 import { dayStartFor } from "./planningTime";
 import { startOfZoneDay } from "../services/timeService";
 
+/** Horas del sol que necesita la línea de tiempo. */
+export type TimelineSun = Pick<SunTimes, "sunrise" | "sunset" | "goldenMorningEnd" | "goldenEveningStart">;
+
+export interface TimelineDay {
+  start: number;
+  end: number;
+  /** Horas del sol del día que se está enseñando (hoy, otro día o, de noche, mañana). */
+  sun: TimelineSun;
+  /** De noche, la línea de tiempo enseña el día siguiente. */
+  nextDay: boolean;
+}
+
+/** Crepúsculo que se enseña antes del amanecer y después de la puesta. */
+export const TWILIGHT_MARGIN_MS = 30 * 60_000;
+
 /**
- * Franja visible de la línea de tiempo.
+ * Franja visible de la línea de tiempo: el día solar completo, del amanecer a la puesta, con media
+ * hora de crepúsculo a cada lado. Lo ya pasado sigue siendo navegable (la interfaz lo atenúa).
  *
- * Siempre arranca en la hora presente (a la izquierda de todo) y llega hasta la puesta de sol:
- * lo que importa es mirar hacia delante. Si el sol ya se ha puesto, la franja continúa hasta la
- * salida del día siguiente (`nextSunrise`, solo cuando el amanecer cae en el día siguiente al que
- * se está mirando). Cuando no hay luz que seguir en esa jornada (otro día ya anochecido), se
- * enseña su día completo, de la salida a la puesta.
+ * De noche (pasada la puesta y su crepúsculo), si se da `next`, se enseña el día siguiente: lo
+ * útil a esa hora es saber cuándo y dónde volverá el sol. Sin `next` (otro día, ya anochecido) se
+ * enseña el día completo de ese día.
  */
-export function timelineRange(
-  present: number,
-  sun: Pick<SunTimes, "sunrise" | "sunset">,
-  nextSunrise?: number
-): { start: number; end: number } {
-  if (present < sun.sunset) return { start: present, end: sun.sunset };
-  if (nextSunrise != null) return { start: present, end: nextSunrise };
-  return { start: sun.sunrise, end: sun.sunset };
+export function timelineRange(present: number, sun: TimelineSun, next?: TimelineSun): TimelineDay {
+  const m = TWILIGHT_MARGIN_MS;
+  if (next && present > sun.sunset + m) {
+    return { start: next.sunrise - m, end: next.sunset + m, sun: next, nextDay: true };
+  }
+  return { start: sun.sunrise - m, end: sun.sunset + m, sun, nextDay: false };
 }
 
 /** Mismo reloj de pared que `now`, pero sobre el día `dayOffset` días después del de hoy. */

@@ -1,11 +1,13 @@
+import { placeSlug, withTimeQuery } from "../lib/deepLinks";
 import { CONFIDENCE_ES, confidenceWord, fmtMin } from "../lib/formatSun";
 import { longDayLabel } from "../lib/planningTime";
+import { urlWith } from "../lib/routing";
 import type { ShareablePlan, SunSearchResult } from "../types";
 import { formatClock } from "./timeService";
 
 /**
- * planShareService — un resultado como texto compartible. Sin sistema social: solo el texto y el
- * enlace de la aplicación (todavía no hay enlaces profundos a un resultado).
+ * planShareService — un resultado como texto compartible. Sin sistema social: el texto y un enlace
+ * profundo que abre la ficha del lugar a la hora de su mejor sol (`/lugar/<slug>?hora=…&dia=…`).
  *
  *   Follow the Sun
  *   Sábado, 10 de octubre · 17:30–19:00
@@ -28,10 +30,14 @@ export function createShareablePlan(result: SunSearchResult): ShareablePlan {
   if (!result.weatherAvailable) lines.push("Sin datos de nubes: sol posible, no confirmado.");
   lines.push("Meteorología a escala de barrio, no de calle.");
 
+  const slug = placeSlug(result.place);
+  const query = withTimeQuery("", w.start);
+  const path = slug ? urlWith({ slug }, query) : urlWith({ view: "explore" }, query);
+
   return {
     title: `I Follow the Sun · ${result.place.name}`,
     text: lines.join("\n"),
-    url: `${window.location.origin}${window.location.pathname}`,
+    url: `${window.location.origin}${path}`,
   };
 }
 

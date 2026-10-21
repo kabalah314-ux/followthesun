@@ -54,6 +54,10 @@ import { usePreferences } from "./hooks/usePreferences";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useTimeController } from "./hooks/useTimeController";
+import { useDeepLink } from "./hooks/useDeepLink";
+import type { PlaceLinkRef } from "./lib/deepLinks";
+import { resolvePlaceRef } from "./services/placeLinkService";
+import { getPlaceSunSummaryCached } from "./services/placeSunService";
 import { distanceMeters } from "./lib/coordinates";
 import { onIdle } from "./lib/idle";
 import { DEFAULT_PLANNER, buildSearchRequest, type PlannerState } from "./lib/planning";
@@ -141,13 +145,16 @@ export default function App() {
   const sunTimes = useMemo(() => solarService.getSunTimes(dayStart, BARCELONA.lat, BARCELONA.lng), [dayStart]);
   /** Franja visible: de la hora presente del día elegido hasta la puesta de sol (mirar hacia delante). */
   const present = presentOnDay(now, dayOffset);
-  const range = useMemo(() => {
-    const nextSunrise =
-      dayOffset === 0 && present >= sunTimes.sunset
-        ? solarService.getSunTimes(dayStartFor(now, 1), BARCELONA.lat, BARCELONA.lng).sunrise
-        : undefined;
-    return timelineRange(present, sunTimes, nextSunrise);
+  /** Día solar completo que enseña la línea de tiempo (de noche, el de mañana). */
+  const timelineDay = useMemo(() => {
+    const next =
+      dayOffset === 0 ? solarService.getSunTimes(dayStartFor(now, 1), BARCELONA.lat, BARCELONA.lng) : undefined;
+    return timelineRange(present, sunTimes, next);
   }, [now, dayOffset, present, sunTimes]);
+  const range = useMemo(
+    () => ({ start: timelineDay.start, end: timelineDay.end }),
+    [timelineDay.start, timelineDay.end]
+  );
 
   const clock = useTimeController(now, range);
   const scrub = clock.scrub;
@@ -475,6 +482,29 @@ export default function App() {
     [openResult, handleSelect]
   );
 
+  /* ------------------------------ enlaces profundos ------------------------------ */
+  const openPlaceLink = useCallback(
+    async (ref: PlaceLinkRef) => {
+      const place = await resolvePlaceRef(ref);
+      if (!place) return false;
+      const summary = await getPlaceSunSummaryCached(place).catch(() => null);
+      if (!summary?.result || !summary.request) return false;
+      openResult(summary.result, summary.request, [summary.result]);
+      return true;
+    },
+    [openResult]
+  );
+  useDeepLink({
+    ready: loaded,
+    view,
+    chosenTime: clock.mode === "ahead" ? selectedTime : null,
+    place: activeResult?.result.place ?? null,
+    showTimeAt,
+    flyTo: (lng, lat, zoom) => mapController.current?.flyToPoint(lng, lat, zoom ?? 16),
+    openPlace: openPlaceLink,
+    onToast: setToast,
+  });
+
   const handlePickSpot = useCallback(
     (id: string) => {
       if (view === "saved") {
@@ -769,6 +799,7 @@ export default function App() {
       selectedTime={selectedTime}
       now={now}
       range={range}
+      day={timelineDay}
       mode={clock.mode}
       isNight={!up}
       dayOffset={dayOffset}
