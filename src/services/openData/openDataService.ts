@@ -1,5 +1,6 @@
 import { TtlCache } from "../../lib/cache";
 import type { SunPlace } from "../../types";
+import { isFreshStatic, loadStatic, type OpenDataSectionKey } from "../staticData";
 import {
   datastoreSearch,
   datastoreSql,
@@ -116,6 +117,35 @@ const LOADERS: Record<OpenDataPlaceSet, () => Promise<SunPlace[]>> = {
   },
 };
 
+/**
+ * Sección del fichero precalculado (`public/data/opendata.json`), con su frescura. `null` si no hay
+ * fichero o la sección falta o está vacía.
+ */
+async function staticSection<P>(key: OpenDataSectionKey): Promise<{ items: P[]; fresh: boolean } | null> {
+  const st = await loadStatic("opendata");
+  const sec = (st?.sections as Record<string, { fetchedAt?: string; items?: P[] } | undefined> | undefined)?.[key];
+  if (!sec || !Array.isArray(sec.items) || sec.items.length === 0) return null;
+  return { items: sec.items, fresh: isFreshStatic({ generatedAt: sec.fetchedAt }) };
+}
+
+/** Precalculado reciente → en vivo → precalculado antiguo (antes de recurrir a la caché caducada). */
+async function staticThenLive<P, T>(key: OpenDataSectionKey, unpack: (p: P[]) => T, live: () => Promise<T>): Promise<T> {
+  const st = await staticSection<P>(key);
+  if (st?.fresh) return unpack(st.items);
+  try {
+    return await live();
+  } catch (err) {
+    if (st) return unpack(st.items);
+    throw err;
+  }
+}
+
+/** Descarga directa de Open Data BCN, sin cachés (la usa el ETL de datos precalculados). */
+export const openDataLive = {
+  terraces: async (): Promise<LicensedTerrace[]> => parseTerraces(await newestCsvRows(C.datasets.terraces)),
+  places: LOADERS,
+};
+
 export const OPEN_DATA_PLACE_SETS: OpenDataPlaceSet[] = [
   "playgrounds",
   "shelters",
@@ -171,7 +201,7 @@ class Loader<T, P> {
 const terraceLoader = new Loader<LicensedTerrace[], PackedTerrace[]>(
   terraceCache,
   "terraces",
-  async () => parseTerraces(await newestCsvRows(C.datasets.terraces)),
+  () => staticThenLive<PackedTerrace, LicensedTerrace[]>("terraces", unpackTerraces, openDataLive.terraces),
   packTerraces,
   unpackTerraces,
   (v) => v.length === 0
@@ -180,7 +210,14 @@ const terraceLoader = new Loader<LicensedTerrace[], PackedTerrace[]>(
 const placeLoaders = Object.fromEntries(
   OPEN_DATA_PLACE_SETS.map((set) => [
     set,
-    new Loader<SunPlace[], PackedPlace[]>(placeCache, set, LOADERS[set], packPlaces, unpackPlaces, (v) => v.length === 0),
+    new Loader<SunPlace[], PackedPlace[]>(
+      placeCache,
+      set,
+      () => staticThenLive<PackedPlace, SunPlace[]>(set, unpackPlaces, LOADERS[set]),
+      packPlaces,
+      unpackPlaces,
+      (v) => v.length === 0
+    ),
   ])
 ) as Record<OpenDataPlaceSet, Loader<SunPlace[], PackedPlace[]>>;
 

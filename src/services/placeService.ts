@@ -13,6 +13,8 @@ import { ALL_PLACE_TYPES } from "../lib/placeTypes";
 import type { PlaceInventoryStatus, SunPlace, SunPlaceType } from "../types";
 import { OPEN_DATA_CONFIG } from "./openData/config";
 import { openDataService } from "./openData/openDataService";
+import { overpass } from "./overpass";
+import { generatedAtMs, isFreshStatic, loadStatic, type StaticPlacesFile } from "./staticData";
 
 /**
  * placeService — inventario de lugares candidatos. Siempre de una fuente REAL.
@@ -269,40 +271,23 @@ export function createCoordinatePlace(
 /*  Red                                                                        */
 /* -------------------------------------------------------------------------- */
 
-async function postOverpass(url: string, query: string): Promise<OvElement[]> {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), PLACES_CONFIG.timeoutMs);
-  try {
-    // Cuerpo `application/x-www-form-urlencoded`: es una petición «simple» (sin preflight CORS).
-    const res = await fetch(url, {
-      method: "POST",
-      body: new URLSearchParams({ data: query }),
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
-    const json = (await res.json()) as { elements?: OvElement[]; remark?: string };
-    if (!json || !Array.isArray(json.elements)) throw new Error("Overpass: respuesta inesperada");
-    // Overpass responde 200 con un `remark` cuando se queda sin tiempo o memoria (datos parciales).
-    if (json.remark && /runtime error|timed out|out of memory/i.test(json.remark)) {
-      throw new Error("Overpass: consulta incompleta");
-    }
-    return json.elements;
-  } finally {
-    window.clearTimeout(timer);
-  }
+/**
+ * Overpass en vivo: los servidores se prueban en orden con su tiempo máximo, y uno que acaba de
+ * fallar no se vuelve a esperar en 10 min (ver `services/overpass.ts`).
+ */
+async function fetchElements(): Promise<OvElement[]> {
+  return overpass<OvElement>(buildOverpassQuery(), { timeoutMs: PLACES_CONFIG.timeoutMs });
 }
 
-async function fetchElements(): Promise<OvElement[]> {
-  const query = buildOverpassQuery();
-  let lastError: unknown = new Error("Sin servidor Overpass");
-  for (const url of PLACES_CONFIG.endpoints) {
-    try {
-      return await postOverpass(url, query);
-    } catch (e) {
-      lastError = e;
-    }
-  }
-  throw lastError;
+const sameBbox = (a: StaticPlacesFile["bbox"] | undefined) => {
+  const b = PLACES_CONFIG.bbox;
+  return !!a && a.south === b.south && a.west === b.west && a.north === b.north && a.east === b.east;
+};
+
+/** Inventario precalculado (`public/data/places.json`) si existe y es de esta zona. */
+async function staticPlaces(): Promise<StaticPlacesFile | null> {
+  const st = await loadStatic("places");
+  return st && sameBbox(st.bbox) && st.places.length > 0 ? st : null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -412,7 +397,8 @@ class PlaceService {
   }
 
   /**
-   * Inventario de lugares. Orden: memoria → caché fresca → red → caché caducada → error.
+   * Inventario de lugares. Orden: memoria → caché fresca → inventario precalculado reciente →
+   * Overpass en vivo → caché caducada → inventario precalculado antiguo → error.
    * Las llamadas simultáneas comparten la misma petición.
    */
   load(force = false): Promise<PlaceInventory> {
@@ -434,19 +420,27 @@ class PlaceService {
         if (hit) {
           this.set(hit.value, hit.storedAt, false);
         } else {
-          try {
-            const places = normalizeOverpass(await fetchElements());
-            if (places.length === 0) throw new Error("Inventario vacío");
-            const now = Date.now();
-            placeCache.set(key, places, now);
-            this.set(places, now, false);
-          } catch (err) {
-            const old = placeCache.getAllowStale(key);
-            if (!old) {
-              this.failed = true;
-              throw err;
+          const st = await staticPlaces();
+          if (st && isFreshStatic(st)) {
+            // Precalculado en GitHub Actions: llega al momento desde la CDN.
+            placeCache.set(key, st.places, Date.now());
+            this.set(st.places, generatedAtMs(st), false);
+          } else {
+            try {
+              const places = normalizeOverpass(await fetchElements());
+              if (places.length === 0) throw new Error("Inventario vacío");
+              const now = Date.now();
+              placeCache.set(key, places, now);
+              this.set(places, now, false);
+            } catch (err) {
+              const old = placeCache.getAllowStale(key);
+              if (old) this.set(old.value, old.storedAt, true);
+              else if (st) this.set(st.places, generatedAtMs(st), true);
+              else {
+                this.failed = true;
+                throw err;
+              }
             }
-            this.set(old.value, old.storedAt, true);
           }
         }
         // Si Open Data BCN ya está (o llega enseguida) entra en este mismo inventario.

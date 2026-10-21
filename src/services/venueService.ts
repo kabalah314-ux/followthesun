@@ -1,6 +1,7 @@
 import { PLACES_CONFIG } from "../config";
 import { TtlCache } from "../lib/cache";
 import { distanceMeters } from "../lib/coordinates";
+import { settlePair } from "../lib/net";
 import { PLACE_TYPE_ORDER } from "../lib/placeTypes";
 import type {
   GeoBounds,
@@ -14,6 +15,8 @@ import type {
 import { OPEN_DATA_CONFIG } from "./openData/config";
 import { openDataService } from "./openData/openDataService";
 import { mergeLicensedTerraces, terraceRank } from "./openData/terraceMatching";
+import { overpass } from "./overpass";
+import { isFreshStatic, loadStatic, type PackedVenue, type StaticVenuesFile } from "./staticData";
 
 /**
  * venueService — negocios con terraza (cafeterías, bares, restaurantes).
@@ -60,35 +63,12 @@ const CAFE_CATEGORIES: VenueCategory[] = [
 const RE =
   /^(cafe|bar|restaurant|pub|ice_cream|biergarten)$/;
 
-/** POST a Overpass con tiempo máximo; cuerpo de formulario = petición simple, sin preflight CORS. */
-async function postOverpass(url: string, query: string, timeoutMs: number): Promise<OvNode[]> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      body: new URLSearchParams({ data: query }),
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`Overpass ${res.status}`);
-    const json = (await res.json()) as { elements?: OvNode[] };
-    return json.elements ?? [];
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-/** Prueba los servidores de Overpass en orden (los públicos limitan y a veces fallan). */
-async function overpassAnyEndpoint(query: string, timeoutMs: number): Promise<OvNode[]> {
-  let last: unknown = new Error("Sin servidor Overpass");
-  for (const url of PLACES_CONFIG.endpoints) {
-    try {
-      return await postOverpass(url, query, timeoutMs);
-    } catch (e) {
-      last = e;
-    }
-  }
-  throw last;
+/**
+ * Overpass con tiempo máximo por servidor y cortacircuitos (un servidor que acaba de fallar no se
+ * vuelve a esperar en la misma sesión). Ver `services/overpass.ts`.
+ */
+function overpassAnyEndpoint(query: string, timeoutMs: number): Promise<OvNode[]> {
+  return overpass<OvNode>(query, { timeoutMs });
 }
 
 export interface OvNode {
@@ -109,21 +89,71 @@ export interface OvNode {
  *    etiqueta está poco rellena, así que sin este grupo no habría suficientes negocios que mirar;
  *    pero se marca como posible y la búsqueda lo dice, no lo da por hecho.
  */
-function buildVenueQuery(bounds: GeoBounds): string {
+export function buildVenueQuery(bounds: GeoBounds, limit: number | null = 600, serverTimeoutS = 60): string {
   const box = `(${bounds.south},${bounds.west},${bounds.north},${bounds.east})`;
   const amenity = `["amenity"~"${RE.source}"]`;
   const seating = `${amenity}["outdoor_seating"="yes"]${box};`;
   // Planta baja: sin `building:levels` o con 1-2. Es una heurística, no un hecho.
   const ground = `${amenity}["!outdoor_seating"]${box};`;
   return [
-    "[out:json][timeout:60];",
+    `[out:json][timeout:${serverTimeoutS}];`,
     "(",
     `nwr${seating}`,
     `nwr${ground}`,
     ");",
-    "out center 600;",
+    limit === null ? "out center;" : `out center ${limit};`,
   ].join("");
 }
+
+/** Etiquetas de OSM que usa `ovToVenue` (lo demás no se guarda en el inventario precalculado). */
+const VENUE_TAGS = ["name", "amenity", "outdoor_seating", "building:levels", "opening_hours"] as const;
+
+/** Elemento de Overpass → forma compacta del inventario precalculado (`public/data/venues.json`). */
+export function packVenueElement(el: OvNode): PackedVenue | null {
+  if (!ovToVenue(el)) return null;
+  const p = venuePoint(el);
+  if (!p) return null;
+  const tags: Record<string, string> = {};
+  for (const k of VENUE_TAGS) {
+    const v = el.tags?.[k];
+    if (v) tags[k] = v;
+  }
+  const r5 = (v: number) => Math.round(v * 1e5) / 1e5;
+  return [`${el.type}/${el.id}`, r5(p.lat), r5(p.lng), tags];
+}
+
+/** Forma compacta → negocio, con la misma clasificación que los datos en vivo. */
+export function unpackVenue([ref, lat, lon, tags]: PackedVenue): Venue | null {
+  const [type, id] = ref.split("/");
+  if ((type !== "node" && type !== "way" && type !== "relation") || !id) return null;
+  return ovToVenue({ type, id: Number(id), lat, lon, tags });
+}
+
+const containsBounds = (outer: GeoBounds, inner: GeoBounds) =>
+  outer.south <= inner.south && outer.west <= inner.west && outer.north >= inner.north && outer.east >= inner.east;
+
+function venuesFromStatic(file: StaticVenuesFile, bounds: GeoBounds): Venue[] {
+  const out: Venue[] = [];
+  for (const p of file.venues) {
+    const v = unpackVenue(p);
+    if (v && v.latitude >= bounds.south && v.latitude <= bounds.north && v.longitude >= bounds.west && v.longitude <= bounds.east) {
+      out.push(v);
+    }
+  }
+  return out;
+}
+
+/** Negocios de OSM ya descargados, por zona: una semana, y hasta dos meses como respaldo. */
+const osmVenueCache = new TtlCache<Venue[]>({
+  namespace: "fts:venues:osm",
+  ttlMs: PLACES_CONFIG.ttlMs,
+  maxStaleMs: PLACES_CONFIG.maxStaleMs,
+  version: 1,
+  persist: true,
+});
+
+/** El inventario precalculado de negocios está cargado y es reciente: no hace falta Overpass. */
+let staticVenuesReady = false;
 
 /** Coordenadas del elemento (nodo, o centro de vía/relación). */
 function venuePoint(el: OvNode): { lat: number; lng: number } | null {
@@ -187,14 +217,32 @@ export const osmVenueProvider: VenueProvider = {
     allowsThirdPartyMap: true,
     license: "ODbL · © OpenStreetMap contributors",
   },
+  /** Precalculado reciente → caché del dispositivo → Overpass → caché caducada → precalculado antiguo. */
   async loadVenues(bounds) {
-    const elements = await overpassAnyEndpoint(buildVenueQuery(bounds), PLACES_CONFIG.timeoutMs);
-    const out: Venue[] = [];
-    for (const el of elements) {
-      const v = ovToVenue(el);
-      if (v) out.push(v);
+    const st = await loadStatic("venues");
+    const usable = st && containsBounds(st.bbox, bounds) && st.venues.length > 0 ? st : null;
+    if (usable && isFreshStatic(usable)) {
+      staticVenuesReady = true;
+      return venuesFromStatic(usable, bounds);
     }
-    return out;
+    const key = `${bounds.west},${bounds.east},${bounds.south},${bounds.north}`;
+    const hit = osmVenueCache.get(key);
+    if (hit) return hit.value;
+    try {
+      const elements = await overpassAnyEndpoint(buildVenueQuery(bounds), PLACES_CONFIG.venueTimeoutMs);
+      const out: Venue[] = [];
+      for (const el of elements) {
+        const v = ovToVenue(el);
+        if (v) out.push(v);
+      }
+      if (out.length > 0) osmVenueCache.set(key, out);
+      return out;
+    } catch (e) {
+      const old = osmVenueCache.getAllowStale(key);
+      if (old) return old.value;
+      if (usable) return venuesFromStatic(usable, bounds);
+      throw e;
+    }
   },
 };
 
@@ -270,8 +318,10 @@ export const venueService = {
 
   /**
    * Locales con terraza de una zona: OpenStreetMap cruzado con las licencias municipales de
-   * terraza (Open Data BCN). Basta con que responda una de las dos fuentes. Cachea por zona
-   * mientras dure la sesión (las licencias, además, una semana en el dispositivo).
+   * terraza (Open Data BCN). Basta con que responda una de las dos fuentes: cuando llega bien la
+   * primera, la otra tiene `PLACES_CONFIG.venueGraceMs` más; si no llega, se sigue sin ella y
+   * termina en segundo plano (queda en su caché para la próxima búsqueda). Cachea por zona
+   * mientras dure la sesión.
    */
   async loadVenues(bounds: GeoBounds, force = false): Promise<VenueLoadResult> {
     const key = `${bounds.west},${bounds.east},${bounds.south},${bounds.north}`;
@@ -282,11 +332,22 @@ export const venueService = {
     let p = cache.get(key);
     if (!p) {
       p = (async () => {
-        const [osm, lic] = await Promise.allSettled([active.loadVenues(bounds), openDataService.loadTerraces(force)]);
-        if (osm.status === "rejected" && lic.status === "rejected") throw osm.reason;
-        const osmVenues = osm.status === "fulfilled" ? osm.value : [];
+        const osmP = active.loadVenues(bounds);
+        const licP = openDataService.loadTerraces(force);
+        const [osm, lic] = await settlePair(osmP, licP, PLACES_CONFIG.venueGraceMs);
+        if (osm?.status !== "fulfilled" && lic?.status !== "fulfilled") {
+          throw osm?.status === "rejected"
+            ? osm.reason
+            : lic?.status === "rejected"
+              ? lic.reason
+              : new Error("Sin datos de negocios");
+        }
+        // Lo que siga pendiente terminará en segundo plano: la próxima búsqueda lo incluye.
+        if (osm === null) osmP.then(() => cache.delete(key), () => undefined);
+        if (lic === null) licP.then(() => cache.delete(key), () => undefined);
+        const osmVenues = osm?.status === "fulfilled" ? osm.value : [];
         const terraces =
-          lic.status === "fulfilled"
+          lic?.status === "fulfilled"
             ? lic.value.value.filter((t) => inBounds(bounds, t.latitude, t.longitude))
             : null;
         licensedByKey.set(key, terraces !== null);
@@ -350,7 +411,9 @@ async function resolveTerraceNames(places: SunPlace[], timeoutMs = 6000): Promis
     }
   }
   const batch = pending.slice(0, NAME_BATCH);
-  if (batch.length === 0) return out;
+  // Con el inventario precalculado completo, las licencias ya se cruzaron con todos los locales de
+  // OSM: si no casó ninguno a ≤ 15 m, Overpass tampoco lo encontrará.
+  if (batch.length === 0 || staticVenuesReady) return out;
 
   const R: number = OPEN_DATA_CONFIG.terraceMatchRadiusM;
   const amenity = `["amenity"~"${RE.source}"]["name"]`;
