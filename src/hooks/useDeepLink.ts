@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { placeSlug, readDeepLink, withTimeQuery, type PlaceLinkRef } from "../lib/deepLinks";
 import { urlWith, type AppView } from "../lib/routing";
 import type { SunPlace } from "../types";
+import { tr } from "../i18n";
 
 interface Options {
   /** El mapa está listo: antes no se puede volar ni abrir una ficha. */
@@ -43,7 +44,7 @@ export function useDeepLink(o: Options) {
         .catch(() => false)
         .then((ok) => {
           restoring.current = false;
-          if (!ok) opts.current.onToast("No encontramos ese lugar; te dejamos en el mapa.");
+          if (!ok) opts.current.onToast(tr("useDeepLink.no_encontramos_ese_lugar_te"));
           else if (link.time != null) opts.current.showTimeAt(link.time);
         });
     } else if (link.time != null) {

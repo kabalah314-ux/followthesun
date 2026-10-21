@@ -1,6 +1,7 @@
 import { CalendarClock, Compass, Heart, Info, MapPin, Search, Settings, Shuffle } from "../LineIcons";
 import type { ReactNode } from "react";
 import { destinationOf, type AppView } from "../../lib/routing";
+import { tr } from "../../i18n";
 
 /**
  * Icono del Sol de Follow the Sun para «Find the Sun»: disco + arco de trayectoria, con el mismo
@@ -29,56 +30,56 @@ const stroke = { strokeWidth: 1.5, absoluteStrokeWidth: true } as const;
 export const NAV_ITEMS: Record<AppView, NavItemDef> = {
   now: {
     view: "now",
-    label: "Ahora",
-    hint: "Tu sol, o tu sombra, en este momento",
+    label: tr("findSunPanel.ahora"),
+    hint: tr("navItems.tu_sol_o_tu_sombra"),
     icon: (s) => <SunTrackIcon size={s} />,
   },
   explore: {
     view: "explore",
-    label: "Mapa",
-    hint: "Sol y sombra a cualquier hora",
+    label: tr("layerControl.mapa"),
+    hint: tr("navItems.sol_y_sombra_a_cualquier"),
     icon: (s) => <Compass size={s} {...stroke} />,
   },
   find: {
     view: "find",
-    label: "Buscar",
-    hint: "Sitios con sol o sombra, ahora o más tarde",
+    label: tr("app.buscar"),
+    hint: tr("navItems.sitios_con_sol_o_sombra"),
     icon: (s) => <Search size={s} {...stroke} />,
   },
   plan: {
     view: "plan",
-    label: "Más tarde",
-    hint: "Elige día y franja",
+    label: tr("navItems.mas_tarde"),
+    hint: tr("navItems.elige_dia_y_franja"),
     icon: (s) => <CalendarClock size={s} {...stroke} />,
   },
   places: {
     view: "places",
-    label: "Lugares",
-    hint: "Los mejores sitios de hoy por tipo",
+    label: tr("searchProgress.lugares"),
+    hint: tr("navItems.los_mejores_sitios_de_hoy"),
     icon: (s) => <MapPin size={s} {...stroke} />,
   },
   recommended: {
     view: "recommended",
-    label: "Sorpréndeme",
-    hint: "Nueve sitios para descubrir",
+    label: tr("navItems.sorprendeme"),
+    hint: tr("navItems.nueve_sitios_para_descubrir"),
     icon: (s) => <Shuffle size={s} {...stroke} />,
   },
   saved: {
     view: "saved",
-    label: "Mis sitios",
-    hint: "Tus sitios guardados",
+    label: tr("navItems.mis_sitios"),
+    hint: tr("navItems.tus_sitios_guardados"),
     icon: (s) => <Heart size={s} {...stroke} />,
   },
   settings: {
     view: "settings",
-    label: "Ajustes",
-    hint: "Unidades, mapa y privacidad",
+    label: tr("navItems.ajustes"),
+    hint: tr("navItems.unidades_mapa_y_privacidad"),
     icon: (s) => <Settings size={s} {...stroke} />,
   },
   about: {
     view: "about",
-    label: "Acerca de",
-    hint: "Datos, precisión y límites",
+    label: tr("aboutPanel.acerca_de"),
+    hint: tr("navItems.datos_precision_y_limites"),
     icon: (s) => <Info size={s} {...stroke} />,
   },
 };

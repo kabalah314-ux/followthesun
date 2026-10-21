@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import type { Device } from "./layout";
+import { tr } from "../../i18n";
 
 /**
  * Panel contextual — el patrón común de Follow the Sun: barra de navegación + mapa + panel.
@@ -98,7 +99,7 @@ export default function ContextPanel({
       <div
         role="button"
         tabIndex={0}
-        aria-label={collapsed ? "Desplegar panel" : "Plegar panel"}
+        aria-label={collapsed ? tr("contextPanel.desplegar_panel") : tr("contextPanel.plegar_panel")}
         aria-expanded={!collapsed}
         onPointerDown={onDown}
         onPointerMove={onMove}
@@ -154,7 +155,7 @@ export function PanelHeader({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Atrás"
+            aria-label={tr("contextPanel.atras")}
             className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -173,7 +174,7 @@ export function PanelHeader({
           <button
             type="button"
             onClick={onBack}
-            aria-label="Atrás"
+            aria-label={tr("contextPanel.atras")}
             className="-ml-1.5 mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -190,7 +191,7 @@ export function PanelHeader({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar"
+          aria-label={tr("sunDetails.cerrar")}
           className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>

@@ -17,6 +17,7 @@ import { openDataService } from "./openData/openDataService";
 import { mergeLicensedTerraces, terraceRank } from "./openData/terraceMatching";
 import { overpass } from "./overpass";
 import { isFreshStatic, loadStatic, type PackedVenue, type StaticVenuesFile } from "./staticData";
+import { tr } from "../i18n";
 
 /**
  * venueService — negocios con terraza (cafeterías, bares, restaurantes).
@@ -200,7 +201,7 @@ export function ovToVenue(el: OvNode): Venue | null {
       terrace === "confirmed"
         ? "OpenStreetMap (outdoor_seating=yes)"
         : terrace === "likely"
-          ? "Candidato: local en planta baja (OpenStreetMap)"
+          ? tr("venueService.candidato_local_en_planta_baja")
           : "OpenStreetMap",
     openingHours: tags.opening_hours,
     metadata: { amenity: category, levels: tags["building:levels"] },

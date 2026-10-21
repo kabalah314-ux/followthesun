@@ -1,5 +1,6 @@
 import { LIGHT_MODEL_CONFIG as C, SATELLITE_CONFIG, WEATHER_CONFIG } from "../config";
 import { clamp, smoothstep } from "./coordinates";
+import { tr } from "../i18n";
 
 /**
  * Calidad relativa de cada fuente (satélite ⟷ modelo) para estimar el sol directo en UN instante.
@@ -55,17 +56,17 @@ export interface SourceWeight {
 }
 
 const LABELS: Record<string, string> = {
-  temporal: "antigüedad / horizonte",
-  spatial: "resolución espacial",
-  temporalResolution: "resolución temporal",
-  elevation: "sol bajo",
-  agreement: "coherencia interna",
-  coverage: "cobertura espacial",
+  temporal: tr("sourceWeights.antiguedad_horizonte"),
+  spatial: tr("sourceWeights.resolucion_espacial"),
+  temporalResolution: tr("sourceWeights.resolucion_temporal"),
+  elevation: tr("sourceWeights.sol_bajo"),
+  agreement: tr("sourceWeights.coherencia_interna"),
+  coverage: tr("sourceWeights.cobertura_espacial"),
 };
 
 export function calculateSourceWeight(i: SourceWeightInputs): SourceWeight {
   if (!i.available) {
-    return { weight: 0, factors: { availability: 0 }, explanation: "sin datos" };
+    return { weight: 0, factors: { availability: 0 }, explanation: tr("pointPanel.sin_datos") };
   }
   const Q = C.SOURCE_QUALITY;
   const isSat = i.kind === "satellite";
@@ -116,6 +117,6 @@ export function calculateSourceWeight(i: SourceWeightInputs): SourceWeight {
   return {
     weight,
     factors,
-    explanation: weak.length ? `limitado por ${weak.join(", ")}` : "sin limitaciones relevantes",
+    explanation: weak.length ? tr("sourceWeights.limitado_por", { p0: weak.join(", ") }) : tr("sourceWeights.sin_limitaciones_relevantes"),
   };
 }

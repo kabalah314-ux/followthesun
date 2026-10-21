@@ -1,6 +1,7 @@
 import type { SunAnswer, SunShadeMode } from "../../lib/answer";
 import { cn } from "../../utils/cn";
 import { CloseIcon, SunGlyph } from "../Icons";
+import { tr } from "../../i18n";
 
 interface Props {
   /** Frase-respuesta de lo que se ve (describeCity). */
@@ -24,8 +25,8 @@ interface Props {
 }
 
 const ACTION: Record<SunShadeMode, { label: string; short: string; glyph: "sun" | "shade" }> = {
-  sun: { label: "Sol cerca de mí", short: "Sol cerca", glyph: "sun" },
-  shade: { label: "Sombra cerca de mí", short: "Sombra cerca", glyph: "shade" },
+  sun: { label: tr("answerCard.sol_cerca_de_mi"), short: tr("answerCard.sol_cerca"), glyph: "sun" },
+  shade: { label: tr("answerCard.sombra_cerca_de_mi"), short: tr("answerCard.sombra_cerca"), glyph: "shade" },
 };
 
 /**
@@ -51,7 +52,7 @@ export default function AnswerCard({
 
   return (
     <section
-      aria-label="Ahora"
+      aria-label={tr("findSunPanel.ahora")}
       className={cn(
         "pointer-events-auto rounded-[22px]",
         inline
@@ -69,7 +70,7 @@ export default function AnswerCard({
           <button
             type="button"
             onClick={onHide}
-            aria-label="Ocultar la tarjeta"
+            aria-label={tr("answerCard.ocultar_la_tarjeta")}
             className="-mr-2.5 -mt-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
           >
             <CloseIcon />
@@ -83,7 +84,7 @@ export default function AnswerCard({
           <p className="text-[17px] font-semibold leading-snug text-ink">{answer.headline}</p>
           {answer.detail && <p className="mt-1 text-[14px] leading-snug text-ink-soft">{answer.detail}</p>}
           {heatSuggested && !night && (
-            <p className="mt-1 text-[13px] leading-snug text-shade">Hace calor: te proponemos sombra.</p>
+            <p className="mt-1 text-[13px] leading-snug text-shade">{tr("answerCard.hace_calor_te_proponemos_sombra")}</p>
           )}
         </div>
       </div>
@@ -118,7 +119,7 @@ export default function AnswerCard({
           onClick={onMyPoint}
           className="mt-2 -ml-1 rounded-full px-1 py-2 text-[13px] font-semibold text-sun-deep underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sun/60"
         >
-          Ver el sol en mi ubicación
+          {tr("answerCard.ver_el_sol_en_mi")}
         </button>
       )}
     </section>

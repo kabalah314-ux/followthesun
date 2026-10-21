@@ -2,6 +2,7 @@ import { memo, useId } from "react";
 import { clamp } from "../../lib/coordinates";
 import { compassLabel } from "../../services/solarService";
 import { cn } from "../../utils/cn";
+import { tr } from "../../i18n";
 
 /**
  * SunIndicator — pequeño dial solar dibujado con SVG/CSS (sin emojis).
@@ -81,7 +82,7 @@ function SunIndicatorBase({ azimuthDeg, altitudeDeg, bearing, variant = "capsule
         className={cn("fts-glass fts-rise h-[54px] w-[54px] rounded-full p-1 text-ink-soft", className)}
         style={{ animationDelay: "1000ms" }}
         role="img"
-        aria-label={`Sol a ${Math.round(altitudeDeg)} grados, ${compassLabel(azimuthDeg)}`}
+        aria-label={tr("sunIndicator.sol_a_grados", { p0: Math.round(altitudeDeg), p1: compassLabel(azimuthDeg) })}
       >
         <Dial azimuthDeg={azimuthDeg} altitudeDeg={altitudeDeg} bearing={bearing} />
       </div>
@@ -93,20 +94,20 @@ function SunIndicatorBase({ azimuthDeg, altitudeDeg, bearing, variant = "capsule
       className={cn("fts-glass fts-rise inline-flex items-center gap-3 rounded-full py-1.5 pl-1.5 pr-5 text-ink-soft", className)}
       style={{ animationDelay: "1000ms" }}
       role="img"
-      aria-label={up ? `Sol a ${Math.round(altitudeDeg)} grados, ${compassLabel(azimuthDeg)}` : "Sol bajo el horizonte"}
+      aria-label={up ? tr("sunIndicator.sol_a_grados", { p0: Math.round(altitudeDeg), p1: compassLabel(azimuthDeg) }) : tr("sunIndicator.sol_bajo_el_horizonte")}
     >
       <div className="h-[56px] w-[56px] shrink-0">
         <Dial azimuthDeg={azimuthDeg} altitudeDeg={altitudeDeg} bearing={bearing} />
       </div>
       <div className="leading-none">
-        <p className="fts-caps">Posición solar</p>
+        <p className="fts-caps">{tr("sunIndicator.posicion_solar")}</p>
         <p className="mt-2 font-serif text-[20px] tabular-nums text-ink">
           {up ? (
             <>
               {Math.round(altitudeDeg)}°<span className="text-ink-soft"> · {compassLabel(azimuthDeg)}</span>
             </>
           ) : (
-            <span className="text-[16px] text-ink-soft">Bajo el horizonte</span>
+            <span className="text-[16px] text-ink-soft">{tr("infoPanel.bajo_el_horizonte")}</span>
           )}
         </p>
       </div>

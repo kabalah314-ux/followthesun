@@ -5,6 +5,7 @@ import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import type { NearbyLine } from "../../lib/placeAnswer";
 import type { SunSearchResult } from "../../types";
 import { cn } from "../../utils/cn";
+import { tr } from "../../i18n";
 
 /** Un sitio de «Cerca de ti ahora»: nombre, tipo, minutos a pie y hasta cuándo dura su sol (o sombra). */
 export default function NearbyCard({
@@ -23,11 +24,11 @@ export default function NearbyCard({
   /** Sin la ubicación de la persona, los minutos a pie no significan nada: se ocultan. */
   showWalk?: boolean;
 }) {
-  const type = PLACE_TYPE_LABEL[result.locationType]?.singular ?? "Lugar";
+  const type = PLACE_TYPE_LABEL[result.locationType]?.singular ?? tr("nearbyCard.lugar");
   // Sensación en el momento de la franja de la tarjeta (ahora o, si es mañana, su inicio).
   const [openedAt] = useState(() => Date.now());
   const comfort = useComfort(Math.max(openedAt, result.searchWindow.start));
-  const walk = showWalk && result.walking ? ` · ${result.walking.durationMinutes} min a pie` : "";
+  const walk = showWalk && result.walking ? tr("nearbyCard.min_a_pie", { p0: result.walking.durationMinutes }) : "";
   return (
     <button
       type="button"

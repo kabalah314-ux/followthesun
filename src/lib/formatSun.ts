@@ -2,6 +2,7 @@ import { formatDuration } from "../services/timeService";
 import { getPreferences } from "./preferences";
 import type { SunWindowKind } from "../types";
 import { influenceLevel } from "./sunlightCalculations";
+import { tr } from "../i18n";
 
 /** Formato de cantidades de sol para la interfaz (siempre sin valores técnicos ni NaN). */
 
@@ -15,24 +16,24 @@ export const confidenceWord = (c: number): ConfidenceWord =>
   c >= 0.85 ? "very_high" : c >= 0.65 ? "high" : c >= 0.4 ? "medium" : "low";
 
 export const CONFIDENCE_ES: Record<ConfidenceWord, string> = {
-  very_high: "Muy alta",
-  high: "Alta",
-  medium: "Media",
-  low: "Baja",
+  very_high: tr("formatSun.muy_alta"),
+  high: tr("formatSun.alta"),
+  medium: tr("formatSun.media"),
+  low: tr("formatSun.baja"),
 };
 
-export const INFLUENCE_ES = { low: "Baja", moderate: "Moderada", high: "Alta" } as const;
+export const INFLUENCE_ES = { low: tr("formatSun.baja"), moderate: tr("formatSun.moderada"), high: tr("formatSun.alta") } as const;
 
 export const influenceWord = (cloudInfluence: number): string =>
   INFLUENCE_ES[influenceLevel(cloudInfluence)];
 
 export const KIND_ES: Record<SunWindowKind, string> = {
-  sun: "Sol directo",
-  partial: "Sol parcial",
-  shadow: "Sombra",
-  cloud: "Nubes",
-  uncertain: "Incierto",
-  night: "Sin sol",
+  sun: tr("sunDetails.sol_directo"),
+  partial: tr("infoPanel.sol_parcial"),
+  shadow: tr("findSunPanel.sombra"),
+  cloud: tr("sunDetails.nubes"),
+  uncertain: tr("formatSun.incierto"),
+  night: tr("infoPanel.sin_sol"),
 };
 
 /** Distancia en la unidad elegida en Ajustes. */

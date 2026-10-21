@@ -2,6 +2,7 @@ import { BUILDINGS_3D, MAP_CONFIG, OPEN_TILES } from "../../config";
 import type { Theme } from "../../types";
 import { BUILDINGS_QUERY_LAYER } from "../buildingService";
 import type { MapLike } from "./types";
+import { tr } from "../../i18n";
 
 /**
  * Estilos cartográficos de Follow the Sun.
@@ -797,14 +798,14 @@ export const SATELLITE_SOURCES = {
     label: "Mapbox Satellite",
     url: "mapbox://mapbox.mapbox-satellite-v9",
     attribution: "© Maxar · Mapbox",
-    commercial: "requiere token de Mapbox",
+    commercial: tr("styles.requiere_token_de_mapbox"),
   },
   esri: {
     id: "fts-satellite",
     label: "Esri World Imagery",
     tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
     attribution: "© Esri, Maxar, Earthstar Geographics",
-    commercial: "uso no comercial; licencia Esri para producto comercial",
+    commercial: tr("styles.uso_no_comercial_licencia_esri"),
   },
 } as const;
 

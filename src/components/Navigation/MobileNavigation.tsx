@@ -1,6 +1,7 @@
 import type { AppView } from "../../lib/routing";
 import { cn } from "../../utils/cn";
 import { MOBILE_NAV, NAV_ITEMS, isNavActive } from "./navItems";
+import { tr } from "../../i18n";
 
 /**
  * Barra inferior móvil: los cuatro destinos (Ahora, Mapa, Buscar, Mis sitios). Ajustes y Acerca de
@@ -15,7 +16,7 @@ export default function MobileNavigation({
 }) {
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={tr("mobileNavigation.navegacion_principal")}
       className="fts-glass pointer-events-auto fixed inset-x-0 bottom-0 z-40 rounded-t-[22px] border-x-0 border-b-0"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >

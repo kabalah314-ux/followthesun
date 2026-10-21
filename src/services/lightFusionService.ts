@@ -25,6 +25,7 @@ import { radiationService } from "./radiationService";
 import { satelliteService, type SatelliteFieldSample } from "./satelliteService";
 import { solarService } from "./solarService";
 import { startOfZoneDay } from "./timeService";
+import { tr } from "../i18n";
 
 /**
  * lightFusionService — fusiona observación satelital y modelo meteorológico en UNA estimación de la
@@ -138,11 +139,11 @@ const satSampleOrigin = (o: DataOrigin): SampleOrigin =>
 
 const ORIGIN_LABEL: Record<DataOrigin, string> = {
   observed: "observada",
-  forecast: "previsión",
-  interpolated: "interpolada entre observaciones",
-  estimated: "persistencia de la última observación",
-  stale: "observación antigua",
-  unavailable: "sin datos",
+  forecast: tr("lightFusionService.prevision"),
+  interpolated: tr("lightFusionService.interpolada_entre_observaciones"),
+  estimated: tr("pointPanel.persistencia_de_la_ultima_observacion"),
+  stale: tr("pointPanel.observacion_antigua"),
+  unavailable: tr("pointPanel.sin_datos"),
 };
 
 function emptyFusion(decision: string[]): LightFusion {

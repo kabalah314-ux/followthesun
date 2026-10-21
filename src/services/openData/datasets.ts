@@ -3,6 +3,7 @@ import { distanceMeters } from "../../lib/coordinates";
 import type { SunPlace } from "../../types";
 import { OPEN_DATA_CONFIG as C } from "./config";
 import { toNumber, type CsvRow } from "./csv";
+import { tr } from "../../i18n";
 
 /**
  * Conversión de los conjuntos de Open Data BCN al modelo de la app. Nada se inventa: un registro
@@ -197,7 +198,7 @@ export function parseFountains(rows: CsvRow[]): SunPlace[] {
     if (seen.has(code)) continue;
     seen.add(code);
     const address = titleCaseAddress([clean(r.CARRER), clean(r.NUMERO_CARRER)].filter(Boolean).join(" "));
-    const name = clean(r.NOM) || (address ? `Fuente · ${address}` : "Fuente");
+    const name = clean(r.NOM) || (address ? tr("datasets.fuente", { p0: address }) : tr("placeTypes.fuente"));
     out.push({
       id: `bcn:font:${code}`,
       name,
@@ -323,7 +324,7 @@ export function parseViewpoints(records: NasiaRecord[]): SunPlace[] {
   for (const r of records) {
     const name = clean(r.name);
     const inst = clean(r.institution_name);
-    const display = /^mirador$/i.test(name) && inst ? `Mirador · ${inst}` : name || inst;
+    const display = /^mirador$/i.test(name) && inst ? tr("datasets.mirador", { p0: inst }) : name || inst;
     if (!display) continue;
     const place = nasiaToPlace(r, "viewpoint", "mirador", display);
     if (place) out.push(place);
@@ -348,10 +349,10 @@ export interface PlayGroup {
 }
 
 const AGE_ES: Record<string, string> = {
-  "FINS A 5 ANYS": "0–5 años",
-  "DE 6 A 12 ANYS": "6–12 años",
-  "MAJORS DE 12 ANYS": "más de 12 años",
-  MIXTA: "todas las edades",
+  "FINS A 5 ANYS": tr("datasets.0_5_anos"),
+  "DE 6 A 12 ANYS": tr("datasets.6_12_anos"),
+  "MAJORS DE 12 ANYS": tr("datasets.mas_de_12_anos"),
+  MIXTA: tr("datasets.todas_las_edades"),
 };
 
 export function ageLabel(raw: string): string | null {
@@ -385,7 +386,7 @@ export function playGroupsToPlaces(groups: PlayGroup[]): SunPlace[] {
   const out: SunPlace[] = [];
   for (const g of mergePlayGroups(groups)) {
     if (!inBarcelona(g.lat, g.lng)) continue;
-    const name = g.name ? reorderSpaceName(g.name) : "Área de juego";
+    const name = g.name ? reorderSpaceName(g.name) : tr("placeTypes.area_de_juego");
     out.push({
       id: `bcn:joc:${g.lat.toFixed(4)},${g.lng.toFixed(4)}`,
       name,

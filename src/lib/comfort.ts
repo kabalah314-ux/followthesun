@@ -1,3 +1,4 @@
+import { tr } from "../i18n";
 /**
  * Confort al sol y a la sombra (fase 2, F2-05).
  *
@@ -76,24 +77,24 @@ export function uvLevel(uv: number): UvLevel {
 export function uvAdvice(uv: number): string {
   switch (uvLevel(uv)) {
     case "bajo":
-      return "no hace falta protección";
+      return tr("comfort.no_hace_falta_proteccion");
     case "moderado":
-      return "protección moderada si vas a estar rato";
+      return tr("comfort.proteccion_moderada_si_vas_a");
     case "alto":
-      return "protección alta: crema, gorra y sombra a mediodía";
+      return tr("comfort.proteccion_alta_crema_gorra");
     case "muy alto":
-      return "protección muy alta: evita el sol de mediodía";
+      return tr("comfort.proteccion_muy_alta_evita_el");
     case "extremo":
-      return "riesgo extremo: evita estar al sol";
+      return tr("comfort.riesgo_extremo_evita_estar");
   }
 }
 
 export function windWord(kmh: number): string {
-  if (kmh < 6) return "sin viento";
-  if (kmh < 20) return "brisa suave";
-  if (kmh < 29) return "brisa";
-  if (kmh < 39) return "viento moderado";
-  return "viento fuerte";
+  if (kmh < 6) return tr("comfort.sin_viento");
+  if (kmh < 20) return tr("comfort.brisa_suave");
+  if (kmh < 29) return tr("comfort.brisa");
+  if (kmh < 39) return tr("comfort.viento_moderado");
+  return tr("comfort.viento_fuerte");
 }
 
 export function comfortFrom(s: WeatherSample): Comfort | null {
@@ -126,25 +127,25 @@ const deg = (c: number) => `${Math.round(c)} °C`;
 /** Sensación en palabras: «19 °C al sol · 15 °C a la sombra» o, sin sol, «sensación de 15 °C». */
 export function feelsLine(c: Comfort): string {
   if (c.alSolC !== null && c.aLaSombraC !== null && Math.round(c.alSolC) !== Math.round(c.aLaSombraC)) {
-    return `${deg(c.alSolC)} al sol · ${deg(c.aLaSombraC)} a la sombra`;
+    return tr("comfort.al_sol_a_la_sombra", { p0: deg(c.alSolC), p1: deg(c.aLaSombraC) });
   }
-  if (c.aLaSombraC !== null) return `sensación de ${deg(c.aLaSombraC)}`;
+  if (c.aLaSombraC !== null) return tr("comfort.sensacion_de", { p0: deg(c.aLaSombraC) });
   return deg(c.tempC);
 }
 
 /** Viento en palabras, con las rachas solo si destacan: «brisa suave de 12 km/h». */
 export function windLine(c: Comfort): string | null {
   if (c.vientoKmh === null) return null;
-  let w = c.vientoKmh < 6 ? "sin viento" : `${windWord(c.vientoKmh)} de ${Math.round(c.vientoKmh)} km/h`;
+  let w = c.vientoKmh < 6 ? tr("comfort.sin_viento") : tr("comfort.de_km_h", { p0: windWord(c.vientoKmh), p1: Math.round(c.vientoKmh) });
   if (c.rachasKmh !== null && c.rachasKmh >= 30 && c.rachasKmh >= c.vientoKmh + 15) {
-    w += ` (rachas de ${Math.round(c.rachasKmh)})`;
+    w += tr("comfort.rachas_de", { p0: Math.round(c.rachasKmh) });
   }
   return w;
 }
 
 /** UV con su consejo, solo a partir de 3 (por debajo no hace falta decir nada). */
 export function uvLine(c: Comfort): string | null {
-  return c.uv !== null && c.uv >= 2.5 && c.consejo ? `UV ${Math.round(c.uv)}: ${c.consejo}` : null;
+  return c.uv !== null && c.uv >= 2.5 && c.consejo ? tr("comfort.uv", { p0: Math.round(c.uv), p1: c.consejo }) : null;
 }
 
 /** «19 °C al sol · 15 °C a la sombra · brisa suave de 12 km/h · UV 6: protección alta: …». */
@@ -155,7 +156,7 @@ export function comfortSentence(c: Comfort): string {
 
 /** Línea corta para tarjetas: la sensación que interesa según lo que se busca. */
 export function comfortShort(c: Comfort, mode: "sun" | "shade"): string {
-  if (mode === "shade" && c.aLaSombraC !== null) return `${deg(c.aLaSombraC)} a la sombra`;
-  if (mode === "sun" && c.alSolC !== null) return `${deg(c.alSolC)} al sol`;
-  return c.aLaSombraC !== null ? `Sensación de ${deg(c.aLaSombraC)}` : deg(c.tempC);
+  if (mode === "shade" && c.aLaSombraC !== null) return tr("comfort.a_la_sombra", { p0: deg(c.aLaSombraC) });
+  if (mode === "sun" && c.alSolC !== null) return tr("comfort.al_sol", { p0: deg(c.alSolC) });
+  return c.aLaSombraC !== null ? tr("comfort.sensacion_de_2", { p0: deg(c.aLaSombraC) }) : deg(c.tempC);
 }

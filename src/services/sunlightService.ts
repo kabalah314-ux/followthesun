@@ -25,6 +25,7 @@ import { fuseLight, lightFusionService } from "./lightFusionService";
 import { satelliteService } from "./satelliteService";
 import { createShadowEvaluator } from "./shadowService";
 import { solarService } from "./solarService";
+import { tr } from "../i18n";
 
 /**
  * sunlightService — luz solar EFECTIVA. Solo COMBINA resultados; no calcula nubes ni sombras:
@@ -44,7 +45,7 @@ import { solarService } from "./solarService";
  * `direct`, y la confianza se limita.
  */
 
-const SOLAR_SOURCE = "Astronómico (NOAA / SunCalc)";
+const SOLAR_SOURCE = tr("sunlightService.astronomico_noaa_suncalc");
 /** La geometría urbana tiene resolución de edificio (≈ decenas de metros). */
 const GEOMETRY_SCALE_METERS = 10;
 

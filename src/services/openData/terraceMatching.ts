@@ -2,6 +2,7 @@ import { distanceMeters } from "../../lib/coordinates";
 import type { TerraceCertainty, Venue } from "../../types";
 import { OPEN_DATA_CONFIG as C } from "./config";
 import type { LicensedTerrace } from "./datasets";
+import { intlLocale, tr, trPlural, type MessageKey } from "../../i18n";
 
 /**
  * Cruce de las terrazas con licencia municipal (Open Data BCN) con los locales de OpenStreetMap.
@@ -17,7 +18,7 @@ import type { LicensedTerrace } from "./datasets";
  * Si no se pudo cargar el conjunto de licencias (`terraces === null`) se devuelve OSM tal cual.
  */
 
-export const LICENSED_TERRACE_SOURCE = "Licencia municipal de terraza · Open Data BCN";
+export const LICENSED_TERRACE_SOURCE = tr("terraceMatching.licencia_municipal_de_terraza_open");
 
 export interface TerraceLicenseInfo {
   /** Licencias sumadas en ese punto (acera, calzada…). */
@@ -68,25 +69,32 @@ export function terraceRank(terrace: TerraceCertainty, licensed: boolean): numbe
   return terrace === "confirmed" ? 3 : terrace === "likely" ? 2 : terrace === "unknown" ? 1 : 0;
 }
 
-const fmtCount = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ","));
+const fmtCount = (n: number) =>
+  Number.isInteger(n) ? String(n) : new Intl.NumberFormat(intlLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n);
+
+type Forms = { one: MessageKey; other: MessageKey };
+const TABLES: Forms = { one: "terraceMatching.mesa_one", other: "terraceMatching.mesa_other" };
+const CHAIRS: Forms = { one: "terraceMatching.silla_one", other: "terraceMatching.silla_other" };
 
 /** «Terraza con licencia municipal: 6 mesas y 24 sillas autorizadas, todo el año.» */
 export function licenseSummary(info: TerraceLicenseInfo): string {
-  const items: Array<[number, string, string]> = [];
-  if (info.tables !== null && info.tables > 0) items.push([info.tables, "mesa", "mesas"]);
-  if (info.chairs !== null && info.chairs > 0) items.push([info.chairs, "silla", "sillas"]);
-  const parts = items.map(([n, one, many]) => `${fmtCount(n)} ${n === 1 ? one : many}`);
+  const items: Array<[number, Forms]> = [];
+  if (info.tables !== null && info.tables > 0) items.push([info.tables, TABLES]);
+  if (info.chairs !== null && info.chairs > 0) items.push([info.chairs, CHAIRS]);
+  const parts = items.map(([n, forms]) => trPlural(n, forms, { n: fmtCount(n) }));
   const single = items.length === 1 && items[0][0] === 1;
-  const what = parts.length ? `: ${parts.join(" y ")} ${single ? "autorizada" : "autorizadas"}` : "";
-  const when = info.seasonal ? "de temporada" : "todo el año";
-  let text = `Terraza con licencia municipal${what}, ${when}.`;
-  if (info.privateSpace) text += " En espacio privado de uso público.";
-  else if (info.onRoadway) text += " Parte de las mesas están en la calzada.";
+  const what = parts.length
+    ? tr(single ? "terraceMatching.autorizada" : "terraceMatching.autorizadas", { p0: parts.join(tr("terraceMatching.y")) })
+    : "";
+  const when = info.seasonal ? tr("terraceMatching.de_temporada") : tr("terraceMatching.todo_el_ano");
+  let text = tr("terraceMatching.terraza_con_licencia_municipal", { p0: what, p1: when });
+  if (info.privateSpace) text += tr("terraceMatching.en_espacio_privado_de_uso");
+  else if (info.onRoadway) text += tr("terraceMatching.parte_de_las_mesas_estan");
   return text;
 }
 
 export function unnamedTerraceName(address: string): string {
-  return `Terraza autorizada · ${address}`;
+  return tr("terraceMatching.terraza_autorizada", { p0: address });
 }
 
 export function mergeLicensedTerraces(

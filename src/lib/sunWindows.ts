@@ -1,5 +1,6 @@
 import type { NarrativeEvent, SunSample, SunWindow } from "../types";
 import { clamp } from "./coordinates";
+import { tr } from "../i18n";
 
 /**
  * Ventanas de sol — el concepto central de Find the Sun: no se mira «¿hay sol a las 18:00?»,
@@ -226,12 +227,12 @@ export function findBestSunWindow(
 /* -------------------------------------------------------------------------- */
 
 const START_LABEL: Record<SunWindow["kind"], string> = {
-  sun: "Empieza con sol",
-  partial: "Empieza con sol parcial",
-  shadow: "Empieza en sombra",
-  cloud: "Empieza con nubes",
-  uncertain: "Empieza con luz incierta",
-  night: "Aún no hay sol",
+  sun: tr("sunWindows.empieza_con_sol"),
+  partial: tr("sunWindows.empieza_con_sol_parcial"),
+  shadow: tr("sunWindows.empieza_en_sombra"),
+  cloud: tr("sunWindows.empieza_con_nubes"),
+  uncertain: tr("sunWindows.empieza_con_luz_incierta"),
+  night: tr("sunWindows.aun_no_hay_sol"),
 };
 
 /**
@@ -253,10 +254,10 @@ export function buildNarrative(
     const prev = day[i - 1];
     const cur = day[i];
     let label: string | null = null;
-    if (cur.kind === "sun") label = prev.kind === "sun" ? null : "Vuelve el sol";
-    else if (cur.kind === "partial") label = "Sol parcial";
-    else if (cur.kind === "shadow") label = "Sombra urbana";
-    else if (cur.kind === "cloud") label = "Las nubes tapan el sol";
+    if (cur.kind === "sun") label = prev.kind === "sun" ? null : tr("sunWindows.vuelve_el_sol");
+    else if (cur.kind === "partial") label = tr("infoPanel.sol_parcial");
+    else if (cur.kind === "shadow") label = tr("sunDetails.sombra_urbana");
+    else if (cur.kind === "cloud") label = tr("pointPanel.las_nubes_tapan_el_sol");
     if (label) events.push({ time: cur.start, kind: cur.kind, label });
   }
 
@@ -264,9 +265,9 @@ export function buildNarrative(
     const near = events.find((e) => Math.abs(e.time - best.start) < 5 * MIN);
     if (near) {
       near.kind = "best";
-      near.label = "Mejor sol";
+      near.label = tr("sunWindows.mejor_sol");
     } else {
-      events.push({ time: best.start, kind: "best", label: "Mejor sol" });
+      events.push({ time: best.start, kind: "best", label: tr("sunWindows.mejor_sol") });
     }
   }
 

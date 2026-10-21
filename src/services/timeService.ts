@@ -1,5 +1,6 @@
 import { BARCELONA } from "../config";
 import { getPreferences } from "../lib/preferences";
+import { intlLocale, tr } from "../i18n";
 
 /**
  * Utilidades de tiempo en la zona horaria de Barcelona, independientes
@@ -19,14 +20,14 @@ const partsFmt = new Intl.DateTimeFormat("en-GB", {
   second: "2-digit",
 });
 
-const clockFmt = new Intl.DateTimeFormat("es-ES", {
+const clockFmt = new Intl.DateTimeFormat(intlLocale(), {
   timeZone: TZ,
   hour: "2-digit",
   minute: "2-digit",
   hourCycle: "h23",
 });
 
-const dayFmt = new Intl.DateTimeFormat("es-ES", {
+const dayFmt = new Intl.DateTimeFormat(intlLocale(), {
   timeZone: TZ,
   day: "numeric",
   month: "short",
@@ -74,7 +75,7 @@ export function startOfZoneDay(ms: number): number {
   return t;
 }
 
-const clockFmt12 = new Intl.DateTimeFormat("es-ES", {
+const clockFmt12 = new Intl.DateTimeFormat(intlLocale(), {
   timeZone: TZ,
   hour: "numeric",
   minute: "2-digit",
@@ -101,12 +102,12 @@ export function formatDuration(ms: number) {
 export function formatAge(ms: number | null | undefined) {
   if (ms == null || !Number.isFinite(ms) || ms < 0) return "—";
   const mins = Math.floor(ms / 60_000);
-  if (mins < 1) return "ahora mismo";
-  if (mins < 60) return `hace ${mins} min`;
+  if (mins < 1) return tr("timeService.ahora_mismo");
+  if (mins < 60) return tr("timeService.hace_min", { p0: mins });
   const h = Math.floor(mins / 60);
   const m = mins % 60;
-  if (h >= 24) return "hace más de un día";
-  return m === 0 ? `hace ${h} h` : `hace ${h} h ${m} min`;
+  if (h >= 24) return tr("timeService.hace_mas_de_un_dia");
+  return m === 0 ? tr("timeService.hace_h", { p0: h }) : tr("timeService.hace_h_min", { p0: h, p1: m });
 }
 
 export const MINUTE = 60_000;

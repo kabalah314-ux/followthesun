@@ -11,6 +11,7 @@ import {
 } from "../../services/mapService";
 import type { CameraState, LngLat, SelectedPoint, Theme } from "../../types";
 import { MapContext } from "./MapContext";
+import { tr } from "../../i18n";
 
 /**
  * BarcelonaMap — el mapa interactivo de Barcelona, sin ninguna lógica solar.
@@ -132,7 +133,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           satellite: preferences.get().satelliteView,
         });
       } catch {
-        onFail("No se pudo cargar el mapa · usando el mapa abierto.");
+        onFail(tr("barcelonaMap.no_se_pudo_cargar_el"));
         return;
       }
       if (disposed) {
@@ -181,7 +182,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
       created.on("error", (e: any) => {
         if (disposed) return;
         if (provider.id === "mapbox" && (e?.error?.status === 401 || e?.error?.status === 403)) {
-          onFail("El token de Mapbox no es válido · usando el mapa abierto.");
+          onFail(tr("barcelonaMap.el_token_de_mapbox_no"));
           return;
         }
         if (!fallbackInstalled && e?.sourceId === provider.sourceId && !e?.tile) {
@@ -193,7 +194,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           }
           markReady();
           later(() => propsRef.current.onLoaded(), 700);
-          propsRef.current.onToast("Mapa base no disponible: mostrando una versión simplificada.");
+          propsRef.current.onToast(tr("barcelonaMap.mapa_base_no_disponible_mostrando"));
         }
       });
 
@@ -377,7 +378,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
               pos.lat > CITY_BOUNDS.south - margin &&
               pos.lat < CITY_BOUNDS.north + margin;
             if (!inside) {
-              propsRef.current.onToast("Estás fuera de Barcelona — mostrando la ciudad.");
+              propsRef.current.onToast(tr("barcelonaMap.estas_fuera_de_barcelona_mostrando"));
               return;
             }
             propsRef.current.onUserLocation(pos);
@@ -385,7 +386,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
               id: nextSelectionId++,
               lng: pos.lng,
               lat: pos.lat,
-              name: "Tu ubicación",
+              name: tr("app.tu_ubicacion"),
             });
             created.flyTo({
               center: [pos.lng, pos.lat],
@@ -394,7 +395,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
               essential: true,
             });
           } catch {
-            propsRef.current.onToast("No se pudo obtener tu ubicación.");
+            propsRef.current.onToast(tr("app.no_se_pudo_obtener_tu"));
           }
         },
       });

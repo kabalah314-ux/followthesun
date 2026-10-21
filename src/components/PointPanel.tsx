@@ -9,7 +9,7 @@ import {
   type CloudInfluenceLevel,
   type ConfidenceLevel,
 } from "../lib/sunlightCalculations";
-import { dayChoiceLabel } from "../lib/planningTime";
+import { dayChoiceInSentence, dayChoiceLabel } from "../lib/planningTime";
 import { formatAge, formatClock, formatDayLabel, formatDuration, startOfZoneDay } from "../services/timeService";
 import type {
   ConfidenceBreakdown,
@@ -21,26 +21,27 @@ import type {
 } from "../types";
 import { cn } from "../utils/cn";
 import { CloseIcon, SunGlyph } from "./Icons";
+import { tr } from "../i18n";
 
 const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {
-  high: "Seguro",
-  medium: "Bastante seguro",
-  low: "Depende de las nubes",
+  high: tr("sunDetails.seguro"),
+  medium: tr("sunDetails.bastante_seguro"),
+  low: tr("sunDetails.depende_de_las_nubes"),
 };
 
 const INFLUENCE_LABEL: Record<CloudInfluenceLevel, string> = {
-  low: "Cielo despejado",
-  moderate: "Alguna nube puede taparlo a ratos",
-  high: "Las nubes lo tapan casi todo",
+  low: tr("pointPanel.cielo_despejado"),
+  moderate: tr("pointPanel.alguna_nube_puede_taparlo_a"),
+  high: tr("pointPanel.las_nubes_lo_tapan_casi"),
 };
 
 const DATA_ORIGIN_TEXT: Record<DataOrigin, string> = {
-  observed: "muestra del satélite",
-  interpolated: "interpolado entre dos observaciones",
-  estimated: "persistencia de la última observación",
-  stale: "observación antigua",
-  forecast: "modelo meteorológico",
-  unavailable: "sin datos",
+  observed: tr("pointPanel.muestra_del_satelite"),
+  interpolated: tr("pointPanel.interpolado_entre_dos_observaciones"),
+  estimated: tr("pointPanel.persistencia_de_la_ultima_observacion"),
+  stale: tr("pointPanel.observacion_antigua"),
+  forecast: tr("pointPanel.modelo_meteorologico"),
+  unavailable: tr("pointPanel.sin_datos"),
 };
 
 type Headline = { label: string; glyph: SunState | "night"; unverified: boolean };
@@ -49,59 +50,59 @@ function headline(r: SunlightResult): Headline {
   const forecast = r.origin === "forecast";
   switch (r.state) {
     case "night":
-      return { label: "Sin sol", glyph: "night", unverified: false };
+      return { label: tr("infoPanel.sin_sol"), glyph: "night", unverified: false };
     case "urban_shadow":
-      return { label: "Sombra urbana", glyph: "shade", unverified: false };
+      return { label: tr("sunDetails.sombra_urbana"), glyph: "shade", unverified: false };
     case "urban_shadow_cloud":
-      return { label: "Sombra urbana + nubes", glyph: "shade", unverified: false };
+      return { label: tr("pointPanel.sombra_urbana_nubes"), glyph: "shade", unverified: false };
     case "terrain_shadow":
-      return { label: "Sombra del relieve", glyph: "shade", unverified: false };
+      return { label: tr("pointPanel.sombra_del_relieve"), glyph: "shade", unverified: false };
     // Sin datos de nubes el sol no está verificado: no se afirma "sol directo".
     case "possible":
-      return { label: "Sol posible", glyph: "partial", unverified: true };
+      return { label: tr("sunDetails.sol_posible"), glyph: "partial", unverified: true };
     case "uncertain":
-      return { label: "Resultado incierto", glyph: "partial", unverified: false };
+      return { label: tr("pointPanel.resultado_incierto"), glyph: "partial", unverified: false };
     case "cloud_blocked":
-      return { label: forecast ? "Nubes previstas" : "Las nubes tapan el sol", glyph: "cloud", unverified: false };
+      return { label: forecast ? tr("pointPanel.nubes_previstas") : tr("pointPanel.las_nubes_tapan_el_sol"), glyph: "cloud", unverified: false };
     case "partial":
-      return { label: forecast ? "Sol parcial previsto" : "Sol parcial", glyph: "partial", unverified: false };
+      return { label: forecast ? tr("infoPanel.sol_parcial_previsto") : tr("infoPanel.sol_parcial"), glyph: "partial", unverified: false };
     case "direct":
-      return { label: forecast ? "Sol directo previsto" : "Sol directo", glyph: "sun", unverified: false };
+      return { label: forecast ? tr("infoPanel.sol_directo_previsto") : tr("sunDetails.sol_directo"), glyph: "sun", unverified: false };
   }
 }
 
 function shadowLabel(r: SunlightResult): string {
-  if (r.urbanShadow) return "Un edificio lo tapa";
-  if (r.terrainShadow) return "El relieve lo tapa";
-  return r.buildingsKnown ? "Ningún edificio lo tapa ahora" : "Sin datos de edificios aquí";
+  if (r.urbanShadow) return tr("pointPanel.un_edificio_lo_tapa");
+  if (r.terrainShadow) return tr("pointPanel.el_relieve_lo_tapa");
+  return r.buildingsKnown ? tr("pointPanel.ningun_edificio_lo_tapa_ahora") : tr("pointPanel.sin_datos_de_edificios_aqui");
 }
 
 function radiationLabel(r: SunlightResult): string {
-  if (r.origin === "forecast") return "Solo previsión";
+  if (r.origin === "forecast") return tr("pointPanel.solo_prevision");
   const s = r.satellite;
   if (s && s.directRadiation !== undefined) {
-    if (s.origin === "observed") return "Disponible";
-    if (s.origin === "interpolated") return "Interpolada";
-    return "Última observación";
+    if (s.origin === "observed") return tr("pointPanel.disponible");
+    if (s.origin === "interpolated") return tr("pointPanel.interpolada");
+    return tr("pointPanel.ultima_observacion");
   }
-  return "No disponible";
+  return tr("pointPanel.no_disponible");
 }
 
 /** Procedencia del dato, en lenguaje claro. Nunca "en directo". */
 function originLine(r: SunlightResult, now: number): string | null {
   if (r.state === "night") return null;
-  if (!r.weatherAvailable) return "Sin datos de nubes";
+  if (!r.weatherAvailable) return tr("sunResultCard.sin_datos_de_nubes");
   if (r.origin === "forecast") {
     return r.cloud
-      ? `Según la previsión, actualizada ${formatAge(now - r.cloud.updatedAt.getTime())}`
-      : "Según la previsión";
+      ? tr("pointPanel.segun_la_prevision_actualizada", { p0: formatAge(now - r.cloud.updatedAt.getTime()) })
+      : tr("pointPanel.segun_la_prevision");
   }
   if (r.origin === "observed" && r.satellite) {
-    return `Comprobado por satélite ${formatAge(now - r.satellite.sampleTime.getTime())}`;
+    return tr("pointPanel.comprobado_por_satelite", { p0: formatAge(now - r.satellite.sampleTime.getTime()) });
   }
   return r.satellite
-    ? `Estimado con el satélite de ${formatAge(now - r.satellite.sampleTime.getTime())}`
-    : "Estimado";
+    ? tr("pointPanel.estimado_con_el_satelite_de", { p0: formatAge(now - r.satellite.sampleTime.getTime()) })
+    : tr("pointPanel.estimado");
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -137,11 +138,11 @@ function ConfidenceMeter({ value }: { value: number }) {
 
 function Breakdown({ b }: { b: ConfidenceBreakdown }) {
   const items: Array<[string, number]> = [
-    ["Sol", b.solar],
-    ["Edificios", b.geometry],
-    ["Meteorología", b.weather],
-    ["Satélite", b.satellite],
-    ["Final", b.final],
+    [tr("pointPanel.sol"), b.solar],
+    [tr("searchProgress.edificios"), b.geometry],
+    [tr("sunDetails.meteorologia"), b.weather],
+    [tr("pointPanel.satelite"), b.satellite],
+    [tr("pointPanel.final"), b.final],
   ];
   return (
     <ul className="space-y-1.5">
@@ -150,7 +151,7 @@ function Breakdown({ b }: { b: ConfidenceBreakdown }) {
           <span className="w-[78px] shrink-0">{label}</span>
           <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
             <i
-              className={cn("block h-full rounded-full", label === "Final" ? "bg-ink/70" : "bg-sun/80")}
+              className={cn("block h-full rounded-full", label === tr("pointPanel.final") ? "bg-ink/70" : "bg-sun/80")}
               style={{ width: `${Math.round(clamp01(v) * 100)}%` }}
             />
           </span>
@@ -192,10 +193,10 @@ function SunlightBlock({
   const night = r.state === "night" || answer.state === "night";
 
   let note: string | null = null;
-  if (r.cloud?.simulated) note = "Nubes de demostración: no son datos reales.";
-  else if (head.unverified) note = "Aún no tenemos las nubes: solo sabemos si los edificios lo tapan.";
-  else if (r.conflict) note = "El satélite y la previsión no coinciden: tómalo con cautela.";
-  else if (r.weatherQuality === "outdated") note = "Los datos del tiempo no son recientes.";
+  if (r.cloud?.simulated) note = tr("pointPanel.nubes_de_demostracion_no_son");
+  else if (head.unverified) note = tr("pointPanel.aun_no_tenemos_las_nubes");
+  else if (r.conflict) note = tr("pointPanel.el_satelite_y_la_prevision");
+  else if (r.weatherQuality === "outdated") note = tr("pointPanel.los_datos_del_tiempo_no");
 
   return (
     <div className="mt-4">
@@ -209,14 +210,14 @@ function SunlightBlock({
 
       {!night && (
         <dl className="mt-3.5 space-y-2.5 rounded-2xl bg-ink/[0.035] px-3.5 py-3">
-          <Row label="Edificios">{shadowLabel(r)}</Row>
-          <Row label="Nubes">{r.weatherAvailable ? INFLUENCE_LABEL[influenceLevel(r.cloudInfluence)] : "Aún sin datos de nubes"}</Row>
-          <Row label="Fiabilidad">
+          <Row label={tr("searchProgress.edificios")}>{shadowLabel(r)}</Row>
+          <Row label={tr("sunDetails.nubes")}>{r.weatherAvailable ? INFLUENCE_LABEL[influenceLevel(r.cloudInfluence)] : tr("pointPanel.aun_sin_datos_de_nubes")}</Row>
+          <Row label={tr("sunDetails.fiabilidad")}>
             <ConfidenceMeter value={r.confidence} />
           </Row>
-          {comfort && <Row label="Sensación">{feelsLine(comfort)}</Row>}
-          {comfort && windLine(comfort) && <Row label="Viento">{windLine(comfort)}</Row>}
-          {comfort && uvLine(comfort) && <Row label="UV">{uvLine(comfort)}</Row>}
+          {comfort && <Row label={tr("pointPanel.sensacion")}>{feelsLine(comfort)}</Row>}
+          {comfort && windLine(comfort) && <Row label={tr("pointPanel.viento")}>{windLine(comfort)}</Row>}
+          {comfort && uvLine(comfort) && <Row label={tr("pointPanel.uv")}>{uvLine(comfort)}</Row>}
         </dl>
       )}
       {note && <p className="mt-2 text-[13px] leading-snug text-ink-soft">{note}</p>}
@@ -229,19 +230,18 @@ function SunlightBlock({
             aria-expanded={open}
             className="mt-2.5 -ml-1 rounded-full px-1 py-1.5 text-[13px] font-semibold text-sun-deep underline-offset-4 outline-none transition-colors hover:underline focus-visible:ring-2 focus-visible:ring-sun/60"
           >
-            {open ? "Ocultar" : "Cómo lo sabemos"}
+            {open ? tr("pointPanel.ocultar") : tr("sunDetails.como_lo_sabemos")}
           </button>
           {open && (
             <div className="fts-fade-in mt-2 space-y-3 rounded-2xl border border-line px-3.5 py-3">
               <p className="text-[13px] leading-[1.55] text-ink-soft">
-                {head.label} · luz directa {head.unverified ? "sin confirmar" : `${Math.round(r.sunlightScore * 100)} %`}.
-                {origin ? ` ${origin}.` : ""} Radiación por satélite: {radiationLabel(r).toLowerCase()}.
+                {head.label} {tr("pointPanel.luz_directa")} {head.unverified ? tr("pointPanel.sin_confirmar") : `${Math.round(r.sunlightScore * 100)} %`}.
+                {origin ? ` ${origin}.` : ""} {tr("pointPanel.radiacion_por_satelite")} {radiationLabel(r).toLowerCase()}.
               </p>
               <Breakdown b={r.confidenceBreakdown} />
               <p className="text-[12.5px] leading-[1.55] text-ink-soft">
-                Los edificios se calculan calle a calle. El tiempo{wkm ? ` (≈ ${wkm} km)` : ""} es de escala de barrio, no
-                de calle.
-                {r.weatherAvailable ? ` Dato dominante: ${DATA_ORIGIN_TEXT[r.dataOrigin]}.` : ""}
+                {tr("pointPanel.los_edificios_se_calculan_calle")}{wkm ? ` (≈ ${wkm} km)` : ""} {tr("pointPanel.es_de_escala_de_barrio")}
+                {r.weatherAvailable ? tr("pointPanel.dato_dominante", { p0: DATA_ORIGIN_TEXT[r.dataOrigin] }) : ""}
               </p>
             </div>
           )}
@@ -273,13 +273,13 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
   const intervalLabel = (state: SunState) =>
     state === "sun"
       ? timeline?.weatherAvailable
-        ? "Sol directo"
-        : "Sol posible"
+        ? tr("sunDetails.sol_directo")
+        : tr("sunDetails.sol_posible")
       : state === "partial"
-        ? "Sol suave"
+        ? tr("layerControl.sol_suave")
         : state === "cloud"
-          ? "Nubes"
-          : "Sombra";
+          ? tr("sunDetails.nubes")
+          : tr("findSunPanel.sombra");
 
   const dayStart = startOfZoneDay(time);
   const sunTimes = useMemo(() => solarService.getSunTimes(dayStart, point.lat, point.lng), [dayStart, point.lat, point.lng]);
@@ -322,7 +322,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar"
+          aria-label={tr("sunDetails.cerrar")}
           className="-mr-2 -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
         >
           <CloseIcon />
@@ -332,7 +332,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
       <SunlightBlock r={sunlight} now={now} answer={answer} comfort={comfort} />
 
       <div className="mt-4 border-t border-line pt-3.5">
-        <p className="fts-caps !text-[12px]">{dayChoiceLabel(dayStart, now)} en este punto</p>
+        <p className="fts-caps !text-[12px]">{tr("pointPanel.en_este_punto", { p0: dayChoiceLabel(dayStart, now) })}</p>
         {!timeline ? (
           <div className="mt-3 space-y-2" aria-busy="true">
             {[0, 1].map((i) => (
@@ -344,7 +344,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             ))}
           </div>
         ) : timeline.intervals.length === 0 ? (
-          <p className="mt-3 text-[14px] text-ink-soft">Hoy no llega sol directo a este punto.</p>
+          <p className="mt-3 text-[14px] text-ink-soft">{tr("pointPanel.hoy_no_llega_sol_directo")}</p>
         ) : (
           <>
             <ul className="fts-scroll-y mt-2.5 max-h-[min(180px,22vh)] space-y-1 overflow-y-auto pr-0.5">
@@ -376,7 +376,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
 
             <div className="mt-2.5 flex items-center justify-between border-t border-line pt-3 text-[12px] font-medium uppercase tracking-[0.18em] text-ink-faint">
               <span>
-                {timeline.weatherAvailable ? "Sol directo" : "Sol posible"} {dayChoiceLabel(dayStart, now).toLowerCase()}
+                {timeline.weatherAvailable ? tr("sunDetails.sol_directo") : tr("sunDetails.sol_posible")} {dayChoiceInSentence(dayStart, now)}
               </span>
               <span className="font-serif text-[15px] normal-case tracking-normal text-ink">
                 {formatDuration(timeline.sunMs)}
@@ -384,7 +384,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             </div>
             {!timeline.hasBuildings && (
               <p className="mt-2 text-[12.5px] leading-snug text-ink-faint">
-                Sin edificios cargados aquí: solo relieve y nubes. Acércate para afinar.
+                {tr("pointPanel.sin_edificios_cargados_aqui_solo")}
               </p>
             )}
           </>
@@ -405,7 +405,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
               <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
             </svg>
-            {saved ? "Guardado" : "Guardar"}
+            {saved ? tr("sunDetails.guardado") : tr("sunDetails.guardar")}
           </button>
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=walking`}
@@ -413,7 +413,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
-            Cómo llegar
+            {tr("sunDetails.como_llegar")}
           </a>
         </div>
       )}

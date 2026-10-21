@@ -13,6 +13,7 @@ import type {
   SunScoreComponent,
   SunSearchResult,
 } from "../types";
+import { tr } from "../i18n";
 
 /**
  * sunScoreService — el Sun Score y el ranking. Todo explicable y centralizado.
@@ -56,8 +57,8 @@ export function comfortMultiplier(c: ComfortSummary | null): ComfortFactor {
   const heat = 1 - (1 - k.heatFloor) * heatT;
   const wind = 1 - (1 - k.windFloor) * windT;
   const notes: string[] = [];
-  if (heatT > 0.15) notes.push(`Calor (${fmtTemp(c.meanApparentC)} de sensación): el sol aprieta`);
-  if (windT > 0.15) notes.push(`Viento de hasta ${Math.round(c.maxWindKmh)} km/h`);
+  if (heatT > 0.15) notes.push(tr("sunScoreService.calor_de_sensacion_el_sol", { p0: fmtTemp(c.meanApparentC) }));
+  if (windT > 0.15) notes.push(tr("sunScoreService.viento_de_hasta_km_h", { p0: Math.round(c.maxWindKmh) }));
   return { value: heat * wind, notes };
 }
 
@@ -83,12 +84,12 @@ export function calculateSunScore(i: SunScoreInputs): SunScore {
   const strength = clamp01(i.meanScore);
   const continuity = clamp01(i.longestSunRunMinutes / D);
   const third = i.preferShadeBreaks
-    ? { key: "shade_breaks", label: "Pausas de sombra", value: shadeBreakFit(i.urbanShadowMinutes / D) }
-    : { key: "continuity", label: "Sol sin interrupciones", value: continuity };
+    ? { key: "shade_breaks", label: tr("sunPlanner.pausas_de_sombra"), value: shadeBreakFit(i.urbanShadowMinutes / D) }
+    : { key: "continuity", label: tr("sunScoreService.sol_sin_interrupciones"), value: continuity };
 
   const base = [
-    { key: "coverage", label: "Tiempo de sol directo", value: coverage, weight: W.coverage },
-    { key: "strength", label: "Intensidad del sol", value: strength, weight: W.strength },
+    { key: "coverage", label: tr("sunScoreService.tiempo_de_sol_directo"), value: coverage, weight: W.coverage },
+    { key: "strength", label: tr("sunScoreService.intensidad_del_sol"), value: strength, weight: W.strength },
     { ...third, weight: W.continuity },
   ];
   const components: SunScoreComponent[] = base.map((c) => ({
@@ -107,15 +108,15 @@ export function calculateSunScore(i: SunScoreInputs): SunScore {
   if (i.areaSunShare !== null) {
     apply(
       "spatial",
-      "Reparto del sol en la zona",
+      tr("sunScoreService.reparto_del_sol_en_la"),
       raw * (SC.spatial.floor + (1 - SC.spatial.floor) * clamp01(i.areaSunShare))
     );
   }
   if (i.avoidClouds) {
-    apply("clouds", "Evitar nubes", raw * (1 - SC.avoidCloudsPenalty * clamp01(i.meanCloudInfluence)));
+    apply("clouds", tr("sunPlanner.evitar_nubes"), raw * (1 - SC.avoidCloudsPenalty * clamp01(i.meanCloudInfluence)));
   }
   if (i.preference !== "maximum_sun" && i.comfort) {
-    apply("comfort", "Confort (calor y viento)", raw * comfortMultiplier(i.comfort).value);
+    apply("comfort", tr("sunScoreService.confort_calor_y_viento"), raw * comfortMultiplier(i.comfort).value);
   }
 
   return { score: Math.round(100 * clamp01(raw)), components, adjustments };
@@ -200,17 +201,17 @@ export function buildReasons(
   const neutral: ResultReason[] = [];
 
   if (!r.weatherAvailable) {
-    minus.push({ tone: "minus", text: "Sin datos de nubes: el sol es posible, no confirmado" });
+    minus.push({ tone: "minus", text: tr("sunScoreService.sin_datos_de_nubes_el") });
   }
 
   // Tiempo de sol.
   const cov = r.sunlightMinutes / D;
   if (cov >= 0.9) {
-    plus.push({ tone: "plus", text: `${fmtMin(r.sunlightMinutes)} de sol directo de ${fmtMin(D)}` });
+    plus.push({ tone: "plus", text: tr("sunScoreService.de_sol_directo_de", { p0: fmtMin(r.sunlightMinutes), p1: fmtMin(D) }) });
   } else if (cov >= 0.5) {
-    neutral.push({ tone: "neutral", text: `${fmtMin(r.sunlightMinutes)} de sol directo de ${fmtMin(D)}` });
+    neutral.push({ tone: "neutral", text: tr("sunScoreService.de_sol_directo_de", { p0: fmtMin(r.sunlightMinutes), p1: fmtMin(D) }) });
   } else {
-    minus.push({ tone: "minus", text: `Solo ${fmtMin(r.sunlightMinutes)} de sol directo de ${fmtMin(D)}` });
+    minus.push({ tone: "minus", text: tr("sunScoreService.solo_de_sol_directo_de", { p0: fmtMin(r.sunlightMinutes), p1: fmtMin(D) }) });
   }
 
   // Continuidad (y comparación con los demás).
@@ -219,43 +220,43 @@ export function buildReasons(
   if (others.length > 0 && r.longestSunRunMinutes > 0 && r.longestSunRunMinutes >= second + 5) {
     plus.push({
       tone: "plus",
-      text: `Ventana de sol directo más larga de los resultados (${fmtMin(r.longestSunRunMinutes)})`,
+      text: tr("sunScoreService.ventana_de_sol_directo_mas", { p0: fmtMin(r.longestSunRunMinutes) }),
     });
   } else if (r.longestSunRunMinutes >= 0.75 * D) {
-    plus.push({ tone: "plus", text: `Sol ininterrumpido durante ${fmtMin(r.longestSunRunMinutes)}` });
+    plus.push({ tone: "plus", text: tr("sunScoreService.sol_ininterrumpido_durante", { p0: fmtMin(r.longestSunRunMinutes) }) });
   }
 
   // Nubes.
   const level = influenceLevel(r.cloudInfluence);
-  if (r.weatherAvailable && level === "low") plus.push({ tone: "plus", text: "Poca influencia de nubes" });
+  if (r.weatherAvailable && level === "low") plus.push({ tone: "plus", text: tr("sunScoreService.poca_influencia_de_nubes") });
   else if (r.weatherAvailable && level === "high") {
-    minus.push({ tone: "minus", text: "Las nubes restan mucho sol" });
+    minus.push({ tone: "minus", text: tr("sunScoreService.las_nubes_restan_mucho_sol") });
   }
 
   // Sombra de edificios.
   if (r.buildingsKnown) {
-    if (r.urbanShadowMinutes <= 0.05 * D) plus.push({ tone: "plus", text: "Casi sin sombra de edificios" });
-    else minus.push({ tone: "minus", text: `${fmtMin(r.urbanShadowMinutes)} de sombra de edificios` });
+    if (r.urbanShadowMinutes <= 0.05 * D) plus.push({ tone: "plus", text: tr("sunScoreService.casi_sin_sombra_de_edificios") });
+    else minus.push({ tone: "minus", text: tr("sunScoreService.de_sombra_de_edificios", { p0: fmtMin(r.urbanShadowMinutes) }) });
   } else {
-    minus.push({ tone: "minus", text: "Sin edificios cargados: la sombra urbana no está verificada" });
+    minus.push({ tone: "minus", text: tr("sunScoreService.sin_edificios_cargados_la_sombra") });
   }
 
   // Reparto en la zona.
   if (r.areaSunShare !== null) {
-    if (r.areaSunShare >= 0.7) plus.push({ tone: "plus", text: "El sol llega a buena parte de la zona" });
-    else if (r.areaSunShare < 0.35) minus.push({ tone: "minus", text: "Solo un rincón recibe sol" });
+    if (r.areaSunShare >= 0.7) plus.push({ tone: "plus", text: tr("sunScoreService.el_sol_llega_a_buena") });
+    else if (r.areaSunShare < 0.35) minus.push({ tone: "minus", text: tr("sunScoreService.solo_un_rincon_recibe_sol") });
   }
 
   // Distancia.
   if (r.walking) {
-    const text = `A ≈ ${r.walking.durationMinutes} min andando`;
+    const text = tr("sunScoreService.a_min_andando", { p0: r.walking.durationMinutes });
     if (r.walking.durationMinutes <= 10) plus.push({ tone: "plus", text });
     else neutral.push({ tone: "neutral", text });
   }
 
   // Luz débil con el sol bajo.
   if (r.sunlightMinutes > 0 && r.meanElevationDeg < 12) {
-    minus.push({ tone: "minus", text: "Sol bajo: la luz es más débil" });
+    minus.push({ tone: "minus", text: tr("sunScoreService.sol_bajo_la_luz_es") });
   }
 
   // Confort (solo en el modo equilibrado).
@@ -266,7 +267,7 @@ export function buildReasons(
   if (r.confidence < 0.4) {
     minus.push({
       tone: "minus",
-      text: "Confianza baja: la meteorología es de escala de barrio, no de calle",
+      text: tr("sunScoreService.confianza_baja_la_meteorologia_es"),
     });
   }
 

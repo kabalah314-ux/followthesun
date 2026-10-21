@@ -4,6 +4,7 @@ import type { PlaceInventoryStatus } from "../../types";
 import { cn } from "../../utils/cn";
 import { Chip } from "../FindSun/ui";
 import PlaceTypeIcon from "../Places/PlaceTypeIcon";
+import { tr } from "../../i18n";
 
 const DISTANCES: Array<number | null> = [5, 10, 20, 30, null];
 
@@ -53,7 +54,7 @@ export function PlaceTypeChips({ state, inventory, onChange }: TypeProps) {
     <div>
       <div className="flex flex-wrap gap-1.5">
         <Chip active={state.locationType === "any"} onClick={() => onChange({ locationType: "any" })}>
-          Cualquier sitio
+          {tr("plannerSteps.cualquier_sitio")}
         </Chip>
         {typesAvailable.map((t) => (
           <Chip key={t} active={state.locationType === t} onClick={() => onChange({ locationType: t })}>
@@ -65,11 +66,11 @@ export function PlaceTypeChips({ state, inventory, onChange }: TypeProps) {
         ))}
       </div>
       {inventory.state === "loading" && (
-        <p className="mt-2.5 text-[12.5px] text-ink-faint">Cargando los lugares de Barcelona…</p>
+        <p className="mt-2.5 text-[12.5px] text-ink-faint">{tr("placesExplorer.cargando_los_lugares_de_barcelona")}</p>
       )}
       {inventory.state === "unavailable" && (
         <p className="mt-2.5 text-[12.5px] text-ink-faint">
-          No hemos podido cargar los lugares. Comprueba tu conexión.
+          {tr("plannerSteps.no_hemos_podido_cargar_los")}
         </p>
       )}
     </div>
@@ -91,14 +92,14 @@ export function DistanceStep({
       <div className="flex flex-wrap gap-1.5">
         {DISTANCES.map((m) => (
           <Chip key={m ?? "any"} active={value === m} onClick={() => onPick(m)}>
-            {m === null ? "Cualquier distancia" : `${m} min a pie`}
+            {m === null ? tr("plannerSteps.cualquier_distancia") : tr("plannerSteps.min_a_pie", { p0: m })}
           </Chip>
         ))}
       </div>
       <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
         {hasOrigin
-          ? "Tiempo a pie estimado desde tu ubicación (en línea recta con rodeo, no una ruta real)."
-          : "Sin tu ubicación se busca en toda Barcelona. Al limitar el tiempo te la pediremos; es opcional."}
+          ? tr("plannerSteps.tiempo_a_pie_estimado_desde")
+          : tr("plannerSteps.sin_tu_ubicacion_se_busca")}
       </p>
     </div>
   );

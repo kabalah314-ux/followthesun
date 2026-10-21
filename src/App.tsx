@@ -98,6 +98,7 @@ import type {
   Theme,
 } from "./types";
 import { cn } from "./utils/cn";
+import { tr } from "./i18n";
 
 const EMPTY_HIGHLIGHTS: Highlight[] = [];
 const DAY = 86_400_000;
@@ -110,19 +111,19 @@ const themeFor = (altDeg: number, prev?: Theme): Theme => {
 };
 
 /** Por qué «Cerca de ti ahora» está vacío, en palabras (las nubes, la noche o los edificios, no «no hay sitios»). */
-function nearbyEmptyText(outcome: SunSearchOutcome | null | undefined, tomorrow: boolean, modeWord: string): string {
-  const when = tomorrow ? "mañana a primera hora" : "en la próxima hora";
+function nearbyEmptyText(outcome: SunSearchOutcome | null | undefined, tomorrow: boolean, shade: boolean): string {
+  const when = tomorrow ? tr("app.manana_a_primera_hora") : tr("app.en_la_proxima_hora");
   switch (outcome?.noSunReason) {
     case "clouds":
-      return `Las nubes taparán el sol ${when}. Prueba más tarde en Buscar.`;
+      return tr("app.las_nubes_taparan_el_sol", { p0: when });
     case "shade":
-      return `Los edificios dan sombra a los sitios cercanos ${when}. Prueba en Buscar.`;
+      return tr("app.los_edificios_dan_sombra_a", { p0: when });
     case "night":
-      return "Ya no queda sol hoy. Mañana te proponemos sitios.";
+      return tr("app.ya_no_queda_sol_hoy");
     case "no_places":
-      return "No hemos podido cargar los sitios de la zona. Prueba en Buscar.";
+      return tr("app.no_hemos_podido_cargar_los");
     default:
-      return `No encontramos sitios con ${modeWord} seguida ${when}. Prueba en Buscar.`;
+      return tr(shade ? "app.no_encontramos_sitios_con_sombra_seguida" : "app.no_encontramos_sitios_con_sol_seguido", { p0: when });
   }
 }
 
@@ -395,7 +396,7 @@ export default function App() {
           const { venues } = await venueService.loadVenues(PLACES_CONFIG.bbox);
           places = venues.map(venueToSunPlace);
         } catch {
-          setToast("No hemos podido cargar los bares y cafeterías de la zona.");
+          setToast(tr("app.no_hemos_podido_cargar_los_2"));
           setVenuesLoading(false);
           return;
         }
@@ -555,13 +556,13 @@ export default function App() {
       const inside =
         pos.lng > CITY_BOUNDS.west - m && pos.lng < CITY_BOUNDS.east + m && pos.lat > CITY_BOUNDS.south - m && pos.lat < CITY_BOUNDS.north + m;
       if (!inside) {
-        setToast("Estás fuera de Barcelona: se busca en toda la ciudad.");
+        setToast(tr("app.estas_fuera_de_barcelona_se"));
         return null;
       }
       setUserLocation(pos);
       return pos;
     } catch {
-      setToast("No se pudo obtener tu ubicación.");
+      setToast(tr("app.no_se_pudo_obtener_tu"));
       return null;
     }
   }, []);
@@ -569,11 +570,11 @@ export default function App() {
   const savedIds = useMemo(() => new Set(saved.map((p) => p.id)), [saved]);
   const isSaved = useCallback((id: string) => savedIds.has(id), [savedIds]);
   const toggleSaveResult = useCallback(
-    (r: SunSearchResult) => setToast(toggle(r.place) ? "Guardado en tus sitios soleados" : "Quitado de guardados"),
+    (r: SunSearchResult) => setToast(toggle(r.place) ? tr("app.guardado_en_tus_sitios_soleados") : tr("app.quitado_de_guardados")),
     [toggle]
   );
   const shareResult = useCallback(async (r: SunSearchResult) => {
-    if ((await shareOrCopy(createShareablePlan(r))) === "copied") setToast("Copiado al portapapeles");
+    if ((await shareOrCopy(createShareablePlan(r))) === "copied") setToast(tr("app.copiado_al_portapapeles"));
   }, []);
 
   const pointSaved = useMemo(
@@ -582,8 +583,8 @@ export default function App() {
   );
   const toggleSavePoint = useCallback(() => {
     if (!selection) return;
-    const target = pointSaved ?? createCoordinatePlace(selection.lat, selection.lng, selection.name === "Tu ubicación" ? "Mi ubicación" : selection.name);
-    setToast(toggle(target) ? "Punto guardado" : "Quitado de guardados");
+    const target = pointSaved ?? createCoordinatePlace(selection.lat, selection.lng, selection.name === tr("app.tu_ubicacion") ? tr("app.mi_ubicacion") : selection.name);
+    setToast(toggle(target) ? tr("app.punto_guardado") : tr("app.quitado_de_guardados"));
   }, [selection, pointSaved, toggle]);
 
   /* ------------------------------ Ahora: respuesta y modo sol/sombra ------------------------------ */
@@ -628,7 +629,7 @@ export default function App() {
 
   const showMyPoint = useCallback(() => {
     if (!userLocation) return;
-    handleSelect({ id: ++selCounter.current, lng: userLocation.lng, lat: userLocation.lat, name: "Tu ubicación" });
+    handleSelect({ id: ++selCounter.current, lng: userLocation.lng, lat: userLocation.lat, name: tr("app.tu_ubicacion") });
     mapController.current?.flyToPoint(userLocation.lng, userLocation.lat, 16);
   }, [userLocation, handleSelect]);
 
@@ -648,7 +649,7 @@ export default function App() {
   }, [sunShade.mode, findStatus]);
 
   const answerVisible = view === "now" && !activeResult && !selection && !answerHidden;
-  const answerTimeLabel = isNow ? `Ahora · ${formatClock(selectedTime)}` : `${dayChoiceLabel(dayStart, now)} · ${formatClock(selectedTime)}`;
+  const answerTimeLabel = isNow ? tr("app.ahora", { p0: formatClock(selectedTime) }) : `${dayChoiceLabel(dayStart, now)} · ${formatClock(selectedTime)}`;
   const answerCard = (compact: boolean, inline = false) => (
     <AnswerCard
       compact={compact}
@@ -713,16 +714,16 @@ export default function App() {
     setNowLocating(false);
   }, [requestUserLocation]);
 
-  const modeWord = sunShade.mode === "shade" ? "sombra" : "sol";
+  const nearbyShade = sunShade.mode === "shade";
   const nearby = {
     title: nowTomorrow
-      ? `Mañana con ${modeWord}`
+      ? tr(nearbyShade ? "app.manana_con_sombra" : "app.manana_con_sol")
       : userLocation
-        ? `Con ${modeWord} cerca de ti`
-        : `Con ${modeWord} cerca del centro`,
+        ? tr(nearbyShade ? "app.con_sombra_cerca_de_ti" : "app.con_sol_cerca_de_ti")
+        : tr(nearbyShade ? "app.con_sombra_cerca_del_centro" : "app.con_sol_cerca_del_centro"),
     results: shownResults(nowSearch.state.outcome).slice(0, 3),
     loading: nowSearch.state.status === "searching" || (view === "now" && nowSearch.state.status === "idle"),
-    emptyText: nearbyEmptyText(nowSearch.state.outcome, nowTomorrow, modeWord),
+    emptyText: nearbyEmptyText(nowSearch.state.outcome, nowTomorrow, nearbyShade),
     mode: sunShade.mode,
     now,
     sunset: todaySunset,
@@ -751,7 +752,7 @@ export default function App() {
   /* ------------------------------ geometría de la pantalla ------------------------------ */
   // En móvil, Ahora no es una hoja: la tarjeta va arriba y los sitios en una tira sobre la línea de tiempo.
   const panelOpen = PANEL_VIEWS.has(view) && !(isMobile && view === "now");
-  const panelLabel = isSearchView(view) ? "Buscar" : NAV_ITEMS[view].label;
+  const panelLabel = isSearchView(view) ? tr("app.buscar") : NAV_ITEMS[view].label;
   const nearbyStrip = isMobile && view === "now" && !activeResult && !selection;
   const hasDetail = !!activeResult || !!selection;
   const navW = isMobile ? 0 : device === "tablet" || prefs.sidebarCollapsed ? LAYOUT.sidebarCompact : LAYOUT.sidebarExpanded;
@@ -808,8 +809,8 @@ export default function App() {
             onTerraceFeedback={(hasTerrace: boolean) =>
               setToast(
                 hasTerrace
-                  ? "¡Gracias! Esta terraza queda confirmada en tus búsquedas."
-                  : "Gracias, lo tendremos en cuenta para no recomendarla."
+                  ? tr("app.gracias_esta_terraza_queda_confirmada")
+                  : tr("app.gracias_lo_tendremos_en_cuenta")
               )
             }
           />
@@ -889,7 +890,7 @@ export default function App() {
             category={placesCategory}
             onCategory={setPlacesCategory}
             search={placesSearch}
-            dayWord={placesTomorrow ? "Mañana" : "Hoy"}
+            dayWord={placesTomorrow ? tr("app.manana") : tr("app.hoy")}
             activeId={activeId}
             onPick={pickFromView}
             onClose={closeView}
@@ -900,7 +901,7 @@ export default function App() {
           <Recommended
             inventory={inventory}
             search={recommendedSearch}
-            dayWord={placesTomorrow ? "Mañana" : "Hoy"}
+            dayWord={placesTomorrow ? tr("app.manana") : tr("app.hoy")}
             activeId={activeId}
             onPick={pickFromView}
             onOpenPlaces={() => go("places")}
@@ -915,7 +916,7 @@ export default function App() {
             onOpen={openSaved}
             onRemove={(p) => {
               toggle(p);
-              setToast("Quitado de guardados");
+              setToast(tr("app.quitado_de_guardados"));
             }}
             onClose={closeView}
           />
@@ -1033,7 +1034,7 @@ export default function App() {
             <ContextPanel
               device={device}
               side="left"
-              label={detailInLeft ? "Detalle" : panelLabel}
+              label={detailInLeft ? tr("app.detalle") : panelLabel}
               width={panelW}
               style={{ left: navRight + LAYOUT.gap, top: LAYOUT.gap, bottom: LAYOUT.gap }}
               resetKey={view}
@@ -1047,7 +1048,7 @@ export default function App() {
             <ContextPanel
               device={device}
               side="right"
-              label="Detalle"
+              label={tr("app.detalle")}
               width={LAYOUT.detailWidth}
               style={{
                 right: LAYOUT.controlsWidth,
@@ -1159,7 +1160,7 @@ export default function App() {
             <ContextPanel
               device="mobile"
               side="left"
-              label={hasDetail ? "Detalle" : panelLabel}
+              label={hasDetail ? tr("app.detalle") : panelLabel}
               mobileBottom={LAYOUT.mobileNav}
               resetKey={hasDetail ? `d${selection?.id ?? activeId}` : view}
               key={hasDetail ? "detail" : view}

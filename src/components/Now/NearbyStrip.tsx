@@ -1,6 +1,7 @@
 import { nearbyLine } from "../../lib/placeAnswer";
 import type { NearbyProps } from "./NowPanel";
 import NearbyCard from "./NearbyCard";
+import { tr } from "../../i18n";
 
 /**
  * «Cerca de ti ahora» en móvil: una tira horizontal justo encima de la línea de tiempo, para no
@@ -18,7 +19,7 @@ export default function NearbyStrip(p: NearbyProps) {
             disabled={p.locating}
             className="fts-glass flex h-9 items-center rounded-full px-3 text-[12.5px] font-semibold text-ink disabled:opacity-60"
           >
-            Usar mi ubicación
+            {tr("nearbyStrip.usar_mi_ubicacion")}
           </button>
         )}
       </div>
@@ -46,7 +47,7 @@ export default function NearbyStrip(p: NearbyProps) {
           onClick={p.onMore}
           className="fts-glass flex w-[120px] shrink-0 snap-start items-center justify-center rounded-2xl px-3 text-center text-[13.5px] font-semibold text-ink"
         >
-          Más sitios →
+          {tr("nearbyStrip.mas_sitios")}
         </button>
       </div>
     </section>

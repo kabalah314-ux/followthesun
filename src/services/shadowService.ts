@@ -2,6 +2,7 @@ import { DEG, lngToMx, latToMy, metersPerMercatorUnit, pointInPolygon } from "..
 import type { ShadowResult, SolarPosition } from "../types";
 import { buildingsCover, type BuildingSet } from "./buildingService";
 import { terrainService } from "./terrainService";
+import { tr } from "../i18n";
 
 /**
  * shadowService — SOLO geometría de sombras (edificios y relieve). No sabe nada de nubes.
@@ -165,7 +166,7 @@ export function createShadowEvaluator(args: ShadowEvaluatorArgs): ShadowEvaluato
   const known = buildings !== null && buildingsCover(buildings, longitude, latitude, 300);
   const tester = known && buildings ? createShadeTester(buildings, longitude, latitude) : null;
 
-  const source = tester ? "Edificios OSM + modelo de relieve" : "Modelo de relieve (sin edificios)";
+  const source = tester ? tr("shadowService.edificios_osm_modelo_de_relieve") : tr("shadowService.modelo_de_relieve_sin_edificios");
   const confidence = tester ? 0.85 : 0.6;
 
   return {
