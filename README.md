@@ -191,6 +191,36 @@ inventada de la fase anterior se ha eliminado).
   aproximada. Por eso no entran en «Cualquier lugar».
 * Reservado, sin datos todavía: `bench`, `cafe`, `restaurant` (`RESERVED_PLACE_TYPES`).
 
+## Datos precalculados
+
+Los servidores públicos de Overpass y el portal de Open Data BCN a veces tardan minutos o devuelven
+503. Para que la app no dependa de ellos en cada visita, **GitHub Actions genera cada lunes** un
+inventario estático en `public/data/` y lo guarda en el repositorio; Vercel lo despliega y la app lo
+pide primero (llega en milisegundos desde la CDN).
+
+| Fichero | Contenido | Fuente y licencia |
+| --- | --- | --- |
+| `places.json` | Lugares normalizados (parques, plazas, playas, miradores, espacios abiertos, terrazas con `outdoor_seating`) | OpenStreetMap · ODbL |
+| `venues.json` | Todos los cafés, bares y restaurantes con nombre, compactos `[«tipo/id», lat, lon, etiquetas]` | OpenStreetMap · ODbL |
+| `opendata.json` | Secciones `terraces`, `fountains`, `shelters`, `toilets`, `viewpoints`, `playgrounds`, cada una con su `fetchedAt` | Open Data BCN · CC BY 4.0 |
+
+Todos llevan `v` (versión del formato), `kind`, `generatedAt` y `sources` (atribuciones).
+
+* **Generación:** `scripts/etl/build-inventory.ts` reutiliza las consultas, los parsers y la
+  normalización de `src/services`, con timeouts largos, reintentos y todos los servidores de
+  Overpass. Si una fuente falla, **se conserva su parte anterior** en vez de vaciarla; solo sale con
+  error si no hay nada que publicar.
+* **A mano:** `npx vite-node scripts/etl/build-inventory.ts` (Node 22) o, en GitHub, *Actions →
+  Datos precalculados → Run workflow*. También se lanza al cambiar `scripts/etl/**`.
+* **En la app:** memoria → caché del dispositivo → fichero precalculado si tiene menos de 21 días →
+  fuentes en vivo → caché caducada → fichero precalculado antiguo. Sin red, la app sigue con lo que
+  tenga en caché.
+
+Además, en vivo: cada servidor de Overpass tiene su tiempo máximo (40 s el inventario, 20 s los
+negocios) y uno que acaba de fallar no se vuelve a esperar en 10 min; con las licencias de terraza ya
+cargadas, a OSM se le dan 6 s más y la búsqueda sigue sin él (termina en segundo plano); Open Data BCN
+se reintenta dos veces ante 503/429.
+
 ## Candidatos, muestreo y sombras en cualquier zona
 
 ```text
@@ -306,6 +336,7 @@ Comprobado con datos reales de AROME (error acumulado ≈ 1.295 s con «hora ant
 | Satélite | 10 min | última observación hasta 6 h, marcada `stale` |
 | Modelo | 30 min | último dato hasta 8 h, marcado desactualizado |
 | Lugares (OSM) | 7 días | último inventario hasta 60 días |
+| Datos precalculados (`public/data`) | se usan si tienen < 21 días | como respaldo, aunque sean más antiguos |
 
 El satélite se vuelve a consultar solo cuando se espera una muestra nueva.
 

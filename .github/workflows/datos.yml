@@ -1,0 +1,55 @@
+name: Datos precalculados
+
+# Genera public/data/{places,venues,opendata}.json con scripts/etl/build-inventory.ts y los guarda
+# en el repositorio si cambian. Vercel despliega ese commit y la app los sirve desde la CDN.
+on:
+  schedule:
+    # Lunes a las 05:17 UTC (fuera de la hora punta de los servidores de Overpass).
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/etl/**"
+      - ".github/workflows/datos.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: datos-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inventario:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # El commit del bot (con GITHUB_TOKEN) no dispara workflows, y además no toca scripts/etl:
+    # no hay bucle.
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generar inventario
+        run: npx vite-node scripts/etl/build-inventory.ts
+      - name: Guardar los datos si han cambiado
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if [ -z "$(git status --porcelain -- public/data)" ]; then
+            echo "Sin cambios en public/data"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data
+          git commit -m "Actualiza los datos precalculados de lugares y terrazas"
+          if ! git push origin "HEAD:$BRANCH"; then
+            # La rama avanzó mientras corría el ETL: se rehace encima y se vuelve a intentar.
+            git fetch --depth=20 origin "$BRANCH"
+            git rebase "origin/$BRANCH"
+            git push origin "HEAD:$BRANCH"
+          fi

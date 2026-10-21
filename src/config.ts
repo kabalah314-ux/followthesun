@@ -358,7 +358,12 @@ export const PLACES_CONFIG = {
   /** OpenStreetMap cambia despacio: una semana de caché, y hasta dos meses como respaldo. */
   ttlMs: 7 * 24 * 3_600_000,
   maxStaleMs: 60 * 24 * 3_600_000,
+  /** Inventario general (consulta grande): tiempo máximo por servidor. */
   timeoutMs: 40_000,
+  /** Negocios con terraza: consulta más pequeña, tiempo máximo más corto por servidor. */
+  venueTimeoutMs: 20_000,
+  /** Con las licencias de terraza ya cargadas, lo que se espera a OSM antes de seguir sin él. */
+  venueGraceMs: 6000,
   /** Superficie mínima (m²) para que un área sea un lugar donde quedarse. */
   minAreaM2: { beach: 3000, park: 2500, square: 600, open_space: 1500 },
   attribution: "© OpenStreetMap contributors (ODbL)",

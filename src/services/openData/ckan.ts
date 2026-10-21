@@ -1,3 +1,4 @@
+import { HttpError, RETRYABLE_STATUS, fetchWithTimeout as fetchTimed, withRetry } from "../../lib/net";
 import { decodeBytes } from "./csv";
 import { OPEN_DATA_CONFIG as C } from "./config";
 
@@ -25,19 +26,41 @@ interface CkanEnvelope<T> {
   error?: unknown;
 }
 
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    if (!res.ok) throw new Error(`Open Data BCN HTTP ${res.status}`);
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
+interface CkanSettings {
+  timeoutMs: number;
+  /** Reintentos ante errores pasajeros (el portal devuelve 503/429 sueltos por su protección antibots). */
+  retries: number;
+  delaysMs: readonly number[];
+  retryOn: (err: unknown) => boolean;
+  /** Solo en Node (ETL): en el navegador una cabecera extra forzaría un preflight CORS. */
+  headers?: Record<string, string>;
 }
 
-async function action<T>(name: string, params: Record<string, string>, timeoutMs = C.timeoutMs): Promise<T> {
+/** En el navegador: dos reintentos rápidos solo ante HTTP pasajero (un tiempo agotado no se repite). */
+const settings: CkanSettings = {
+  timeoutMs: C.timeoutMs,
+  retries: 2,
+  delaysMs: [700, 1800],
+  retryOn: (e) => e instanceof HttpError && RETRYABLE_STATUS.has(e.status),
+};
+
+/** El ETL de datos precalculados usa tiempos y reintentos más generosos. */
+export function configureCkan(patch: Partial<CkanSettings>) {
+  Object.assign(settings, patch);
+}
+
+function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  return withRetry(
+    () =>
+      fetchTimed(url, settings.headers ? { headers: settings.headers } : {}, timeoutMs).catch((e: unknown) => {
+        if (e instanceof HttpError) throw new HttpError(e.status, `Open Data BCN HTTP ${e.status}`);
+        throw e;
+      }),
+    { retries: settings.retries, delaysMs: settings.delaysMs, retryOn: settings.retryOn }
+  );
+}
+
+async function action<T>(name: string, params: Record<string, string>, timeoutMs = settings.timeoutMs): Promise<T> {
   const url = `${C.apiBase}${name}?${new URLSearchParams(params).toString()}`;
   const res = await fetchWithTimeout(url, timeoutMs);
   const json = (await res.json()) as CkanEnvelope<T>;
@@ -70,7 +93,7 @@ export function newestResource(
 }
 
 /** Descarga un fichero de texto (CSV) decodificándolo según su BOM. */
-export async function fetchText(url: string, timeoutMs = C.timeoutMs): Promise<string> {
+export async function fetchText(url: string, timeoutMs = settings.timeoutMs): Promise<string> {
   const res = await fetchWithTimeout(url, timeoutMs);
   return decodeBytes(new Uint8Array(await res.arrayBuffer()));
 }
