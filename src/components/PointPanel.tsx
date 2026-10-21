@@ -375,7 +375,9 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             </ul>
 
             <div className="mt-2.5 flex items-center justify-between border-t border-line pt-3 text-[12px] font-medium uppercase tracking-[0.18em] text-ink-faint">
-              <span>{timeline.weatherAvailable ? "Sol directo hoy" : "Sol posible hoy"}</span>
+              <span>
+                {timeline.weatherAvailable ? "Sol directo" : "Sol posible"} {dayChoiceLabel(dayStart, now).toLowerCase()}
+              </span>
               <span className="font-serif text-[15px] normal-case tracking-normal text-ink">
                 {formatDuration(timeline.sunMs)}
               </span>
