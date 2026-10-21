@@ -10,6 +10,7 @@ import SearchProgress from "../FindSun/SearchProgress";
 import { PanelHeader } from "../Layout/ContextPanel";
 import PlanResult from "./PlanResult";
 import { DistanceStep, PlaceTypeChips, StepSummary } from "./PlannerSteps";
+import { tr } from "../../i18n";
 
 /**
  * Planificar — cuatro preguntas: qué, dónde, cuándo e intensidad. Cada paso admite un valor
@@ -17,17 +18,17 @@ import { DistanceStep, PlaceTypeChips, StepSummary } from "./PlannerSteps";
  * Buscar sol/sombra (`findBestSunPlaces`): no se duplica nada.
  */
 const STEP_TITLES = [
-  "¿Qué te apetece?",
-  "¿Dónde te gustaría ir?",
-  "¿De qué hora a qué hora planeas estar?",
-  "¿Intensidad de sol?",
+  tr("sunPlanner.que_te_apetece"),
+  tr("sunPlanner.donde_te_gustaria_ir"),
+  tr("sunPlanner.de_que_hora_a_que"),
+  tr("sunPlanner.intensidad_de_sol"),
 ];
 
 const STEP_HINTS = [
-  "Elige si buscas sol o sombra.",
-  "Opcional · el tipo de sitio o «cualquier sitio».",
-  "Obligatorio · la franja en la que vas a estar, en hora de Barcelona.",
-  "Opcional · cómo de intenso lo quieres.",
+  tr("sunPlanner.elige_si_buscas_sol_o"),
+  tr("sunPlanner.opcional_el_tipo_de_sitio"),
+  tr("sunPlanner.obligatorio_la_franja_en_la"),
+  tr("sunPlanner.opcional_como_de_intenso_lo"),
 ];
 
 /** Solo sol o sombra; el resto de intenciones siguen disponibles en Buscar sol/sombra. */
@@ -35,8 +36,8 @@ const PRIMARY_INTENTS: SunIntent[] = ["sun", "shade"];
 
 /** Etiquetas de intensidad según se busque sol o sombra. */
 const PREFERENCES: Array<[SunPreference, string, string]> = [
-  ["maximum_sun", "Máximo sol", "Máxima sombra"],
-  ["balanced", "Sol agradable", "Sombra agradable"],
+  ["maximum_sun", tr("findSunPanel.maximo_sol"), tr("sunPlanner.maxima_sombra")],
+  ["balanced", tr("sunPlanner.sol_agradable"), tr("sunPlanner.sombra_agradable")],
 ];
 
 const timeInput =
@@ -62,7 +63,7 @@ interface Props {
 export default function SunPlanner(p: Props) {
   const { planner, onChange, now } = p;
   const { status, outcome, progress, failed } = p.search.state;
-  const header = <PanelHeader title="Planificar" subtitle="Organiza tu tiempo al sol" onClose={p.onClose} />;
+  const header = <PanelHeader title={tr("sunPlanner.planificar")} subtitle={tr("sunPlanner.organiza_tu_tiempo_al_sol")} onClose={p.onClose} />;
   const [step, setStep] = useState(0);
   const [showDistance, setShowDistance] = useState(false);
 
@@ -98,7 +99,7 @@ export default function SunPlanner(p: Props) {
         {header}
         {status === "places_unavailable" ? (
           <p className="text-[13.5px] leading-relaxed text-ink-soft">
-            No hemos podido cargar los lugares de Barcelona. Comprueba tu conexión e inténtalo de nuevo.
+            {tr("sunPlanner.no_hemos_podido_cargar_los")}
           </p>
         ) : (
           <SearchResults
@@ -107,9 +108,9 @@ export default function SunPlanner(p: Props) {
             activeId={p.activeId}
             onPick={p.onPick}
             onEdit={() => p.search.reset()}
-            editLabel="Editar plan"
+            editLabel={tr("planResult.editar_plan")}
             suggestions={[
-              { label: "Probar mañana", onClick: () => p.onSearch({ ...planner, dayOffset: Math.min(6, planner.dayOffset + 1) }) },
+              { label: tr("findSunPanel.probar_manana"), onClick: () => p.onSearch({ ...planner, dayOffset: Math.min(6, planner.dayOffset + 1) }) },
             ]}
           />
         )}
@@ -182,11 +183,11 @@ export default function SunPlanner(p: Props) {
   const summary: Array<[string, number]> = [
     [SUN_INTENTS[planner.intent].label, 0],
     [
-      planner.locationType === "any" ? "Cualquier sitio" : PLACE_TYPE_LABEL[planner.locationType].singular,
+      planner.locationType === "any" ? tr("plannerSteps.cualquier_sitio") : PLACE_TYPE_LABEL[planner.locationType].singular,
       1,
     ],
     [whenLabel(planner, now), 2],
-    [planner.avoidClouds ? `${preferenceLabel} · sin nubes` : preferenceLabel, 3],
+    [planner.avoidClouds ? tr("sunPlanner.sin_nubes", { p0: preferenceLabel }) : preferenceLabel, 3],
   ];
 
   const pastToday =
@@ -225,17 +226,17 @@ export default function SunPlanner(p: Props) {
               </div>
 
               <div className="mt-4 space-y-3 border-t border-line pt-3.5">
-                <Caps>Atajos</Caps>
+                <Caps>{tr("sunPlanner.atajos")}</Caps>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5">
                   <PrimaryButton onClick={() => p.onSearch(oneHourOfSun(60, p.origin !== null))}>
-                    Sol 1 h cerca de mí
+                    {tr("sunPlanner.sol_1_h_cerca_de")}
                   </PrimaryButton>
                   <GhostButton
                     onClick={() =>
                       p.onSearch({ ...oneHourOfSun(60, p.origin !== null), intent: "shade", locationType: "any" })
                     }
                   >
-                    Sombra 1 h
+                    {tr("sunPlanner.sombra_1_h")}
                   </GhostButton>
                 </div>
               </div>
@@ -252,7 +253,7 @@ export default function SunPlanner(p: Props) {
                 aria-expanded={showDistance}
                 className="mt-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
               >
-                {showDistance ? "Ocultar la distancia" : "¿A qué distancia?"}
+                {showDistance ? tr("sunPlanner.ocultar_la_distancia") : tr("sunPlanner.a_que_distancia")}
               </button>
               {showDistance && (
                 <div className="mt-3">
@@ -271,7 +272,7 @@ export default function SunPlanner(p: Props) {
             <div className="fts-fade-in">
               <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-ink-soft">
                 <select
-                  aria-label="Día"
+                  aria-label={tr("timeSlider.dia")}
                   value={planner.dayOffset}
                   onChange={(e) => onChange({ when: "custom", dayOffset: Number(e.target.value) })}
                   className={timeInput}
@@ -282,10 +283,10 @@ export default function SunPlanner(p: Props) {
                     </option>
                   ))}
                 </select>
-                <span>de</span>
+                <span>{tr("sunPlanner.de")}</span>
                 <input
                   type="time"
-                  aria-label="Desde"
+                  aria-label={tr("sunPlanner.desde")}
                   value={hhmm(planner.fromMinutes)}
                   onChange={(e) => {
                     const m = parseHHMM(e.target.value);
@@ -293,10 +294,10 @@ export default function SunPlanner(p: Props) {
                   }}
                   className={timeInput}
                 />
-                <span>a</span>
+                <span>{tr("sunPlanner.a")}</span>
                 <input
                   type="time"
-                  aria-label="Hasta"
+                  aria-label={tr("sunPlanner.hasta")}
                   value={hhmm(planner.toMinutes)}
                   onChange={(e) => {
                     const m = parseHHMM(e.target.value);
@@ -308,19 +309,18 @@ export default function SunPlanner(p: Props) {
 
               <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
                 {shade
-                  ? "Se busca el sitio con más sombra seguida durante toda esa franja."
-                  : "Se busca el sitio con más sol seguido durante toda esa franja, no solo a una hora concreta."}
+                  ? tr("sunPlanner.se_busca_el_sitio_con")
+                  : tr("sunPlanner.se_busca_el_sitio_con_2")}
               </p>
 
               {pastToday && (
                 <p className="mt-2.5 text-[12.5px] leading-snug text-sun-deep">
-                  Esa franja ya ha pasado hoy: elige otro día o mueve la hora.
+                  {tr("sunPlanner.esa_franja_ya_ha_pasado")}
                 </p>
               )}
               {planner.dayOffset > 1 && (
                 <p className="mt-2.5 text-[12.5px] leading-snug text-ink-faint">
-                  Más allá de mañana no hay previsión: solo se calcula la geometría solar y las sombras
-                  (sol posible, no confirmado).
+                  {tr("sunPlanner.mas_alla_de_manana_no")}
                 </p>
               )}
             </div>
@@ -336,14 +336,14 @@ export default function SunPlanner(p: Props) {
                   </Chip>
                 ))}
                 <Chip active={planner.avoidClouds} onClick={() => onChange({ avoidClouds: !planner.avoidClouds })}>
-                  Evitar nubes
+                  {tr("sunPlanner.evitar_nubes")}
                 </Chip>
                 {!shade && (
                   <Chip
                     active={planner.preferShadeBreaks}
                     onClick={() => onChange({ preferShadeBreaks: !planner.preferShadeBreaks })}
                   >
-                    Pausas de sombra
+                    {tr("sunPlanner.pausas_de_sombra")}
                   </Chip>
                 )}
               </div>
@@ -351,25 +351,25 @@ export default function SunPlanner(p: Props) {
               <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
                 {planner.preference === "balanced"
                   ? shade
-                    ? "«Sombra agradable» sigue teniendo en cuenta el calor y el viento."
-                    : "«Sol agradable» tiene en cuenta el calor y el viento, además del sol."
+                    ? tr("sunPlanner.sombra_agradable_sigue_teniendo_en")
+                    : tr("sunPlanner.sol_agradable_tiene_en_cuenta")
                   : shade
-                    ? "A máxima sombra solo cuenta la ausencia de sol directo."
-                    : "A máximo sol solo punta la luz directa: calor y viento no se tienen en cuenta."}
+                    ? tr("sunPlanner.a_maxima_sombra_solo_cuenta")
+                    : tr("sunPlanner.a_maximo_sol_solo_punta")}
               </p>
             </div>
           )}
         </div>
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          {step > 0 ? <GhostButton onClick={() => setStep(step - 1)}>Atrás</GhostButton> : <span />}
+          {step > 0 ? <GhostButton onClick={() => setStep(step - 1)}>{tr("contextPanel.atras")}</GhostButton> : <span />}
           <div className="flex items-center gap-2">
             {step < STEP_TITLES.length - 1 && (
               <GhostButton onClick={() => (step === 1 ? openTimeStep() : setStep(step + 1))} className="text-sun-deep">
-                Siguiente →
+                {tr("sunPlanner.siguiente")}
               </GhostButton>
             )}
-            <PrimaryButton onClick={() => p.onSearch()}>Buscar</PrimaryButton>
+            <PrimaryButton onClick={() => p.onSearch()}>{tr("app.buscar")}</PrimaryButton>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
-import { compassLabel } from "./solarCalculations";
+import { compassIndex } from "./solarCalculations";
 import { formatClock, formatDuration } from "../services/timeService";
 import type { SunState, TimelineInterval } from "../types";
+import { tr } from "../i18n";
 
 /**
  * Frase-respuesta: traduce el estado del sol de un punto (o de la ciudad) a lo que la persona
@@ -63,17 +64,17 @@ function nightAnswer(input: { time: number; sunrise: number; sunset: number; nex
   if (input.time >= input.sunset) {
     return {
       state: "night",
-      headline: "Ya no hay sol",
-      detail: input.nextSunrise ? `Mañana sale a las ${clock(input.nextSunrise)}` : null,
+      headline: tr("answer.ya_no_hay_sol"),
+      detail: input.nextSunrise ? tr("answer.manana_sale_a_las", { p0: clock(input.nextSunrise) }) : null,
       remainingMs: null,
     };
   }
   const arrives =
-    input.firstSun != null && input.firstSun - input.sunrise > 10 * MIN ? ` y llega aquí a las ${clock(input.firstSun)}` : "";
+    input.firstSun != null && input.firstSun - input.sunrise > 10 * MIN ? tr("answer.y_llega_aqui_a_las", { p0: clock(input.firstSun) }) : "";
   return {
     state: "night",
-    headline: "Todavía es de noche",
-    detail: `Sale a las ${clock(input.sunrise)}${arrives}`,
+    headline: tr("answer.todavia_es_de_noche"),
+    detail: tr("answer.sale_a_las", { p0: clock(input.sunrise), p1: arrives }),
     remainingMs: null,
   };
 }
@@ -92,11 +93,11 @@ export function describePoint(input: PointAnswerInput): SunAnswer {
 
   const idx = currentIndex(intervals, time);
   if (idx < 0) {
-    return { state: "shade", headline: "Sin sol directo aquí ahora", detail: `El sol se pone a las ${clock(sunset)}`, remainingMs: null };
+    return { state: "shade", headline: tr("answer.sin_sol_directo_aqui_ahora"), detail: tr("answer.el_sol_se_pone_a", { p0: clock(sunset) }), remainingMs: null };
   }
   const cur = intervals[idx];
   const untilSunset = (end: number) => end >= sunset - NEAR_SUNSET;
-  const until = (end: number) => (untilSunset(end) ? `hasta la puesta (${clock(sunset)})` : `hasta las ${clock(end)}`);
+  const until = (end: number) => (untilSunset(end) ? tr("answer.hasta_la_puesta", { p0: clock(sunset) }) : tr("answer.hasta_las", { p0: clock(end) }));
 
   if (sunny(cur.state)) {
     let j = idx;
@@ -108,19 +109,19 @@ export function describePoint(input: PointAnswerInput): SunAnswer {
       const shadeAt = intervals.slice(idx + 1).find((iv) => iv.state === "shade")?.start ?? null;
       return {
         state: cur.state,
-        headline: heat ? `Sol aquí ahora: ${round(input.apparentC!)} °C de sensación` : "Sol aquí ahora",
-        detail: shadeAt ? `Sombra a partir de las ${clock(shadeAt)}` : `Sol hasta la puesta, a las ${clock(sunset)}`,
+        headline: heat ? tr("answer.sol_aqui_ahora_c_de", { p0: round(input.apparentC!) }) : tr("answer.sol_aqui_ahora"),
+        detail: shadeAt ? tr("answer.sombra_a_partir_de_las", { p0: clock(shadeAt) }) : tr("answer.sol_hasta_la_puesta_a", { p0: clock(sunset) }),
         remainingMs: runEnd - time,
       };
     }
 
     const what =
-      input.weatherAvailable === false ? "Sol posible aquí" : cur.state === "sun" ? "Sol directo aquí" : "Sol suave (nubes finas)";
-    const after = next === "shade" ? " · después, sombra" : next === "cloud" ? " · después, nubes" : "";
+      input.weatherAvailable === false ? tr("answer.sol_posible_aqui") : cur.state === "sun" ? tr("answer.sol_directo_aqui") : tr("answer.sol_suave_nubes_finas");
+    const after = next === "shade" ? tr("answer.despues_sombra") : next === "cloud" ? tr("answer.despues_nubes") : "";
     return {
       state: cur.state,
       headline: `${what} ${until(runEnd)}`,
-      detail: `Quedan ${formatDuration(runEnd - time)}${after}`,
+      detail: tr("answer.quedan", { p0: formatDuration(runEnd - time) }) + after,
       remainingMs: runEnd - time,
     };
   }
@@ -132,8 +133,8 @@ export function describePoint(input: PointAnswerInput): SunAnswer {
     const next = intervals[j + 1]?.state;
     return {
       state: "cloud",
-      headline: `Nubes ${until(end)}`,
-      detail: next ? (sunny(next) ? "Después, sol probable" : "Después, sombra de edificios") : null,
+      headline: tr("answer.nubes", { p0: until(end) }),
+      detail: next ? (sunny(next) ? tr("answer.despues_sol_probable") : tr("answer.despues_sombra_de_edificios")) : null,
       remainingMs: end - time,
     };
   }
@@ -143,19 +144,19 @@ export function describePoint(input: PointAnswerInput): SunAnswer {
   if (shadeMode) {
     return {
       state: "shade",
-      headline: back ? `Sombra aquí hasta las ${clock(back)}` : "Sombra el resto del día",
+      headline: back ? tr("answer.sombra_aqui_hasta_las", { p0: clock(back) }) : tr("answer.sombra_el_resto_del_dia"),
       detail: heat
-        ? `${round(input.apparentC!)} °C de sensación al sol`
+        ? tr("answer.c_de_sensacion_al_sol", { p0: round(input.apparentC!) })
         : back
-          ? `Quedan ${formatDuration(back - time)} de sombra`
-          : `El sol se pone a las ${clock(sunset)}`,
+          ? tr("answer.quedan_de_sombra", { p0: formatDuration(back - time) })
+          : tr("answer.el_sol_se_pone_a", { p0: clock(sunset) }),
       remainingMs: back ? back - time : null,
     };
   }
   return {
     state: "shade",
-    headline: back ? `Sombra ahora · vuelve el sol a las ${clock(back)}` : "Sombra el resto del día",
-    detail: back ? `En ${formatDuration(back - time)}` : `El sol se pone a las ${clock(sunset)}`,
+    headline: back ? tr("answer.sombra_ahora_vuelve_el_sol", { p0: clock(back) }) : tr("answer.sombra_el_resto_del_dia"),
+    detail: back ? tr("answer.en", { p0: formatDuration(back - time) }) : tr("answer.el_sol_se_pone_a", { p0: clock(sunset) }),
     remainingMs: back ? back - time : null,
   };
 }
@@ -184,24 +185,24 @@ export function describeCity(input: CityAnswerInput): SunAnswer {
 
   const heat = input.apparentC != null && input.apparentC >= (input.heatFromC ?? DEFAULT_HEAT_FROM_C);
   const shadeMode = input.mode === "shade";
-  const parts: string[] = [`Se pone a las ${clock(sunset)}`];
+  const parts: string[] = [tr("answer.se_pone_a_las", { p0: clock(sunset) })];
   if (input.temperatureC != null) parts.push(`${round(input.temperatureC)} °C`);
-  if (heat) parts.push(`sensación ${round(input.apparentC!)} °C`);
+  if (heat) parts.push(tr("answer.sensacion_c", { p0: round(input.apparentC!) }));
   const detail = parts.join(" · ");
 
   if (input.cloudPercent != null && input.cloudPercent >= 65) {
-    return { state: "cloud", headline: "Las nubes tapan casi todo el sol", detail, remainingMs: null };
+    return { state: "cloud", headline: tr("answer.las_nubes_tapan_casi_todo"), detail, remainingMs: null };
   }
   // Sin muestras todavía (el mapa acaba de cargar o se está recalculando la hora): sol y sombra a 0.
   const sampled = (input.sunPercent ?? 0) + (input.shadePercent ?? 0) > 0;
   if (!sampled && (input.sunPercent != null || input.shadePercent != null)) {
-    return { state: "sun", headline: "Calculando dónde da el sol…", detail, remainingMs: null };
+    return { state: "sun", headline: tr("answer.calculando_donde_da_el_sol"), detail, remainingMs: null };
   }
   if (shadeMode) {
     const shade = input.shadePercent ?? (input.sunPercent != null ? 100 - input.sunPercent : null);
     return {
       state: "shade",
-      headline: shade != null ? `Sombra en el ${round(shade)} % de las calles que ves` : "Hace calor: busca la sombra",
+      headline: shade != null ? tr("answer.sombra_en_el_de_las", { p0: round(shade) }) : tr("answer.hace_calor_busca_la_sombra"),
       detail,
       remainingMs: null,
     };
@@ -209,33 +210,34 @@ export function describeCity(input: CityAnswerInput): SunAnswer {
   if (input.sunPercent != null && input.sunPercent < 10) {
     return {
       state: "shade",
-      headline: "Casi todo está a la sombra ahora",
-      detail: `Sol directo en el ${round(input.sunPercent)} % de las calles que ves · ${detail}`,
+      headline: tr("answer.casi_todo_esta_a_la"),
+      detail: tr("answer.sol_directo_en_el_de", { p0: round(input.sunPercent), p1: detail }),
       remainingMs: null,
     };
   }
   return {
     state: "sun",
-    headline: input.sunPercent != null ? `Sol directo en el ${round(input.sunPercent)} % de las calles que ves` : "Hay sol en Barcelona",
+    headline: input.sunPercent != null ? tr("answer.sol_directo_en_el_de_2", { p0: round(input.sunPercent) }) : tr("answer.hay_sol_en_barcelona"),
     detail,
     remainingMs: null,
   };
 }
 
-const COMPASS_WORDS: Record<string, string> = {
-  N: "el norte",
-  NE: "el noreste",
-  E: "el este",
-  SE: "el sureste",
-  S: "el sur",
-  SO: "el suroeste",
-  O: "el oeste",
-  NO: "el noroeste",
-};
+/** Dónde está el sol, en el orden de `compassIndex` (N, NE, E… NO). Con la preposición de cada idioma: «pel nord», «per l'est». */
+const SUN_WHERE = [
+  tr("answer.por_el_norte"),
+  tr("answer.por_el_noreste"),
+  tr("answer.por_el_este"),
+  tr("answer.por_el_sureste"),
+  tr("answer.por_el_sur"),
+  tr("answer.por_el_suroeste"),
+  tr("answer.por_el_oeste"),
+  tr("answer.por_el_noroeste"),
+];
 
 /** «Sol bajo por el suroeste» · «Sol alto por el sur». */
 export function sunPositionPhrase(altitudeDeg: number, azimuthDeg: number): string {
-  const where = COMPASS_WORDS[compassLabel(azimuthDeg)] ?? "el horizonte";
-  const height = altitudeDeg < 15 ? "Sol bajo" : altitudeDeg < 45 ? "Sol" : "Sol alto";
-  return `${height} por ${where}`;
+  const where = SUN_WHERE[compassIndex(azimuthDeg)] ?? tr("answer.por_el_horizonte");
+  const height = altitudeDeg < 15 ? tr("answer.sol_bajo") : altitudeDeg < 45 ? tr("pointPanel.sol") : tr("answer.sol_alto");
+  return `${height} ${where}`;
 }

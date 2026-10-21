@@ -1,6 +1,7 @@
 import { formatClock, formatDuration } from "../services/timeService";
 import type { SunSearchResult, SunWindow, SunWindowKind } from "../types";
 import type { SunAnswer, SunShadeMode } from "./answer";
+import { tr } from "../i18n";
 
 /**
  * Frase-respuesta de un LUGAR encontrado por la búsqueda (la ficha y las tarjetas de «Cerca de ti
@@ -74,18 +75,18 @@ export function nearbyLine(
   const all = span(r.windows);
   const ref = all ? Math.max(now, all.start) : Math.max(now, r.searchWindow.start);
   const kinds = mode === "sun" ? SUNNY : SHADY;
-  const word = mode === "sun" ? "Sol" : "Sombra";
+  const word = mode === "sun" ? tr("pointPanel.sol") : tr("findSunPanel.sombra");
   const tone = mode === "sun" ? "sun" : "shade";
   const { current, next } = runsAround(r.windows, ref, kinds);
   if (current) {
     const toEnd = all && current.end >= all.end - MIN;
     if (toEnd && mode === "sun" && opts.sunset != null && Math.abs(all.end - opts.sunset) <= 5 * MIN) {
-      return { text: `Sol hasta la puesta (${clock(opts.sunset)})`, tone };
+      return { text: tr("placeAnswer.sol_hasta_la_puesta", { p0: clock(opts.sunset) }), tone };
     }
-    return { text: toEnd ? `${word} al menos hasta las ${clock(current.end)}` : `${word} hasta las ${clock(current.end)}`, tone };
+    return { text: toEnd ? tr("placeAnswer.al_menos_hasta_las", { p0: word, p1: clock(current.end) }) : tr("placeAnswer.hasta_las", { p0: word, p1: clock(current.end) }), tone };
   }
-  if (next) return { text: `${word} desde las ${clock(next.start)}`, tone };
-  return { text: mode === "sun" ? "Sin sol directo en esta franja" : "Sin sombra seguida en esta franja", tone: "muted" };
+  if (next) return { text: tr("placeAnswer.desde_las", { p0: word, p1: clock(next.start) }), tone };
+  return { text: mode === "sun" ? tr("placeAnswer.sin_sol_directo_en_esta") : tr("placeAnswer.sin_sombra_seguida_en_esta"), tone: "muted" };
 }
 
 /** Frase-respuesta de la ficha de un lugar. */
@@ -96,7 +97,7 @@ export function describeResult(
   clock: (ms: number) => string = formatClock
 ): SunAnswer {
   const all = span(r.windows) ?? r.searchWindow;
-  const sunWord = r.weatherAvailable ? "Sol" : "Sol posible";
+  const sunWord = r.weatherAvailable ? tr("pointPanel.sol") : tr("sunDetails.sol_posible");
 
   if (now >= all.start && now < all.end) {
     if (mode === "shade") {
@@ -104,14 +105,14 @@ export function describeResult(
       if (current) {
         return {
           state: "shade",
-          headline: `Sombra hasta las ${clock(current.end)}`,
-          detail: `Quedan ${formatDuration(current.end - now)}`,
+          headline: tr("placeAnswer.sombra_hasta_las", { p0: clock(current.end) }),
+          detail: tr("answer.quedan", { p0: formatDuration(current.end - now) }),
           remainingMs: current.end - now,
         };
       }
       return {
         state: "sun",
-        headline: next ? `Ahora da el sol · sombra desde las ${clock(next.start)}` : "Ahora da el sol",
+        headline: next ? tr("placeAnswer.ahora_da_el_sol_sombra", { p0: clock(next.start) }) : tr("placeAnswer.ahora_da_el_sol"),
         detail: null,
         remainingMs: null,
       };
@@ -120,31 +121,31 @@ export function describeResult(
     if (current) {
       return {
         state: "sun",
-        headline: `${sunWord} hasta las ${clock(current.end)}`,
-        detail: `Quedan ${formatDuration(current.end - now)}`,
+        headline: tr("placeAnswer.hasta_las", { p0: sunWord, p1: clock(current.end) }),
+        detail: tr("answer.quedan", { p0: formatDuration(current.end - now) }),
         remainingMs: current.end - now,
       };
     }
     if (next) {
-      return { state: "shade", headline: `Ahora sin sol · vuelve a las ${clock(next.start)}`, detail: null, remainingMs: null };
+      return { state: "shade", headline: tr("placeAnswer.ahora_sin_sol_vuelve_a", { p0: clock(next.start) }), detail: null, remainingMs: null };
     }
-    return { state: "shade", headline: "Sin sol directo el resto de tu franja", detail: null, remainingMs: null };
+    return { state: "shade", headline: tr("placeAnswer.sin_sol_directo_el_resto"), detail: null, remainingMs: null };
   }
 
   if (mode === "shade") {
     const { current, next } = runsAround(r.windows, all.start, SHADY);
     const run = current ?? next;
     return run
-      ? { state: "shade", headline: `Sombra de ${clock(run.start)} a ${clock(run.end)}`, detail: null, remainingMs: null }
-      : { state: "sun", headline: "Sin sombra seguida en tu franja", detail: null, remainingMs: null };
+      ? { state: "shade", headline: tr("placeAnswer.sombra_de_a", { p0: clock(run.start), p1: clock(run.end) }), detail: null, remainingMs: null }
+      : { state: "sun", headline: tr("placeAnswer.sin_sombra_seguida_en_tu"), detail: null, remainingMs: null };
   }
   if (r.bestWindow) {
     return {
       state: "sun",
-      headline: `${sunWord} de ${clock(r.bestWindow.start)} a ${clock(r.bestWindow.end)}`,
-      detail: `${formatDuration(r.sunlightMinutes * MIN)} de sol directo en tu franja`,
+      headline: tr("placeAnswer.de_a", { p0: sunWord, p1: clock(r.bestWindow.start), p2: clock(r.bestWindow.end) }),
+      detail: tr("placeAnswer.de_sol_directo_en_tu", { p0: formatDuration(r.sunlightMinutes * MIN) }),
       remainingMs: null,
     };
   }
-  return { state: "shade", headline: "Sin sol directo en tu franja", detail: null, remainingMs: null };
+  return { state: "shade", headline: tr("placeAnswer.sin_sol_directo_en_tu"), detail: null, remainingMs: null };
 }

@@ -5,6 +5,7 @@ import { LAYOUT } from "../Layout/layout";
 import { LogoMark, Wordmark } from "../Logo";
 import NavigationItem from "./NavigationItem";
 import { NAV_ITEMS, PRIMARY_NAV, SECONDARY_NAV, isNavActive } from "./navItems";
+import { tr } from "../../i18n";
 
 interface Props {
   view: AppView;
@@ -24,7 +25,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
 
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={tr("mobileNavigation.navegacion_principal")}
       // El fondo translúcido no captura el gesto: el mapa se puede arrastrar por debajo.
       className="fts-glass fts-rise pointer-events-none absolute bottom-3 left-3 top-3 z-30 flex flex-col rounded-[24px] py-4 transition-[width] duration-300 ease-out"
       style={{ width, animationDelay: "200ms" }}
@@ -32,7 +33,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
       <button
         type="button"
         onClick={() => onNavigate("now")}
-        aria-label="I Follow the Sun — volver al inicio"
+        aria-label={tr("mobileHeader.i_follow_the_sun_volver")}
         className={cn(
           "pointer-events-auto mb-6 flex items-center gap-3 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-sun/60",
           compact ? "justify-center px-0" : "px-4"
@@ -80,7 +81,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
         <button
           type="button"
           onClick={onToggleCompact}
-          aria-label={compact ? "Expandir menú" : "Plegar menú"}
+          aria-label={compact ? tr("sidebar.expandir_menu") : tr("sidebar.plegar_menu")}
           aria-expanded={!compact}
           className={cn(
             "pointer-events-auto mt-2 flex h-9 items-center gap-3 rounded-[14px] text-[12.5px] text-ink-faint outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60",
@@ -92,7 +93,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
           ) : (
             <>
               <PanelLeftClose size={17} strokeWidth={1.5} absoluteStrokeWidth />
-              <span>Plegar</span>
+              <span>{tr("sidebar.plegar")}</span>
             </>
           )}
         </button>

@@ -4,6 +4,7 @@ import { cn } from "../../utils/cn";
 import { Ellipsis, Layers, LocateFixed } from "../LineIcons";
 import { LogoMark, Wordmark } from "../Logo";
 import { MOBILE_MORE, NAV_ITEMS } from "./navItems";
+import { tr } from "../../i18n";
 
 interface Props {
   view: AppView;
@@ -67,7 +68,7 @@ export default function MobileHeader({ view, layersOpen, onToggleLayers, onLocat
         <button
           type="button"
           onClick={onBrand}
-          aria-label="I Follow the Sun — volver al inicio"
+          aria-label={tr("mobileHeader.i_follow_the_sun_volver")}
           className="pointer-events-auto flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
         >
           <LogoMark size={26} className="text-ink" />
@@ -77,13 +78,13 @@ export default function MobileHeader({ view, layersOpen, onToggleLayers, onLocat
         </button>
 
         <div ref={ref} className="pointer-events-auto relative flex items-center">
-          <IconButton label="Capas del mapa" active={layersOpen} onClick={onToggleLayers} layersToggle>
+          <IconButton label={tr("layerControl.capas_del_mapa")} active={layersOpen} onClick={onToggleLayers} layersToggle>
             <Layers size={19} />
           </IconButton>
-          <IconButton label="Mi ubicación" onClick={onLocate}>
+          <IconButton label={tr("app.mi_ubicacion")} onClick={onLocate}>
             <LocateFixed size={19} />
           </IconButton>
-          <IconButton label="Más" active={more} onClick={() => setMore((v) => !v)}>
+          <IconButton label={tr("mobileHeader.mas")} active={more} onClick={() => setMore((v) => !v)}>
             <Ellipsis size={19} />
           </IconButton>
 

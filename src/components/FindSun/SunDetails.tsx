@@ -25,11 +25,12 @@ import { cn } from "../../utils/cn";
 import { CloseIcon } from "../Icons";
 import { Caps, ConfidenceBars } from "./ui";
 import WindowStrip from "./WindowStrip";
+import { tr } from "../../i18n";
 
 const ORIGIN_ES: Record<SunlightOrigin, string> = {
-  observed: "Basado en observación satelital",
-  forecast: "Basado en previsión",
-  estimated: "Estimación",
+  observed: tr("sunDetails.basado_en_observacion_satelital"),
+  forecast: tr("sunDetails.basado_en_prevision"),
+  estimated: tr("sunDetails.estimacion"),
 };
 
 const DOT: Record<SunWindowKind | "best", string> = {
@@ -43,10 +44,10 @@ const DOT: Record<SunWindowKind | "best", string> = {
 };
 
 const RELIABILITY: Record<ReturnType<typeof confidenceWord>, string> = {
-  very_high: "Seguro",
-  high: "Seguro",
-  medium: "Bastante seguro",
-  low: "Depende de las nubes",
+  very_high: tr("sunDetails.seguro"),
+  high: tr("sunDetails.seguro"),
+  medium: tr("sunDetails.bastante_seguro"),
+  low: tr("sunDetails.depende_de_las_nubes"),
 };
 
 const windowText = (r: SunSearchResult) =>
@@ -84,7 +85,7 @@ function ConfRow({
         {sub && <span className="ml-1.5 text-[12px] text-ink-faint">{sub}</span>}
       </div>
       <span className="shrink-0 text-ink">
-        {missing ? <span className="text-ink-faint">Sin datos</span> : <ConfidenceBars value={value} />}
+        {missing ? <span className="text-ink-faint">{tr("sunDetails.sin_datos")}</span> : <ConfidenceBars value={value} />}
       </span>
     </div>
   );
@@ -141,20 +142,20 @@ function ActionButton({
 function Compare({ a, b }: { a: SunSearchResult; b: SunSearchResult }) {
   const rows: Array<[string, string, string]> = [
     ["Sun Score", String(a.score), String(b.score)],
-    ["Sol directo", fmtMin(a.sunlightMinutes), fmtMin(b.sunlightMinutes)],
-    ["Mejor ventana", windowText(a), windowText(b)],
-    ["Nubes", influenceWord(a.cloudInfluence), influenceWord(b.cloudInfluence)],
+    [tr("sunDetails.sol_directo"), fmtMin(a.sunlightMinutes), fmtMin(b.sunlightMinutes)],
+    [tr("sunDetails.mejor_ventana"), windowText(a), windowText(b)],
+    [tr("sunDetails.nubes"), influenceWord(a.cloudInfluence), influenceWord(b.cloudInfluence)],
     [
-      "Sombra urbana",
+      tr("sunDetails.sombra_urbana"),
       a.buildingsKnown ? fmtMin(a.urbanShadowMinutes) : "—",
       b.buildingsKnown ? fmtMin(b.urbanShadowMinutes) : "—",
     ],
     [
-      "Confianza",
+      tr("sunDetails.confianza"),
       CONFIDENCE_ES[confidenceWord(a.confidence)],
       CONFIDENCE_ES[confidenceWord(b.confidence)],
     ],
-    ["A pie", walkText(a), walkText(b)],
+    [tr("sunDetails.a_pie"), walkText(a), walkText(b)],
   ];
   return (
     <div className="fts-fade-in mt-2.5 overflow-hidden rounded-2xl border border-line text-[12.5px]">
@@ -230,14 +231,14 @@ export default function SunDetails({
   const terrace = meta.terrace as TerraceCertainty | undefined;
   const license = (meta.licensed ?? null) as TerraceLicenseInfo | null;
   const terraceNote = license
-    ? `${licenseSummary(license)} Se calcula el sol del punto de la licencia y de un anillo a su alrededor.`
+    ? tr("sunDetails.se_calcula_el_sol_del", { p0: licenseSummary(license) })
     : terrace === "confirmed"
-      ? "Terraza confirmada en OpenStreetMap: se calcula el sol del local y de un anillo a su alrededor, porque no se sabe dónde están las mesas."
+      ? tr("sunDetails.terraza_confirmada_en_openstreetmap_se")
       : terrace === "likely"
-        ? "Candidato: el local está en planta baja, pero nadie ha confirmado que saque mesas a la calle. Compruébalo y dínoslo."
+        ? tr("sunDetails.candidato_el_local_esta_en")
         : terrace === "none"
-          ? "Según los datos, este local no tiene terraza."
-          : "No sabemos si este local tiene terraza.";
+          ? tr("sunDetails.segun_los_datos_este_local")
+          : tr("sunDetails.no_sabemos_si_este_local");
 
   const handleTerraceFeedback = (hasTerrace: boolean) => {
     venueFeedbackService.record({
@@ -269,14 +270,14 @@ export default function SunDetails({
         <div className="min-w-0">
           <Caps>
             {PLACE_TYPE_LABEL[result.locationType].singular}
-            {result.walking ? ` · ≈ ${result.walking.durationMinutes} min a pie` : ""}
+            {result.walking ? tr("sunResultCard.min_a_pie", { p0: result.walking.durationMinutes }) : ""}
           </Caps>
           <h2 className="mt-1.5 font-serif text-[24px] leading-[1.08] text-ink">{result.place.name}</h2>
         </div>
         <button
           type="button"
           onClick={onClose}
-          aria-label="Cerrar"
+          aria-label={tr("sunDetails.cerrar")}
           className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
         >
           <CloseIcon />
@@ -299,15 +300,15 @@ export default function SunDetails({
           href={`https://www.google.com/maps/dir/?api=1&destination=${result.spot.latitude},${result.spot.longitude}&travelmode=walking`}
         >
           <RouteIcon />
-          Cómo llegar
+          {tr("sunDetails.como_llegar")}
         </ActionButton>
         <ActionButton onClick={onToggleSave} active={saved}>
           <HeartIcon filled={saved} />
-          {saved ? "Guardado" : "Guardar"}
+          {saved ? tr("sunDetails.guardado") : tr("sunDetails.guardar")}
         </ActionButton>
         <ActionButton onClick={onShare}>
           <ShareIcon />
-          Compartir
+          {tr("sunDetails.compartir")}
         </ActionButton>
       </div>
 
@@ -319,37 +320,37 @@ export default function SunDetails({
           highlight={result.searchWindow}
         />
         <p className="mt-2 text-[12px] leading-snug text-ink-faint">
-          El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
+          {tr("sunDetails.el_contorno_marca_la_mejor", { p0: fmtMin(D) })}
         </p>
       </div>
 
       <dl className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3 rounded-2xl bg-ink/[0.035] px-3.5 py-3">
-        <Row label={result.weatherAvailable ? "Sol directo" : "Sol posible"}>
+        <Row label={result.weatherAvailable ? tr("sunDetails.sol_directo") : tr("sunDetails.sol_posible")}>
           {fmtMin(result.sunlightMinutes)}
-          <span className="font-normal text-ink-faint"> de {fmtMin(D)}</span>
+          <span className="font-normal text-ink-faint"> {tr("sunDetails.de", { p0: fmtMin(D) })}</span>
         </Row>
-        <Row label="Mejor ventana">{windowText(result)}</Row>
-        <Row label="Edificios">
+        <Row label={tr("sunDetails.mejor_ventana")}>{windowText(result)}</Row>
+        <Row label={tr("searchProgress.edificios")}>
           {result.buildingsKnown
             ? result.urbanShadowMinutes <= 0.05 * D
-              ? "Casi no tapan"
+              ? tr("sunDetails.casi_no_tapan")
               : fmtMin(result.urbanShadowMinutes)
-            : "Sin verificar"}
+            : tr("sunDetails.sin_verificar")}
         </Row>
-        <Row label="Nubes">
-          {result.weatherAvailable ? influenceWord(result.cloudInfluence) : "Sin datos"}
+        <Row label={tr("sunDetails.nubes")}>
+          {result.weatherAvailable ? influenceWord(result.cloudInfluence) : tr("sunDetails.sin_datos")}
         </Row>
-        <Row label="Fiabilidad">{RELIABILITY[confidenceWord(result.confidence)]}</Row>
-        <Row label="Distancia">{walkText(result)}</Row>
+        <Row label={tr("sunDetails.fiabilidad")}>{RELIABILITY[confidenceWord(result.confidence)]}</Row>
+        <Row label={tr("sunDetails.distancia")}>{walkText(result)}</Row>
         {openingHours && (
           <div className="col-span-2">
-            <Row label="Horario (OpenStreetMap)">{openingHours}</Row>
+            <Row label={tr("sunDetails.horario_openstreetmap")}>{openingHours}</Row>
           </div>
         )}
       </dl>
 
       <div className="mt-4 border-t border-line pt-3.5">
-        <Caps>¿Por qué este lugar?</Caps>
+        <Caps>{tr("sunDetails.por_que_este_lugar")}</Caps>
         <ul className="mt-2.5 space-y-1.5">
           {result.reasons.map((reason, i) => (
             <li key={i} className="flex gap-2.5 text-[13px] leading-snug text-ink-soft">
@@ -372,7 +373,7 @@ export default function SunDetails({
 
       {result.narrative.length >= 3 && (
         <div className="mt-4 border-t border-line pt-3.5">
-          <Caps>Tu franja</Caps>
+          <Caps>{tr("sunDetails.tu_franja")}</Caps>
           <ol className="mt-2.5 space-y-2">
             {result.narrative.map((e, i) => (
               <li key={i} className="flex items-center gap-3 text-[13px]">
@@ -388,7 +389,7 @@ export default function SunDetails({
       {/* Negocios: la gente confirma si de verdad hay mesas al sol. */}
       {isVenue && (
         <div className="mt-3.5 border-t border-line pt-3.5">
-          <Caps>¿Hay mesas al sol aquí?</Caps>
+          <Caps>{tr("sunDetails.hay_mesas_al_sol_aqui")}</Caps>
           <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{terraceNote}</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             <button
@@ -401,7 +402,7 @@ export default function SunDetails({
                   : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
               )}
             >
-              Sí, hay terraza
+              {tr("sunDetails.si_hay_terraza")}
             </button>
             <button
               type="button"
@@ -413,12 +414,12 @@ export default function SunDetails({
                   : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
               )}
             >
-              No hay terraza
+              {tr("sunDetails.no_hay_terraza")}
             </button>
           </div>
           {feedback && (
             <p className="mt-2 text-[12px] text-ink-faint">
-              Gracias — lo tendremos en cuenta en tus próximas búsquedas.
+              {tr("sunDetails.gracias_lo_tendremos_en_cuenta")}
             </p>
           )}
         </div>
@@ -426,7 +427,7 @@ export default function SunDetails({
 
       {others.length > 0 && (
         <div className="mt-3.5 border-t border-line pt-3.5">
-          <Caps>Comparar con</Caps>
+          <Caps>{tr("sunDetails.comparar_con")}</Caps>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {others.map((p) => (
               <button
@@ -453,7 +454,7 @@ export default function SunDetails({
           aria-expanded={howOpen}
           className="flex min-h-[44px] w-full items-center justify-between gap-3 text-left text-[14px] font-semibold text-ink-soft outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
         >
-          <span>Cómo lo sabemos</span>
+          <span>{tr("sunDetails.como_lo_sabemos")}</span>
           <span aria-hidden className="text-[18px] leading-none">{howOpen ? "−" : "+"}</span>
         </button>
         {howOpen && (
@@ -465,22 +466,21 @@ export default function SunDetails({
         </div>
         <div className="text-right">
           <p className="text-[13px] font-medium text-ink">
-            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
+            {result.rank === 1 ? tr("sunResultCard.mejor_opcion") : tr("sunResultCard.opcion", { p0: result.rank })}
           </p>
           <p className="mt-1 max-w-[150px] text-[12px] leading-snug text-ink-soft">
-            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
+            {result.weatherAvailable ? ORIGIN_ES[result.origin] : tr("sunResultCard.sin_datos_de_nubes")}
           </p>
         </div>
       </div>
 
       <div className="space-y-2 border-t border-line pt-3.5">
-        <Caps>Confianza</Caps>
-        <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
-        <ConfRow label="Meteorología" sub="escala de barrio" value={d.weather} missing={!result.weatherAvailable} />
-        <ConfRow label="Global" value={d.overall} strong />
+        <Caps>{tr("sunDetails.confianza")}</Caps>
+        <ConfRow label={tr("sunDetails.geometria")} sub={tr("sunDetails.sol_y_edificios")} value={d.geometry} />
+        <ConfRow label={tr("sunDetails.meteorologia")} sub={tr("sunDetails.escala_de_barrio")} value={d.weather} missing={!result.weatherAvailable} />
+        <ConfRow label={tr("sunDetails.global")} value={d.overall} strong />
         <p className="pt-1 text-[12px] leading-snug text-ink-faint">
-          La sombra de los edificios es de precisión de calle; las nubes (satélite y previsión) tienen
-          una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
+          {tr("sunDetails.la_sombra_de_los_edificios")}
         </p>
       </div>
 
@@ -506,12 +506,11 @@ export default function SunDetails({
               </div>
             ))}
             <p className="border-t border-line pt-2 text-[12px] leading-snug text-ink-faint">
-              Orden de los resultados: Sun Score {R.score}
-              {R.confidenceAdjustment !== 0 && ` · confianza ${R.confidenceAdjustment.toFixed(1)}`}
-              {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`}
-              {!!R.placeAdjustment && ` · terraza sin confirmar ${R.placeAdjustment.toFixed(1)}`} ={" "}
-              {R.value.toFixed(1)}. Un resultado de confianza baja no gana a otro casi igual de confianza
-              alta.
+              {tr("sunDetails.orden_de_los_resultados_sun")} {R.score}
+              {R.confidenceAdjustment !== 0 && tr("sunDetails.confianza_2", { p0: R.confidenceAdjustment.toFixed(1) })}
+              {R.distanceAdjustment !== 0 && tr("sunDetails.distancia_2", { p0: R.distanceAdjustment.toFixed(1) })}
+              {!!R.placeAdjustment && tr("sunDetails.terraza_sin_confirmar", { p0: R.placeAdjustment.toFixed(1) })} ={" "}
+              {R.value.toFixed(1)}{tr("sunDetails.un_resultado_de_confianza_baja")}
             </p>
           </div>
           </div>

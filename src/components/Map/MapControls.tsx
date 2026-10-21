@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../utils/cn";
 import { CompassIcon } from "../Icons";
 import SunIndicator from "./SunIndicator";
+import { tr } from "../../i18n";
 
 interface Props {
   variant: "desktop" | "mobile";
@@ -49,11 +50,11 @@ export default function MapControls(p: Props) {
     <button
       type="button"
       onClick={p.onResetNorth}
-      aria-label="Orientar al norte"
+      aria-label={tr("mapControls.orientar_al_norte")}
       className="fts-glass fts-pop-in group relative flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
     >
       <CompassIcon bearing={p.bearing} />
-      {p.variant === "desktop" && <Tip>Orientar al norte</Tip>}
+      {p.variant === "desktop" && <Tip>{tr("mapControls.orientar_al_norte")}</Tip>}
     </button>
   );
 
@@ -62,16 +63,16 @@ export default function MapControls(p: Props) {
     <button
       type="button"
       onClick={p.onNow}
-      aria-label={p.isNow ? "Sol de ahora" : "Volver al sol de ahora"}
+      aria-label={p.isNow ? tr("mapControls.sol_de_ahora") : tr("mapControls.volver_al_sol_de_ahora")}
       className="group relative rounded-full outline-none transition-transform duration-300 hover:scale-[1.04] focus-visible:ring-2 focus-visible:ring-sun/60 active:scale-95"
     >
       <SunIndicator variant="dial" azimuthDeg={p.sun.azimuthDeg} altitudeDeg={p.sun.altitudeDeg} bearing={p.bearing} />
       {!p.isNow && (
         <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-ink px-1.5 py-[1px] text-[11px] font-semibold uppercase tracking-[0.12em] text-paper">
-          Ahora
+          {tr("findSunPanel.ahora")}
         </span>
       )}
-      {p.variant === "desktop" && <Tip>{p.isNow ? "Sol de ahora" : "Volver a ahora"}</Tip>}
+      {p.variant === "desktop" && <Tip>{p.isNow ? tr("mapControls.sol_de_ahora") : tr("mapControls.volver_a_ahora")}</Tip>}
     </button>
   ) : null;
 
@@ -88,32 +89,32 @@ export default function MapControls(p: Props) {
     <div className="fts-rise flex flex-col items-center gap-2.5" style={{ animationDelay: "500ms" }}>
       {compass}
       <div className="fts-glass flex flex-col overflow-hidden rounded-full">
-        <button type="button" aria-label="Acercar" onClick={p.onZoomIn} className={cn(btn, "hover:bg-ink/5")}>
+        <button type="button" aria-label={tr("mapControls.acercar")} onClick={p.onZoomIn} className={cn(btn, "hover:bg-ink/5")}>
           <Plus {...icon} />
         </button>
         <span className="mx-3 h-px bg-line" />
-        <button type="button" aria-label="Alejar" onClick={p.onZoomOut} className={cn(btn, "hover:bg-ink/5")}>
+        <button type="button" aria-label={tr("mapControls.alejar")} onClick={p.onZoomOut} className={cn(btn, "hover:bg-ink/5")}>
           <Minus {...icon} />
         </button>
       </div>
 
       <div className="fts-glass flex flex-col overflow-visible rounded-full">
-        <button type="button" aria-label="Mi ubicación" onClick={p.onLocate} className={cn(btn, "rounded-t-full hover:bg-ink/5")}>
+        <button type="button" aria-label={tr("app.mi_ubicacion")} onClick={p.onLocate} className={cn(btn, "rounded-t-full hover:bg-ink/5")}>
           <LocateFixed {...icon} />
-          <Tip>Mi ubicación</Tip>
+          <Tip>{tr("app.mi_ubicacion")}</Tip>
         </button>
         <span className="mx-3 h-px bg-line" />
         <div className="relative">
           <button
             type="button"
             data-layers-toggle
-            aria-label="Capas del mapa"
+            aria-label={tr("layerControl.capas_del_mapa")}
             aria-expanded={p.layersOpen}
             onClick={p.onToggleLayers}
             className={cn(btn, "rounded-b-full", p.layersOpen ? "bg-ink/[0.08]" : "hover:bg-ink/5")}
           >
             <Layers {...icon} />
-            {!p.layersOpen && <Tip>Capas</Tip>}
+            {!p.layersOpen && <Tip>{tr("mapControls.capas")}</Tip>}
           </button>
           {p.layersOpen && (
             <div className="absolute right-full top-0 mr-3 max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-contain rounded-2xl">

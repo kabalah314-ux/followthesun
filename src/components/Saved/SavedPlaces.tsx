@@ -7,6 +7,7 @@ import type { SavedPlace } from "../../types";
 import { cn } from "../../utils/cn";
 import { SunGlyph } from "../Icons";
 import { PanelHeader } from "../Layout/ContextPanel";
+import { tr } from "../../i18n";
 
 type SummaryState = PlaceSunSummary | "loading" | "error";
 
@@ -19,16 +20,16 @@ interface Props {
 }
 
 function line(s: SummaryState | undefined): { text: string; glyph: "sun" | "shade" | "partial" } {
-  if (!s || s === "loading") return { text: "Calculando el sol de hoy…", glyph: "partial" };
-  if (s === "error") return { text: "Sin datos ahora mismo", glyph: "partial" };
+  if (!s || s === "loading") return { text: tr("savedPlaces.calculando_el_sol_de_hoy"), glyph: "partial" };
+  if (s === "error") return { text: tr("savedPlaces.sin_datos_ahora_mismo"), glyph: "partial" };
   if (s.status === "sun" && s.window) {
     return {
-      text: `${s.weatherAvailable ? "Mejor sol hoy" : "Sol posible hoy"} ${formatClock(s.window.start)}–${formatClock(s.window.end)}`,
+      text: `${s.weatherAvailable ? tr("savedPlaces.mejor_sol_hoy") : tr("savedPlaces.sol_posible_hoy")} ${formatClock(s.window.start)}–${formatClock(s.window.end)}`,
       glyph: s.weatherAvailable ? "sun" : "partial",
     };
   }
   return {
-    text: s.next ? `Sin sol directo hoy · Mañana desde las ${formatClock(s.next.start)}` : "Sin sol directo hoy ni mañana",
+    text: s.next ? tr("savedPlaces.sin_sol_directo_hoy_manana", { p0: formatClock(s.next.start) }) : tr("savedPlaces.sin_sol_directo_hoy_ni"),
     glyph: "shade",
   };
 }
@@ -62,15 +63,14 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
 
   return (
     <>
-      <PanelHeader title="Guardados" subtitle="Tus sitios soleados" onClose={onClose} />
+      <PanelHeader title={tr("savedPlaces.guardados")} subtitle={tr("savedPlaces.tus_sitios_soleados")} onClose={onClose} />
 
       {saved.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line px-4 py-5 text-center">
           <Heart size={22} strokeWidth={1.5} absoluteStrokeWidth className="mx-auto text-ink-faint" />
-          <p className="mt-3 font-serif text-[18px] leading-tight text-ink">Aún no has guardado ningún sitio.</p>
+          <p className="mt-3 font-serif text-[18px] leading-tight text-ink">{tr("savedPlaces.aun_no_has_guardado_ningun")}</p>
           <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">
-            Pulsa «Guardar» en un resultado de Find the Sun o en cualquier punto del mapa (tu casa, tu banco
-            favorito…) y aquí verás cuándo le da el sol.
+            {tr("savedPlaces.pulsa_guardar_en_un_resultado")}
           </p>
         </div>
       ) : (
@@ -102,7 +102,7 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
                   <button
                     type="button"
                     onClick={() => onRemove(p)}
-                    aria-label={`Quitar ${p.name} de guardados`}
+                    aria-label={tr("savedPlaces.quitar_de_guardados", { p0: p.name })}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sun-deep outline-none transition-colors hover:bg-ink/5 focus-visible:ring-2 focus-visible:ring-sun/60"
                   >
                     <Heart size={16} strokeWidth={1.5} absoluteStrokeWidth fill="currentColor" />
@@ -114,7 +114,7 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
         </ul>
       )}
 
-      <p className="mt-4 text-[12px] text-ink-faint">Guardado solo en este dispositivo.</p>
+      <p className="mt-4 text-[12px] text-ink-faint">{tr("savedPlaces.guardado_solo_en_este_dispositivo")}</p>
     </>
   );
 }

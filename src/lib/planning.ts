@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import { dayChoiceLabel, dayStartFor, hhmm, minutesOfDay, zonedMs } from "./planningTime";
 import { getSunTimes } from "./solarCalculations";
+import { tr } from "../i18n";
 
 /**
  * Sun Session Planner — traduce lo que la persona elige en la interfaz a una `SunSearchRequest`.
@@ -189,22 +190,22 @@ export function durationLabel(minutes: number): string {
 export function whenLabel(p: PlannerState, now: number): string {
   switch (p.when) {
     case "now":
-      return "Ahora";
+      return tr("findSunPanel.ahora");
     case "in30":
-      return "En 30 min";
+      return tr("findSunPanel.en_30_min");
     case "in60":
-      return "En 1 h";
+      return tr("findSunPanel.en_1_h");
     case "afternoon":
-      return "Esta tarde";
+      return tr("planning.esta_tarde");
     case "sunset":
-      return "Al atardecer";
+      return tr("findSunPanel.al_atardecer");
     case "tomorrow":
-      return "Mañana";
+      return tr("app.manana");
     case "custom":
       return `${dayChoiceLabel(dayStartFor(now, p.dayOffset), now)} ${hhmm(p.fromMinutes)}–${hhmm(p.toMinutes)}`;
   }
 }
 
 export function distanceLabel(maxWalkingMinutes: number | null): string {
-  return maxWalkingMinutes === null ? "Cualquier sitio" : `≤ ${maxWalkingMinutes} min a pie`;
+  return maxWalkingMinutes === null ? tr("plannerSteps.cualquier_sitio") : tr("planning.min_a_pie", { p0: maxWalkingMinutes });
 }

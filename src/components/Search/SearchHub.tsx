@@ -2,12 +2,13 @@ import type { ReactNode } from "react";
 import { SEARCH_VIEWS, type SearchView } from "../../lib/routing";
 import { cn } from "../../utils/cn";
 import { PanelChrome, PanelHeader } from "../Layout/ContextPanel";
+import { tr } from "../../i18n";
 
 const TAB_LABEL: Record<SearchView, string> = {
-  find: "Ahora",
-  plan: "Más tarde",
-  places: "Lugares",
-  recommended: "Sorpréndeme",
+  find: tr("findSunPanel.ahora"),
+  plan: tr("navItems.mas_tarde"),
+  places: tr("searchProgress.lugares"),
+  recommended: tr("navItems.sorprendeme"),
 };
 
 /**
@@ -27,8 +28,8 @@ export default function SearchHub({
 }) {
   return (
     <div>
-      <PanelHeader title="Buscar" subtitle="Sitios con sol o sombra, ahora o más tarde" onClose={onClose} />
-      <div role="tablist" aria-label="Tipo de búsqueda" className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-ink/[0.05] p-1">
+      <PanelHeader title={tr("app.buscar")} subtitle={tr("navItems.sitios_con_sol_o_sombra")} onClose={onClose} />
+      <div role="tablist" aria-label={tr("searchHub.tipo_de_busqueda")} className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-ink/[0.05] p-1">
         {SEARCH_VIEWS.map((v) => (
           <button
             key={v}

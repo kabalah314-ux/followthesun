@@ -1,6 +1,6 @@
 import { BARCELONA } from "../../config";
 import { clamp } from "../../lib/coordinates";
-import { SUN_UP_RAD, solarService, type SunPosition, type TrajectoryPoint } from "../../services/solarService";
+import { SUN_UP_RAD, compassLabel, solarService, type SunPosition, type TrajectoryPoint } from "../../services/solarService";
 import { formatClock, getZoneParts } from "../../services/timeService";
 import type { View } from "../../types";
 
@@ -66,12 +66,8 @@ export class SunPositionLayer {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillStyle = `rgba(${rgb}, 0.7)`;
-    const cardinals: Array<[string, number]> = [
-      ["N", 0],
-      ["E", 90],
-      ["S", 180],
-      ["O", 270],
-    ];
+    // Puntos cardinales en el idioma activo (O en castellano y catalán, W en inglés).
+    const cardinals = [0, 90, 180, 270].map((deg): [string, number] => [compassLabel(deg), deg]);
     for (const [label, deg] of cardinals) {
       const a = (deg * Math.PI) / 180 - bearing;
       ctx.fillText(label, ax + (R + 14) * Math.sin(a), ay - (R + 14) * Math.cos(a));

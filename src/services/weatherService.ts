@@ -19,6 +19,7 @@ import {
   modelTransmission,
 } from "../lib/radiationCalculations";
 import { daylightSecondsInInterval } from "../lib/sunlightCalculations";
+import { tr } from "../i18n";
 
 /**
  * weatherService — obtención y normalización de datos del MODELO meteorológico. Nada más.
@@ -375,9 +376,9 @@ export const demoProvider: WeatherProvider = {
       fallback,
       meta: {
         providerId: "demo",
-        label: "Demostración · datos simulados",
-        attribution: "Datos sintéticos generados en el navegador",
-        primaryModel: "Simulación",
+        label: tr("weatherService.demostracion_datos_simulados"),
+        attribution: tr("weatherService.datos_sinteticos_generados_en_el"),
+        primaryModel: tr("weatherService.simulacion"),
         fallbackModel: null,
         resolutionKm: 5,
         fallbackResolutionKm: null,
@@ -385,7 +386,7 @@ export const demoProvider: WeatherProvider = {
         fallbackBaseConfidence: 0.15,
         simulated: true,
         fetchedAt: Date.now(),
-        sunshineSemantics: "no aplica (datos sintéticos)",
+        sunshineSemantics: tr("weatherService.no_aplica_datos_sinteticos"),
       },
     };
   },

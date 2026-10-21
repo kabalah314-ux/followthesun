@@ -5,6 +5,7 @@ import { cn } from "../../utils/cn";
 import { ConfidenceBars } from "../FindSun/ui";
 import WindowStrip from "../FindSun/WindowStrip";
 import { SunGlyph } from "../Icons";
+import { tr } from "../../i18n";
 
 const glyphOf = (r: SunSearchResult) => {
   if (!r.weatherAvailable) return "partial" as const;
@@ -28,10 +29,10 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
   const best = r.rank === 1;
   const extra =
     r.urbanShadowMinutes > 0 && r.buildingsKnown
-      ? `${fmtMin(r.urbanShadowMinutes)} de sombra`
+      ? tr("sunResultCard.de_sombra", { p0: fmtMin(r.urbanShadowMinutes) })
       : r.weatherAvailable
-        ? `Nubes: ${influenceWord(r.cloudInfluence).toLowerCase()}`
-        : "Sin datos de nubes";
+        ? tr("sunResultCard.nubes", { p0: influenceWord(r.cloudInfluence).toLowerCase() })
+        : tr("sunResultCard.sin_datos_de_nubes");
 
   return (
     <button
@@ -47,12 +48,12 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint">
-            {eyebrow ?? (best ? "Mejor opción" : `Opción ${r.rank}`)}
+            {eyebrow ?? (best ? tr("sunResultCard.mejor_opcion") : tr("sunResultCard.opcion", { p0: r.rank }))}
           </p>
           <p className="mt-1 line-clamp-2 font-serif text-[18px] leading-[1.12] text-ink">{r.place.name}</p>
           <p className="mt-1 text-[12px] text-ink-soft">
             {PLACE_TYPE_LABEL[r.locationType].singular}
-            {r.walking ? ` · ≈ ${r.walking.durationMinutes} min a pie` : ""}
+            {r.walking ? tr("sunResultCard.min_a_pie", { p0: r.walking.durationMinutes }) : ""}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -64,7 +65,7 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
       <div className="mt-2.5 flex items-center gap-2">
         <SunGlyph state={glyphOf(r)} size={18} className="shrink-0" />
         <p className="text-[13.5px] font-medium text-ink">
-          {fmtMin(r.sunlightMinutes)} {r.weatherAvailable ? "de sol" : "de sol posible"}
+          {fmtMin(r.sunlightMinutes)} {r.weatherAvailable ? tr("sunResultCard.de_sol") : tr("sunResultCard.de_sol_posible")}
         </p>
         <span className="ml-auto">
           <ConfidenceBars value={r.confidence} />

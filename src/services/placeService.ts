@@ -15,6 +15,7 @@ import { OPEN_DATA_CONFIG } from "./openData/config";
 import { openDataService } from "./openData/openDataService";
 import { overpass } from "./overpass";
 import { generatedAtMs, isFreshStatic, loadStatic, type StaticPlacesFile } from "./staticData";
+import { tr } from "../i18n";
 
 /**
  * placeService — inventario de lugares candidatos. Siempre de una fuente REAL.
@@ -253,7 +254,7 @@ export function mergeOpenDataPlaces(osm: SunPlace[], open: SunPlace[]): SunPlace
 export function createCoordinatePlace(
   latitude: number,
   longitude: number,
-  name = "Punto soleado",
+  name = tr("placeService.punto_soleado"),
   type: SunPlaceType = "open_space"
 ): SunPlace {
   return {

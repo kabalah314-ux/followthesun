@@ -1,5 +1,6 @@
 import type { SolarPosition } from "../types";
 import { DEG } from "./coordinates";
+import { tr } from "../i18n";
 
 /**
  * Astronomía solar pura (algoritmo tipo SunCalc / NOAA). Sin dependencias de React ni del mapa.
@@ -126,5 +127,9 @@ export function getSunTrajectory(
   return out;
 }
 
-const COMPASS = ["N", "NE", "E", "SE", "S", "SO", "O", "NO"];
-export const compassLabel = (deg: number) => COMPASS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+/** Rumbo en pasos de 45°: 0 = N, 1 = NE … 7 = NO. */
+export const compassIndex = (deg: number) => Math.round((((deg % 360) + 360) % 360) / 45) % 8;
+
+/** Rosa de los vientos abreviada del idioma activo (en inglés: SW, W, NW). */
+const COMPASS = tr("solarCalculations.compass").split(",");
+export const compassLabel = (deg: number) => COMPASS[compassIndex(deg)];

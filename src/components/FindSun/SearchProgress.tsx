@@ -1,6 +1,7 @@
 import type { SearchPhase, SearchProgress as Progress } from "../../types";
 import { cn } from "../../utils/cn";
 import { GhostButton } from "./ui";
+import { tr } from "../../i18n";
 
 /**
  * «Buscando sol…» — sin pantalla de carga pesada: tres etapas reales del análisis (lugares,
@@ -8,9 +9,9 @@ import { GhostButton } from "./ui";
  */
 
 const STAGES: Array<{ label: string; phases: SearchPhase[]; from: number; span: number }> = [
-  { label: "Lugares", phases: ["places"], from: 0, span: 0.06 },
-  { label: "Edificios", phases: ["buildings"], from: 0.06, span: 0.34 },
-  { label: "Sol y nubes", phases: ["sun", "ranking"], from: 0.4, span: 0.6 },
+  { label: tr("searchProgress.lugares"), phases: ["places"], from: 0, span: 0.06 },
+  { label: tr("searchProgress.edificios"), phases: ["buildings"], from: 0.06, span: 0.34 },
+  { label: tr("searchProgress.sol_y_nubes"), phases: ["sun", "ranking"], from: 0.4, span: 0.6 },
 ];
 
 export default function SearchProgress({
@@ -32,8 +33,8 @@ export default function SearchProgress({
   return (
     <div className="fts-fade-in" role="status" aria-live="polite">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-serif text-[22px] leading-none text-ink">Buscando sol…</p>
-        <GhostButton onClick={onCancel}>Cancelar</GhostButton>
+        <p className="font-serif text-[22px] leading-none text-ink">{tr("searchProgress.buscando_sol")}</p>
+        <GhostButton onClick={onCancel}>{tr("searchProgress.cancelar")}</GhostButton>
       </div>
 
       <div className="mt-4 h-px w-full overflow-hidden bg-line">
@@ -65,7 +66,7 @@ export default function SearchProgress({
         ))}
       </ol>
       <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
-        Calculando el sol, las sombras de los edificios y las nubes de cada lugar.
+        {tr("searchProgress.calculando_el_sol_las_sombras")}
       </p>
     </div>
   );

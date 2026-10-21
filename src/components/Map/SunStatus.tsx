@@ -7,6 +7,7 @@ import { formatClock, startOfZoneDay } from "../../services/timeService";
 import type { CityStats } from "../../types";
 import { cn } from "../../utils/cn";
 import InfoPanel from "../InfoPanel";
+import { tr } from "../../i18n";
 
 interface Props {
   stats: CityStats | null;
@@ -52,8 +53,8 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
         : sunTimes.sunrise,
     [time, sunTimes]
   );
-  const sunPhrase = up ? sunPositionPhrase(altitudeDeg, azimuthDeg) : "De noche";
-  const timesPhrase = up ? `se pone a las ${formatClock(sunTimes.sunset)}` : `sale a las ${formatClock(nextSunrise)}`;
+  const sunPhrase = up ? sunPositionPhrase(altitudeDeg, azimuthDeg) : tr("sunStatus.de_noche");
+  const timesPhrase = up ? tr("sunStatus.se_pone_a_las", { p0: formatClock(sunTimes.sunset) }) : tr("sunStatus.sale_a_las", { p0: formatClock(nextSunrise) });
   const pct = up && stats ? stats.sunPercent : null;
 
   return (
@@ -62,7 +63,7 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        aria-label="Estado del sol — ver detalle"
+        aria-label={tr("sunStatus.estado_del_sol_ver_detalle")}
         className="fts-glass flex items-center gap-2.5 rounded-full py-2 pl-3 pr-3.5 text-[13px] outline-none transition-colors hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-sun/60"
       >
         <i
@@ -79,7 +80,7 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
         {!compact && pct !== null && (
           <>
             <span className="text-ink-faint">·</span>
-            <span className="tabular-nums text-ink">{pct} % al sol</span>
+            <span className="tabular-nums text-ink">{tr("sunStatus.al_sol", { p0: pct })}</span>
           </>
         )}
         {!compact && <span className="text-ink-faint">·</span>}

@@ -5,6 +5,7 @@ import SearchResults from "../Find/SearchResults";
 import { Caps, Chip } from "../FindSun/ui";
 import SearchProgress from "../FindSun/SearchProgress";
 import { PanelHeader } from "../Layout/ContextPanel";
+import { tr } from "../../i18n";
 
 interface Props {
   inventory: PlaceInventoryStatus;
@@ -28,19 +29,19 @@ export default function PlacesExplorer({ inventory, category, onCategory, search
 
   return (
     <>
-      <PanelHeader title="Lugares" subtitle={`Dónde da el sol ${dayWord.toLowerCase()}`} onClose={onClose} />
+      <PanelHeader title={tr("searchProgress.lugares")} subtitle={tr("placesExplorer.donde_da_el_sol", { p0: dayWord.toLowerCase() })} onClose={onClose} />
 
-      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
+      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">{tr("placesExplorer.cargando_los_lugares_de_barcelona")}</p>}
       {inventory.state === "unavailable" && (
         <p className="text-[13.5px] leading-relaxed text-ink-soft">
-          No hemos podido cargar los lugares. Comprueba tu conexión e inténtalo de nuevo.
+          {tr("placesExplorer.no_hemos_podido_cargar_los")}
         </p>
       )}
 
       {types.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           <Chip active={category === "any"} onClick={() => onCategory("any")}>
-            Todos
+            {tr("placesExplorer.todos")}
           </Chip>
           {types.map((t) => (
             <Chip key={t} active={category === t} onClick={() => onCategory(t)}>
@@ -52,7 +53,7 @@ export default function PlacesExplorer({ inventory, category, onCategory, search
       )}
 
       <div className="mt-4 border-t border-line pt-3.5">
-        <Caps>Mejores {dayWord.toLowerCase()}</Caps>
+        <Caps>{tr("placesExplorer.mejores", { p0: dayWord.toLowerCase() })}</Caps>
         <div className="mt-2.5">
           {status === "searching" && <SearchProgress progress={progress} onCancel={() => search.cancel()} />}
           {status !== "searching" && status !== "idle" && (outcome || failed) && (
@@ -61,15 +62,14 @@ export default function PlacesExplorer({ inventory, category, onCategory, search
               failed={failed}
               activeId={activeId}
               onPick={onPick}
-              title={category === "any" ? "Lo mejor de Barcelona" : PLACE_TYPE_LABEL[category].plural}
+              title={category === "any" ? tr("placesExplorer.lo_mejor_de_barcelona") : PLACE_TYPE_LABEL[category].plural}
             />
           )}
         </div>
       </div>
 
       <p className="mt-4 text-[12px] text-ink-faint">
-        Lugares © OpenStreetMap. Se muestran solo categorías con datos. Las terrazas se piden aparte: se
-        conoce el local, no la posición de las mesas.
+        {tr("placesExplorer.lugares_openstreetmap_se_muestran_solo")}
       </p>
     </>
   );

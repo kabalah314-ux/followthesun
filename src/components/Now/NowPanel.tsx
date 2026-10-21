@@ -4,6 +4,7 @@ import type { SunShadeMode } from "../../lib/answer";
 import type { SunSearchResult } from "../../types";
 import { Caps } from "../FindSun/ui";
 import NearbyCard from "./NearbyCard";
+import { tr } from "../../i18n";
 
 export interface NearbyProps {
   title: string;
@@ -40,7 +41,7 @@ export default function NowPanel({ answerCard, ...p }: NearbyProps & { answerCar
               disabled={p.locating}
               className="rounded-full px-2 py-2 text-[13.5px] font-semibold text-ink underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sun/60 disabled:opacity-60"
             >
-              Usar mi ubicación
+              {tr("nearbyStrip.usar_mi_ubicacion")}
             </button>
           )}
         </div>
@@ -65,7 +66,7 @@ export default function NowPanel({ answerCard, ...p }: NearbyProps & { answerCar
           onClick={p.onMore}
           className="mt-3 inline-flex min-h-[44px] items-center text-[14px] font-semibold text-ink outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sun/60"
         >
-          Más sitios y otras horas →
+          {tr("nowPanel.mas_sitios_y_otras_horas")}
         </button>
       </div>
     </div>

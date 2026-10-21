@@ -6,6 +6,7 @@ import type { TimelineSun } from "../../lib/timelineRange";
 import { formatClock, formatDuration, getZoneParts, HOUR, MINUTE, startOfZoneDay } from "../../services/timeService";
 import type { TimeZones, TimelineInterval } from "../../types";
 import { cn } from "../../utils/cn";
+import { tr } from "../../i18n";
 
 interface Props {
   /** Instante elegido (`selectedTime`, en ms). */
@@ -104,18 +105,18 @@ export default function TimeSlider(p: Props) {
 
   let label: string;
   if (isNow) {
-    label = p.isNight ? "Ahora · sin sol" : "Ahora";
-    if (p.isNight && nextDay && sun) label += ` · mañana sale a las ${formatClock(sun.sunrise)}`;
+    label = p.isNight ? tr("timeSlider.ahora_sin_sol") : tr("findSunPanel.ahora");
+    if (p.isNight && nextDay && sun) label += tr("timeSlider.manana_sale_a_las", { p0: formatClock(sun.sunrise) });
   } else {
     const delta = selectedTime - now;
     label =
       Math.abs(delta) < 12 * HOUR
         ? delta > 0
-          ? `En ${formatDuration(delta)}`
-          : `Hace ${formatDuration(-delta)}`
+          ? tr("answer.en", { p0: formatDuration(delta) })
+          : tr("timeSlider.hace", { p0: formatDuration(-delta) })
         : dayChoiceLabel(startOfZoneDay(selectedTime), now);
   }
-  if (inGolden && !p.isNight) label += " · hora dorada";
+  if (inGolden && !p.isNight) label += tr("timeSlider.hora_dorada");
   if (p.provenance && !(isNow && p.isNight)) label += ` · ${p.provenance}`;
 
   // Etiquetas horarias cada 4 h (o 3 h si el día es corto), entre el amanecer y la puesta.
@@ -133,23 +134,23 @@ export default function TimeSlider(p: Props) {
       style={{ animationDelay: "600ms" }}
     >
       <div className="flex items-center justify-between gap-2">
-        <div role="group" aria-label="Día" className="flex min-w-0 items-center gap-0.5">
+        <div role="group" aria-label={tr("timeSlider.dia")} className="flex min-w-0 items-center gap-0.5">
           <button type="button" className={chip(p.dayOffset === 0)} onClick={() => p.onSelectDay(0)} aria-pressed={p.dayOffset === 0}>
             <HitArea />
-            Hoy
+            {tr("app.hoy")}
           </button>
           <button type="button" className={chip(p.dayOffset === 1)} onClick={() => p.onSelectDay(1)} aria-pressed={p.dayOffset === 1}>
             <HitArea />
-            Mañana
+            {tr("app.manana")}
           </button>
           <label className="relative">
-            <span className="sr-only">Otro día</span>
+            <span className="sr-only">{tr("timeSlider.otro_dia")}</span>
             <select
               value={p.dayOffset > 1 ? p.dayOffset : ""}
               onChange={(e) => e.target.value && p.onSelectDay(Number(e.target.value))}
               className={cn(chip(p.dayOffset > 1), "appearance-none bg-transparent pr-3")}
             >
-              <option value="">{p.compact ? "Fecha" : "Otra fecha"}</option>
+              <option value="">{p.compact ? tr("timeSlider.fecha") : tr("timeSlider.otra_fecha")}</option>
               {[2, 3, 4, 5, 6].map((d) => (
                 <option key={d} value={d}>
                   {dayChoiceLabel(dayStartFor(now, d), now)}
@@ -164,19 +165,19 @@ export default function TimeSlider(p: Props) {
             <button
               type="button"
               onClick={p.onNow}
-              aria-label="Volver a ahora"
+              aria-label={tr("mapControls.volver_a_ahora")}
               className="fts-fade-in relative inline-flex items-center gap-1.5 rounded-full bg-sun px-3.5 py-1.5 text-[13px] font-semibold leading-none text-ink shadow-sm outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-sun-deep/60"
             >
               <HitArea />
               <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ink" />
-              Ahora
+              {tr("findSunPanel.ahora")}
             </button>
           )}
           <button
             type="button"
             onClick={p.onHide}
-            aria-label="Ocultar la línea de tiempo"
-            title="Ocultar la línea de tiempo"
+            aria-label={tr("timeSlider.ocultar_la_linea_de_tiempo")}
+            title={tr("timeSlider.ocultar_la_linea_de_tiempo")}
             className="relative flex h-8 w-8 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
             <HitArea />
@@ -198,7 +199,7 @@ export default function TimeSlider(p: Props) {
         ref={trackRef}
         role="slider"
         tabIndex={0}
-        aria-label={nextDay ? "Hora de mañana" : "Hora del día"}
+        aria-label={nextDay ? tr("timeSlider.hora_de_manana") : tr("timeSlider.hora_del_dia")}
         aria-valuemin={range.start}
         aria-valuemax={range.end}
         aria-valuenow={Math.round(clamp(selectedTime, range.start, range.end))}
@@ -233,7 +234,7 @@ export default function TimeSlider(p: Props) {
           <div
             key={g.start}
             aria-hidden
-            title="Hora dorada"
+            title={tr("timeSlider.hora_dorada_2")}
             className="absolute top-[calc(50%-10px)] h-[3px] rounded-full bg-sun-deep/60"
             style={{ left: `${frac(g.start) * 100}%`, width: `${Math.max(0.6, (frac(g.end) - frac(g.start)) * 100)}%` }}
           />
@@ -290,7 +291,7 @@ export default function TimeSlider(p: Props) {
 
         {presentInRange && p.mode === "ahead" && (
           <span
-            title="Ahora"
+            title={tr("findSunPanel.ahora")}
             className="absolute top-[calc(50%-13px)] h-[5px] w-[5px] -translate-x-1/2 rounded-full bg-ink"
             style={{ left: `${nowFrac * 100}%` }}
           />
@@ -308,11 +309,11 @@ export default function TimeSlider(p: Props) {
       <div className="relative h-4 text-[12px] tabular-nums text-ink-faint">
         {sun ? (
           <>
-            <span className="absolute flex items-center gap-0.5 whitespace-nowrap" style={{ left: `${sunriseFrac * 100}%` }} title="Amanecer">
+            <span className="absolute flex items-center gap-0.5 whitespace-nowrap" style={{ left: `${sunriseFrac * 100}%` }} title={tr("timeSlider.amanecer")}>
               <span aria-hidden className="text-sun-deep">
                 ↑
               </span>
-              <span className="sr-only">Amanecer a las</span>
+              <span className="sr-only">{tr("timeSlider.amanecer_a_las")}</span>
               {formatClock(sun.sunrise)}
             </span>
             {marks.map((t) =>
@@ -325,9 +326,9 @@ export default function TimeSlider(p: Props) {
             <span
               className="absolute flex items-center gap-0.5 whitespace-nowrap"
               style={{ right: `${(1 - sunsetFrac) * 100}%` }}
-              title="Puesta de sol"
+              title={tr("timeSlider.puesta_de_sol")}
             >
-              <span className="sr-only">Puesta de sol a las</span>
+              <span className="sr-only">{tr("timeSlider.puesta_de_sol_a_las")}</span>
               {formatClock(sun.sunset)}
               <span aria-hidden className="text-sun-deep">
                 ↓
@@ -359,8 +360,8 @@ export function TimelineCollapsed({
     <button
       type="button"
       onClick={onShow}
-      aria-label="Mostrar la línea de tiempo"
-      title="Mostrar la línea de tiempo"
+      aria-label={tr("timeSlider.mostrar_la_linea_de_tiempo")}
+      title={tr("timeSlider.mostrar_la_linea_de_tiempo")}
       className="fts-glass fts-rise flex w-full items-center justify-between gap-3 rounded-[24px] px-5 pb-3.5 pt-3 text-left"
       style={{ animationDelay: "600ms" }}
     >
@@ -369,7 +370,7 @@ export function TimelineCollapsed({
         <span className="mt-1 block font-serif text-[26px] leading-none tabular-nums text-ink">{formatClock(selectedTime)}</span>
       </span>
       <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
-        Hora
+        {tr("findSunPanel.hora")}
         <span aria-hidden className="text-[12.5px]">
           ▴
         </span>

@@ -4,6 +4,7 @@ import { longDayLabel } from "../lib/planningTime";
 import { urlWith } from "../lib/routing";
 import type { ShareablePlan, SunSearchResult } from "../types";
 import { formatClock } from "./timeService";
+import { tr } from "../i18n";
 
 /**
  * planShareService — un resultado como texto compartible. Sin sistema social: el texto y un enlace
@@ -23,12 +24,12 @@ export function createShareablePlan(result: SunSearchResult): ShareablePlan {
     "I Follow the Sun",
     `${capitalize(longDayLabel(w.start))} · ${formatClock(w.start)}–${formatClock(w.end)}`,
     result.place.name,
-    `${fmtMin(result.sunlightMinutes)} de sol directo · confianza ${CONFIDENCE_ES[
+    tr("planShareService.de_sol_directo_confianza", { p0: fmtMin(result.sunlightMinutes), p1: CONFIDENCE_ES[
       confidenceWord(result.confidence)
-    ].toLowerCase()}`,
+    ].toLowerCase() }),
   ];
-  if (!result.weatherAvailable) lines.push("Sin datos de nubes: sol posible, no confirmado.");
-  lines.push("Meteorología a escala de barrio, no de calle.");
+  if (!result.weatherAvailable) lines.push(tr("planShareService.sin_datos_de_nubes_sol"));
+  lines.push(tr("planShareService.meteorologia_a_escala_de_barrio"));
 
   const slug = placeSlug(result.place);
   const query = withTimeQuery("", w.start);

@@ -1,3 +1,4 @@
+import { tr } from "../i18n";
 import { getZoneParts, startOfZoneDay } from "../services/timeService";
 import type { SunPlace } from "../types";
 import { dayStartFor, hhmm, minutesOfDay, parseHHMM, zonedMs } from "./planningTime";
@@ -76,7 +77,7 @@ export function parsePlaceSlug(slug: string): PlaceLinkRef | null {
   if (i < 0) return null;
   const short = slug.slice(i + 2);
   const words = slug.slice(0, i).replace(/-+/g, " ").trim();
-  const name = words ? words[0].toUpperCase() + words.slice(1) : "Lugar";
+  const name = words ? words[0].toUpperCase() + words.slice(1) : tr("nearbyCard.lugar");
 
   const osm = /^([nwr])(\d+)$/.exec(short);
   if (osm) return { id: `osm:${SHORT_OSM[osm[1]]}/${osm[2]}`, name };

@@ -6,6 +6,7 @@ import { cn } from "../../utils/cn";
 import SunResultCard from "../Find/SunResultCard";
 import { Caps, GhostButton, PrimaryButton } from "../FindSun/ui";
 import WindowStrip from "../FindSun/WindowStrip";
+import { tr } from "../../i18n";
 
 interface Step {
   time: string;
@@ -19,14 +20,14 @@ function steps(r: SunSearchResult): Step[] {
   const w = r.bestWindow ?? r.searchWindow;
   const out: Step[] = [];
   if (r.walking) {
-    out.push({ time: formatClock(w.start - r.walking.durationMinutes * MIN), label: `Sal (≈ ${r.walking.durationMinutes} min a pie)`, tone: "move" });
-    out.push({ time: formatClock(w.start), label: `Llegas a ${r.place.name}`, tone: "neutral" });
+    out.push({ time: formatClock(w.start - r.walking.durationMinutes * MIN), label: tr("planResult.sal_min_a_pie", { p0: r.walking.durationMinutes }), tone: "move" });
+    out.push({ time: formatClock(w.start), label: tr("planResult.llegas_a", { p0: r.place.name }), tone: "neutral" });
   } else {
-    out.push({ time: formatClock(w.start), label: `Ve a ${r.place.name}`, tone: "neutral" });
+    out.push({ time: formatClock(w.start), label: tr("planResult.ve_a", { p0: r.place.name }), tone: "neutral" });
   }
   out.push({
     time: `${formatClock(w.start)}–${formatClock(w.end)}`,
-    label: r.bestWindow ? "Mejor ventana de sol" : "Tu ventana (con poco sol directo)",
+    label: r.bestWindow ? tr("planResult.mejor_ventana_de_sol") : tr("planResult.tu_ventana_con_poco_sol"),
     tone: r.bestWindow ? "sun" : "shade",
   });
   return out;
@@ -70,12 +71,12 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
 
   return (
     <div className="fts-fade-in">
-      <Caps>Tu mejor plan</Caps>
+      <Caps>{tr("planResult.tu_mejor_plan")}</Caps>
       <div className="mt-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-serif text-[24px] leading-[1.08] text-ink">{best.place.name}</p>
           <p className="mt-1 text-[12.5px] text-ink-soft">
-            {PLACE_TYPE_LABEL[best.locationType].singular} · confianza {CONFIDENCE_ES[confidenceWord(best.confidence)].toLowerCase()}
+            {tr("planResult.confianza", { p0: PLACE_TYPE_LABEL[best.locationType].singular, p1: CONFIDENCE_ES[confidenceWord(best.confidence)].toLowerCase() })}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -94,8 +95,8 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
         ))}
       </ol>
       <p className="mt-3 text-[13px] text-ink-soft">
-        {fmtMin(best.sunlightMinutes)} de sol directo de {fmtMin(best.requestedMinutes)}
-        {best.weatherAvailable ? "" : " (sol posible: sin datos de nubes)"}
+        {fmtMin(best.sunlightMinutes)} {tr("planResult.de_sol_directo_de")} {fmtMin(best.requestedMinutes)}
+        {best.weatherAvailable ? "" : tr("planResult.sol_posible_sin_datos_de")}
       </p>
 
       <div className="mt-4">
@@ -104,7 +105,7 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
 
       {best.narrative.length >= 2 && (
         <div className="mt-4 border-t border-line pt-3">
-          <Caps>Cómo cambia la luz</Caps>
+          <Caps>{tr("planResult.como_cambia_la_luz")}</Caps>
           <ol className="mt-2.5 space-y-2">
             {best.narrative.map((e, i) => (
               <li key={i} className="flex items-center gap-3 text-[13px]">
@@ -118,16 +119,16 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <PrimaryButton onClick={() => onPick(best)}>Ver en el mapa</PrimaryButton>
+        <PrimaryButton onClick={() => onPick(best)}>{tr("planResult.ver_en_el_mapa")}</PrimaryButton>
         <GhostButton onClick={() => onToggleSave(best)} className={saved ? "text-sun-deep" : undefined}>
-          {saved ? "Guardado" : "Guardar"}
+          {saved ? tr("sunDetails.guardado") : tr("sunDetails.guardar")}
         </GhostButton>
-        <GhostButton onClick={() => onShare(best)}>Compartir</GhostButton>
+        <GhostButton onClick={() => onShare(best)}>{tr("sunDetails.compartir")}</GhostButton>
       </div>
 
       {alternatives.length > 0 && (
         <div className="mt-5 border-t border-line pt-3.5">
-          <Caps>Otras opciones</Caps>
+          <Caps>{tr("planResult.otras_opciones")}</Caps>
           <div className="mt-2.5 space-y-2.5">
             {alternatives.map((r, i) => (
               <SunResultCard
@@ -145,7 +146,7 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
       )}
 
       <div className="mt-4">
-        <GhostButton onClick={onEdit}>Editar plan</GhostButton>
+        <GhostButton onClick={onEdit}>{tr("planResult.editar_plan")}</GhostButton>
       </div>
     </div>
   );

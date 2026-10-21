@@ -1,4 +1,6 @@
 import type { TerraceCertainty, Venue, VenueFeedback } from "../types";
+import { BARCELONA } from "../config";
+import { intlLocale, tr } from "../i18n";
 
 /**
  * venueFeedbackService — lo que la gente confirma desde la app.
@@ -101,7 +103,9 @@ class VenueFeedbackService {
     // Una persona que ha estado allí manda sobre cualquier heurística.
     return {
       terrace: fromFeedback,
-      source: `Confirmado por ti el ${new Date(feedback.confirmedAt).toLocaleDateString("es-ES")}`,
+      source: tr("venueFeedbackService.confirmado_por_ti_el", {
+        p0: new Date(feedback.confirmedAt).toLocaleDateString(intlLocale(), { timeZone: BARCELONA.timeZone }),
+      }),
     };
   }
 }

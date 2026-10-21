@@ -5,30 +5,31 @@ import { formatClock, startOfZoneDay } from "../../services/timeService";
 import type { NormalizedSunRequest, SearchNoticeCode, SunSearchOutcome, SunSearchResult } from "../../types";
 import { GhostButton } from "../FindSun/ui";
 import SunResultCard from "./SunResultCard";
+import { tr } from "../../i18n";
 
 export const NOTICE_TEXT: Record<SearchNoticeCode, string> = {
-  weather_unavailable: "Sin datos de nubes: mostramos sol posible, no confirmado.",
-  weather_stale: "Los datos meteorológicos están desactualizados: la confianza es menor.",
-  weather_partial: "Cobertura meteorológica parcial en parte de la zona.",
-  beyond_forecast: "Parte de la franja queda fuera de la previsión: ahí solo cuentan la geometría y las sombras.",
-  buildings_partial: "Faltan edificios en parte de la zona: la sombra urbana puede ser menos precisa.",
-  buildings_unavailable: "No se han podido cargar los edificios: la sombra urbana no está verificada.",
-  places_stale: "Usamos el último inventario de lugares guardado (sin conexión).",
-  comfort_unavailable: "Sin datos de temperatura ni viento: el modo equilibrado cuenta solo el sol.",
-  no_location: "Sin ubicación: se busca en toda Barcelona.",
+  weather_unavailable: tr("searchResults.sin_datos_de_nubes_mostramos"),
+  weather_stale: tr("searchResults.los_datos_meteorologicos_estan_desactualizados"),
+  weather_partial: tr("searchResults.cobertura_meteorologica_parcial_en_parte"),
+  beyond_forecast: tr("searchResults.parte_de_la_franja_queda"),
+  buildings_partial: tr("searchResults.faltan_edificios_en_parte_de"),
+  buildings_unavailable: tr("searchResults.no_se_han_podido_cargar"),
+  places_stale: tr("searchResults.usamos_el_ultimo_inventario_de"),
+  comfort_unavailable: tr("searchResults.sin_datos_de_temperatura_ni"),
+  no_location: tr("searchResults.sin_ubicacion_se_busca_en"),
 };
 
 const NO_SUN_TEXT = {
-  night: "Ya no queda sol en esa franja.",
-  clouds: "Las nubes tapan el sol en toda la zona durante esa franja.",
-  shade: "Los edificios dejan sin sol los lugares disponibles en esa franja.",
-  no_places: "No hay lugares de ese tipo en esta zona.",
-  none: "No hemos podido encontrar con confianza un sitio soleado para esta franja.",
+  night: tr("searchResults.ya_no_queda_sol_en"),
+  clouds: tr("searchResults.las_nubes_tapan_el_sol"),
+  shade: tr("searchResults.los_edificios_dejan_sin_sol"),
+  no_places: tr("searchResults.no_hay_lugares_de_ese"),
+  none: tr("searchResults.no_hemos_podido_encontrar_con"),
 } as const;
 
 export function describeRequest(r: NormalizedSunRequest): string {
   const day = dayChoiceLabel(startOfZoneDay(r.startTime), Date.now());
-  return `${day} ${formatClock(r.startTime)}–${formatClock(r.endTime)} · ${durationLabel(r.minimumSunlightMinutes)} de sol`;
+  return tr("searchResults.de_sol", { p0: day, p1: formatClock(r.startTime), p2: formatClock(r.endTime), p3: durationLabel(r.minimumSunlightMinutes) });
 }
 
 /** Lo que se enseña: los que cumplen la petición o, si ninguno, lo mejor disponible. */
@@ -67,12 +68,12 @@ export default function SearchResults({ outcome, failed, activeId, onPick, onEdi
       {noFull ? (
         <p className="font-serif text-[21px] leading-[1.15] text-ink">
           {failed || shown.length === 0
-            ? "No hemos encontrado un sitio soleado."
-            : `Ningún lugar cumple tus ${durationLabel(req?.minimumSunlightMinutes ?? 60)} completos.`}
+            ? tr("searchResults.no_hemos_encontrado_un_sitio")
+            : tr("searchResults.ningun_lugar_cumple_tus_completos", { p0: durationLabel(req?.minimumSunlightMinutes ?? 60) })}
         </p>
       ) : (
         <p className="font-serif text-[21px] leading-none text-ink">
-          {title ?? (results.length === 1 ? "1 lugar encontrado" : `${results.length} mejores lugares`)}
+          {title ?? (results.length === 1 ? tr("searchResults.1_lugar_encontrado") : tr("searchResults.mejores_lugares", { p0: results.length }))}
         </p>
       )}
       {req && <p className="mt-1.5 text-[12.5px] text-ink-soft">{describeRequest(req)}</p>}
@@ -81,12 +82,12 @@ export default function SearchResults({ outcome, failed, activeId, onPick, onEdi
         <div className="mt-3">
           <p className="text-[13.5px] leading-relaxed text-ink-soft">
             {failed
-              ? "Algo ha fallado al calcularlo. Inténtalo de nuevo."
+              ? tr("searchResults.algo_ha_fallado_al_calcularlo")
               : NO_SUN_TEXT[outcome?.noSunReason ?? "none"]}
           </p>
           {shown.length > 0 && outcome && (
             <p className="mt-2 text-[14px] font-medium text-ink">
-              Mejor opción disponible: {fmtMin(outcome.meta.bestAvailableMinutes)} de sol directo
+              {tr("searchResults.mejor_opcion_disponible_de_sol", { p0: fmtMin(outcome.meta.bestAvailableMinutes) })}
             </p>
           )}
         </div>
@@ -121,7 +122,7 @@ export default function SearchResults({ outcome, failed, activeId, onPick, onEdi
 
       {(onEdit || (noFull && suggestions.length > 0)) && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {onEdit ? <GhostButton onClick={onEdit}>{editLabel ?? "Editar búsqueda"}</GhostButton> : <span />}
+          {onEdit ? <GhostButton onClick={onEdit}>{editLabel ?? tr("findSunPanel.editar_busqueda")}</GhostButton> : <span />}
           {noFull && (
             <div className="flex flex-wrap gap-x-4 gap-y-2">
               {suggestions.map((s) => (

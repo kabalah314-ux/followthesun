@@ -3,14 +3,15 @@ import type { LightSourceState } from "../hooks/useLightSource";
 import { formatAge } from "../services/timeService";
 import type { LightSourceKind } from "../types";
 import { cn } from "../utils/cn";
+import { tr } from "../i18n";
 
 /** Palabra corta de procedencia para etiquetas (nunca "en directo"). */
 export const PROVENANCE_WORD: Record<LightSourceKind, string | null> = {
   loading: null,
-  observed: "Observado",
-  forecast: "Previsión",
-  estimated: "Estimado",
-  stale: "Observación antigua",
+  observed: tr("sourceStatusLine.observado"),
+  forecast: tr("sourceStatusLine.prevision"),
+  estimated: tr("pointPanel.estimado"),
+  stale: tr("sourceStatusLine.observacion_antigua"),
   unavailable: null,
 };
 
@@ -19,20 +20,20 @@ export function sourceLabel(l: LightSourceState): string {
   const s = l.summary;
   switch (s.kind) {
     case "loading":
-      return "Cargando datos de luz";
+      return tr("sourceStatusLine.cargando_datos_de_luz");
     case "unavailable":
-      return "Sin datos meteorológicos";
+      return tr("sourceStatusLine.sin_datos_meteorologicos");
     case "observed":
-      return `Observado · ${formatAge(s.ageMs)}`;
+      return tr("sourceStatusLine.observado_2", { p0: formatAge(s.ageMs) });
     case "stale":
-      return `Observación antigua · ${formatAge(s.ageMs)}`;
+      return tr("sourceStatusLine.observacion_antigua_2", { p0: formatAge(s.ageMs) });
     case "estimated":
-      return `Estimado · última observación ${formatAge(s.ageMs)}`;
+      return tr("sourceStatusLine.estimado_ultima_observacion", { p0: formatAge(s.ageMs) });
     case "forecast":
-      if (l.weather.simulated) return "Nubes de demostración";
-      if (l.weather.state === "stale") return `Previsión desactualizada · ${formatAge(s.ageMs)}`;
-      if (l.weather.state === "partial") return `Previsión parcial · ${formatAge(s.ageMs)}`;
-      return `Previsión · actualizada ${formatAge(s.ageMs)}`;
+      if (l.weather.simulated) return tr("sourceStatusLine.nubes_de_demostracion");
+      if (l.weather.state === "stale") return tr("sourceStatusLine.prevision_desactualizada", { p0: formatAge(s.ageMs) });
+      if (l.weather.state === "partial") return tr("sourceStatusLine.prevision_parcial", { p0: formatAge(s.ageMs) });
+      return tr("sourceStatusLine.prevision_actualizada", { p0: formatAge(s.ageMs) });
   }
 }
 
@@ -65,12 +66,11 @@ const km = (v: number | null | undefined) => (v == null ? "—" : `≈ ${String(
 
 function Detail({ l }: { l: LightSourceState }) {
   const s = l.summary;
-  if (s.kind === "loading") return <p>Consultando observaciones y previsión…</p>;
+  if (s.kind === "loading") return <p>{tr("sourceStatusLine.consultando_observaciones_y_prevision")}</p>;
   if (s.kind === "unavailable") {
     return (
       <p>
-        No hemos podido obtener ni observaciones ni previsión de nubes. Mostramos solo la geometría
-        solar y las sombras de edificios; sin datos no estimamos nubosidad.
+        {tr("sourceStatusLine.no_hemos_podido_obtener_ni")}
       </p>
     );
   }
@@ -82,29 +82,28 @@ function Detail({ l }: { l: LightSourceState }) {
       <dl className="space-y-1">
         {sat && (
           <>
-            <Row k="Observación">EUMETSAT MTG</Row>
-            <Row k="Resolución">
+            <Row k={tr("sourceStatusLine.observacion")}>EUMETSAT MTG</Row>
+            <Row k={tr("sourceStatusLine.resolucion")}>
               {km(sat.resolutionKm)} · {sat.temporalResolutionMinutes} min
             </Row>
-            <Row k="Latencia">{sat.latencyMinutes == null ? "—" : `≈ ${sat.latencyMinutes} min`}</Row>
+            <Row k={tr("sourceStatusLine.latencia")}>{sat.latencyMinutes == null ? "—" : `≈ ${sat.latencyMinutes} min`}</Row>
           </>
         )}
         {mod && (
           <>
-            <Row k="Previsión">{l.weather.simulated ? "Demostración" : (mod.source.split("·").pop() ?? "").trim()}</Row>
-            <Row k="Resolución">{km(mod.resolutionKm)} · 1 h</Row>
-            <Row k="Actualizada">{formatAge(l.weather.ageMs)}</Row>
+            <Row k={tr("sourceStatusLine.prevision")}>{l.weather.simulated ? tr("sourceStatusLine.demostracion") : (mod.source.split("·").pop() ?? "").trim()}</Row>
+            <Row k={tr("sourceStatusLine.resolucion")}>{km(mod.resolutionKm)} · 1 h</Row>
+            <Row k={tr("sourceStatusLine.actualizada")}>{formatAge(l.weather.ageMs)}</Row>
           </>
         )}
       </dl>
       <p>
         {l.weather.simulated
-          ? "Datos de demostración generados en el navegador: no son reales. "
-          : "La observación es de satélite y la previsión de un modelo; ninguna es una medición en directo. "}
-        Ambas tienen escala de kilómetros: indican la luz de la zona, no la de cada calle. La sombra
-        de los edificios sí se calcula a nivel de calle.
+          ? tr("sourceStatusLine.datos_de_demostracion_generados_en")
+          : tr("sourceStatusLine.la_observacion_es_de_satelite")}
+        {tr("sourceStatusLine.ambas_tienen_escala_de_kilometros")}
       </p>
-      {s.kind === "stale" && <p>No se ha podido refrescar la observación: la confianza se ha reducido.</p>}
+      {s.kind === "stale" && <p>{tr("sourceStatusLine.no_se_ha_podido_refrescar")}</p>}
       {l.satellite.attribution && <p className="text-ink-faint">{l.satellite.attribution}</p>}
     </div>
   );

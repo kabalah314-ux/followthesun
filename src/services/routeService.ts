@@ -1,6 +1,7 @@
 import { SEARCH_CONFIG } from "../config";
 import { distanceMeters } from "../lib/coordinates";
 import type { LngLat, WalkingEstimate } from "../types";
+import { tr } from "../i18n";
 
 /**
  * routeService — distancia y tiempo a pie.
@@ -36,7 +37,7 @@ export const straightMetersForMinutes = (minutes: number): number =>
 
 const straightLineProvider: RouteProvider = {
   id: "straight-line",
-  label: "Estimación en línea recta",
+  label: tr("routeService.estimacion_en_linea_recta"),
   exact: false,
   estimate(from, to) {
     const straight = distanceMeters(from.lng, from.lat, to.lng, to.lat);

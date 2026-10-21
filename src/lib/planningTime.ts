@@ -1,5 +1,6 @@
 import { BARCELONA } from "../config";
 import { getZoneParts, startOfZoneDay } from "../services/timeService";
+import { intlLocale, tr } from "../i18n";
 
 /**
  * Tiempo de planificación en la zona horaria de Barcelona (nunca la del dispositivo):
@@ -48,14 +49,14 @@ export function parseHHMM(value: string): number | null {
   return h * 60 + mi;
 }
 
-const dayFmt = new Intl.DateTimeFormat("es-ES", {
+const dayFmt = new Intl.DateTimeFormat(intlLocale(), {
   timeZone: BARCELONA.timeZone,
   weekday: "short",
   day: "numeric",
   month: "short",
 });
 
-const longDayFmt = new Intl.DateTimeFormat("es-ES", {
+const longDayFmt = new Intl.DateTimeFormat(intlLocale(), {
   timeZone: BARCELONA.timeZone,
   weekday: "long",
   day: "numeric",
@@ -66,9 +67,18 @@ const longDayFmt = new Intl.DateTimeFormat("es-ES", {
 export function dayChoiceLabel(dayStart: number, now: number): string {
   const today = startOfZoneDay(now);
   const diff = Math.round((dayStart - today) / DAY);
-  if (diff === 0) return "Hoy";
-  if (diff === 1) return "Mañana";
+  if (diff === 0) return tr("app.hoy");
+  if (diff === 1) return tr("app.manana");
   return dayFmt.format(new Date(dayStart + DAY / 2));
+}
+
+/**
+ * La etiqueta del día dentro de una frase: «hoy», «mañana» en minúscula; una fecha se queda como la
+ * da Intl («sáb, 24 oct», «Sat 24 Oct»: en inglés los días y meses van con mayúscula).
+ */
+export function dayChoiceInSentence(dayStart: number, now: number): string {
+  const label = dayChoiceLabel(dayStart, now);
+  return label === tr("app.hoy") || label === tr("app.manana") ? label.toLowerCase() : label;
 }
 
 /** "sábado, 10 de octubre". */

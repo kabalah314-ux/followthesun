@@ -11,6 +11,7 @@ import { GhostButton, PrimaryButton } from "../FindSun/ui";
 import SearchResults from "../Find/SearchResults";
 import SearchProgress from "../FindSun/SearchProgress";
 import { PanelHeader } from "../Layout/ContextPanel";
+import { tr } from "../../i18n";
 
 /**
  * Recomendados — nueve sitios por categoría para descubrir Barcelona sin buscar nada concreto.
@@ -77,7 +78,7 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
   const searchNow = () => {
     if (picks.length === 0) return;
     const now = Date.now();
-    const tomorrow = dayWord === "Mañana";
+    const tomorrow = dayWord === tr("app.manana");
     const sun = getSunTimes(dayStartFor(now, tomorrow ? 1 : 0), BARCELONA.lat, BARCELONA.lng);
     const start = tomorrow ? sun.sunrise : Math.floor(now / 60_000) * 60_000;
     void search.run(
@@ -93,12 +94,12 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
 
   return (
     <>
-      <PanelHeader title="Recomendados" subtitle="Nueve sitios por categoría para descubrir" onClose={onClose} />
+      <PanelHeader title={tr("recommended.recomendados")} subtitle={tr("recommended.nueve_sitios_por_categoria_para")} onClose={onClose} />
 
-      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
+      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">{tr("placesExplorer.cargando_los_lugares_de_barcelona")}</p>}
       {inventory.state === "unavailable" && (
         <p className="text-[13.5px] leading-relaxed text-ink-soft">
-          No hemos podido cargar los lugares. Comprueba tu conexión e inténtalo de nuevo.
+          {tr("placesExplorer.no_hemos_podido_cargar_los")}
         </p>
       )}
 
@@ -114,14 +115,14 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
             ))}
           </div>
           <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
-            {total} sitios reales de OpenStreetMap. Se sortean cada vez y se analiza su sol {dayWord.toLowerCase()}.
+            {tr("recommended.sitios_reales_de_openstreetmap_se", { p0: total, p1: dayWord.toLowerCase() })}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <PrimaryButton onClick={searchNow}>Ver su sol</PrimaryButton>
+            <PrimaryButton onClick={searchNow}>{tr("recommended.ver_su_sol")}</PrimaryButton>
             <GhostButton onClick={() => setSeed(Math.floor(Math.random() * 1e6))}>
               <span className="flex items-center gap-1.5">
                 <Shuffle size={14} />
-                Otros sitios
+                {tr("recommended.otros_sitios")}
               </span>
             </GhostButton>
           </div>
@@ -130,9 +131,9 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
 
       {picks.length === 0 && inventory.state === "ready" && (
         <div className="mt-3">
-          <p className="text-[13.5px] leading-relaxed text-ink-soft">Todavía no hay lugares cargados en esta zona.</p>
+          <p className="text-[13.5px] leading-relaxed text-ink-soft">{tr("recommended.todavia_no_hay_lugares_cargados")}</p>
           <GhostButton onClick={onOpenPlaces} className="mt-3 text-sun-deep">
-            Explorar lugares →
+            {tr("recommended.explorar_lugares")}
           </GhostButton>
         </div>
       )}
@@ -147,15 +148,15 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
             activeId={activeId}
             onPick={onPick}
             onEdit={() => search.reset()}
-            editLabel="Volver"
-            suggestions={[{ label: "Otros sitios", onClick: () => setSeed(Math.floor(Math.random() * 1e6)) }]}
-            title="Su sol"
+            editLabel={tr("recommended.volver")}
+            suggestions={[{ label: tr("recommended.otros_sitios"), onClick: () => setSeed(Math.floor(Math.random() * 1e6)) }]}
+            title={tr("recommended.su_sol")}
           />
           <div className="mt-3">
             <GhostButton onClick={() => search.reset()}>
               <span className="flex items-center gap-1.5">
                 <Star size={13} />
-                Volver a Recomendados
+                {tr("recommended.volver_a_recomendados")}
               </span>
             </GhostButton>
           </div>

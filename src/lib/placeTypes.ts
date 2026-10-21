@@ -5,6 +5,7 @@ import type {
   SunPreference,
   WhenPreset,
 } from "../types";
+import { tr } from "../i18n";
 
 /**
  * Catálogo de tipos de lugar y de intenciones.
@@ -14,16 +15,16 @@ import type {
  */
 
 export const PLACE_TYPE_LABEL: Record<SunPlaceType, { singular: string; plural: string }> = {
-  beach: { singular: "Playa", plural: "Playas" },
-  park: { singular: "Parque", plural: "Parques" },
-  square: { singular: "Plaza", plural: "Plazas" },
-  terrace: { singular: "Terraza", plural: "Terrazas" },
-  viewpoint: { singular: "Mirador", plural: "Miradores" },
-  open_space: { singular: "Espacio abierto", plural: "Espacios abiertos" },
-  playground: { singular: "Área de juego", plural: "Áreas de juego" },
-  climate_shelter: { singular: "Refugio climático", plural: "Refugios climáticos" },
-  fountain: { singular: "Fuente", plural: "Fuentes" },
-  toilet: { singular: "Lavabo público", plural: "Lavabos públicos" },
+  beach: { singular: tr("findSunPanel.playa"), plural: tr("placeTypes.playas") },
+  park: { singular: tr("findSunPanel.parque"), plural: tr("placeTypes.parques") },
+  square: { singular: tr("placeTypes.plaza"), plural: tr("placeTypes.plazas") },
+  terrace: { singular: tr("placeTypes.terraza"), plural: tr("placeTypes.terrazas") },
+  viewpoint: { singular: tr("placeTypes.mirador"), plural: tr("placeTypes.miradores") },
+  open_space: { singular: tr("placeTypes.espacio_abierto"), plural: tr("placeTypes.espacios_abiertos") },
+  playground: { singular: tr("placeTypes.area_de_juego"), plural: tr("placeTypes.areas_de_juego") },
+  climate_shelter: { singular: tr("placeTypes.refugio_climatico"), plural: tr("placeTypes.refugios_climaticos") },
+  fountain: { singular: tr("placeTypes.fuente"), plural: tr("placeTypes.fuentes") },
+  toilet: { singular: tr("placeTypes.lavabo_publico"), plural: tr("placeTypes.lavabos_publicos") },
 };
 
 /**
@@ -83,56 +84,56 @@ export interface IntentDef {
  */
 export const SUN_INTENTS: Record<SunIntent, IntentDef> = {
   sun: {
-    label: "Sol",
-    hint: "El máximo sol posible",
+    label: tr("pointPanel.sol"),
+    hint: tr("placeTypes.el_maximo_sol_posible"),
     types: PUBLIC_PLACE_TYPES,
     preference: "maximum_sun",
     defaultDurationMinutes: 60,
     defaultWhen: "now",
   },
   shade: {
-    label: "Sombra",
-    hint: "Un sitio fresco, sin sol directo",
+    label: tr("findSunPanel.sombra"),
+    hint: tr("placeTypes.un_sitio_fresco_sin_sol"),
     types: ["park", "square", "open_space", "terrace"],
     preference: "maximum_sun",
     defaultDurationMinutes: 60,
     defaultWhen: "now",
   },
   coffee: {
-    label: "Café",
-    hint: "Una terraza al sol",
+    label: tr("findSunPanel.cafe"),
+    hint: tr("placeTypes.una_terraza_al_sol"),
     types: ["terrace"],
     preference: "balanced",
     defaultDurationMinutes: 60,
     defaultWhen: "now",
   },
   read: {
-    label: "Leer",
-    hint: "Un rincón agradable",
+    label: tr("findSunPanel.leer"),
+    hint: tr("placeTypes.un_rincon_agradable"),
     types: ["park", "square", "open_space"],
     preference: "balanced",
     defaultDurationMinutes: 120,
     defaultWhen: "afternoon",
   },
   beach: {
-    label: "Playa",
-    hint: "Arena y sol",
+    label: tr("findSunPanel.playa"),
+    hint: tr("placeTypes.arena_y_sol"),
     types: ["beach"],
     preference: "maximum_sun",
     defaultDurationMinutes: 120,
     defaultWhen: "afternoon",
   },
   sunset: {
-    label: "Atardecer",
-    hint: "Ver caer el sol",
+    label: tr("findSunPanel.atardecer"),
+    hint: tr("placeTypes.ver_caer_el_sol"),
     types: ["viewpoint", "beach", "open_space", "park"],
     preference: "maximum_sun",
     defaultDurationMinutes: 30,
     defaultWhen: "sunset",
   },
   walk: {
-    label: "Pasear",
-    hint: "Caminar al sol",
+    label: tr("placeTypes.pasear"),
+    hint: tr("placeTypes.caminar_al_sol"),
     types: ["park", "open_space", "beach"],
     preference: "balanced",
     defaultDurationMinutes: 60,

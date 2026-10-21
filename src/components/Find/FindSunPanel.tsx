@@ -7,6 +7,7 @@ import { PanelHeader } from "../Layout/ContextPanel";
 import { Caps, Chip, GhostButton, PrimaryButton } from "../FindSun/ui";
 import SearchProgress from "../FindSun/SearchProgress";
 import SearchResults, { type Suggestion } from "./SearchResults";
+import { tr } from "../../i18n";
 
 /**
  * Find the Sun — «¿Dónde hay sol?». Inmediato: qué buscas, cuándo, cuánto rato, y buscar.
@@ -21,13 +22,13 @@ interface FindOption {
 }
 
 const OPTIONS: FindOption[] = [
-  { id: "sun", label: "Máximo sol", intent: "sun", locationType: "any" },
-  { id: "shade", label: "Sombra", intent: "shade", locationType: "any" },
-  { id: "coffee", label: "Café", intent: "coffee", locationType: "any" },
-  { id: "read", label: "Leer", intent: "read", locationType: "any" },
-  { id: "beach", label: "Playa", intent: "beach", locationType: "any" },
-  { id: "park", label: "Parque", intent: "sun", locationType: "park" },
-  { id: "sunset", label: "Atardecer", intent: "sunset", locationType: "any" },
+  { id: "sun", label: tr("findSunPanel.maximo_sol"), intent: "sun", locationType: "any" },
+  { id: "shade", label: tr("findSunPanel.sombra"), intent: "shade", locationType: "any" },
+  { id: "coffee", label: tr("findSunPanel.cafe"), intent: "coffee", locationType: "any" },
+  { id: "read", label: tr("findSunPanel.leer"), intent: "read", locationType: "any" },
+  { id: "beach", label: tr("findSunPanel.playa"), intent: "beach", locationType: "any" },
+  { id: "park", label: tr("findSunPanel.parque"), intent: "sun", locationType: "park" },
+  { id: "sunset", label: tr("findSunPanel.atardecer"), intent: "sunset", locationType: "any" },
 ];
 
 const DURATIONS = [30, 60, 120, 180];
@@ -69,7 +70,7 @@ export default function FindSunPanel({
   onClose,
 }: Props) {
   const { status, outcome, progress, failed } = search.state;
-  const header = <PanelHeader title="Buscar sol/sombra" subtitle="¿Dónde hay sol o sombra?" onClose={onClose} />;
+  const header = <PanelHeader title={tr("findSunPanel.buscar_sol_sombra")} subtitle={tr("findSunPanel.donde_hay_sol_o_sombra")} onClose={onClose} />;
 
   if (status === "searching") {
     return (
@@ -84,14 +85,14 @@ export default function FindSunPanel({
     return (
       <>
         {header}
-        <p className="font-serif text-[20px] leading-tight text-ink">No hemos podido cargar los lugares de Barcelona.</p>
+        <p className="font-serif text-[20px] leading-tight text-ink">{tr("findSunPanel.no_hemos_podido_cargar_los")}</p>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
-          Comprueba tu conexión e inténtalo de nuevo. No mostramos resultados inventados.
+          {tr("findSunPanel.comprueba_tu_conexion_e_intentalo")}
         </p>
         <div className="mt-4 flex justify-between">
-          <GhostButton onClick={() => search.reset()}>Editar búsqueda</GhostButton>
+          <GhostButton onClick={() => search.reset()}>{tr("findSunPanel.editar_busqueda")}</GhostButton>
           <GhostButton onClick={() => onSearch()} className="text-sun-deep">
-            Reintentar
+            {tr("findSunPanel.reintentar")}
           </GhostButton>
         </div>
       </>
@@ -100,15 +101,15 @@ export default function FindSunPanel({
 
   if (status !== "idle" && (outcome || failed)) {
     const suggestions: Suggestion[] = [];
-    if (planner.when !== "tomorrow") suggestions.push({ label: "Probar mañana", onClick: () => onSearch({ ...planner, when: "tomorrow" }) });
+    if (planner.when !== "tomorrow") suggestions.push({ label: tr("findSunPanel.probar_manana"), onClick: () => onSearch({ ...planner, when: "tomorrow" }) });
     if (planner.durationMinutes > 30) {
       suggestions.push({
-        label: "Menos tiempo",
+        label: tr("findSunPanel.menos_tiempo"),
         onClick: () => onSearch({ ...planner, durationMinutes: Math.max(30, Math.round(planner.durationMinutes / 30) * 15) }),
       });
     }
     if (planner.maxWalkingMinutes !== null) {
-      suggestions.push({ label: "Ampliar distancia", onClick: () => onSearch({ ...planner, maxWalkingMinutes: null }) });
+      suggestions.push({ label: tr("findSunPanel.ampliar_distancia"), onClick: () => onSearch({ ...planner, maxWalkingMinutes: null }) });
     }
     return (
       <>
@@ -158,7 +159,7 @@ export default function FindSunPanel({
       {header}
       <div className="space-y-4">
         <section>
-          <Caps>¿Qué buscas?</Caps>
+          <Caps>{tr("findSunPanel.que_buscas")}</Caps>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {OPTIONS.map((o) => (
               <Chip key={o.id} active={option.id === o.id} onClick={() => pickOption(o)} title={SUN_INTENTS[o.intent].hint}>
@@ -169,30 +170,30 @@ export default function FindSunPanel({
         </section>
 
         <section>
-          <Caps>¿Cuándo?</Caps>
+          <Caps>{tr("findSunPanel.cuando")}</Caps>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {planner.intent === "sunset" ? (
               <Chip active={planner.when === "sunset"} onClick={() => onChange({ when: "sunset" })}>
-                Al atardecer
+                {tr("findSunPanel.al_atardecer")}
               </Chip>
             ) : (
               <>
                 <Chip active={planner.when === "now"} onClick={() => onChange({ when: "now" })}>
-                  Ahora
+                  {tr("findSunPanel.ahora")}
                 </Chip>
                 <Chip active={planner.when === "in30"} onClick={() => onChange({ when: "in30" })}>
-                  En 30 min
+                  {tr("findSunPanel.en_30_min")}
                 </Chip>
                 <Chip active={planner.when === "in60"} onClick={() => onChange({ when: "in60" })}>
-                  En 1 h
+                  {tr("findSunPanel.en_1_h")}
                 </Chip>
               </>
             )}
             <span className="flex items-center gap-1.5 pl-1 text-[13px] text-ink-soft">
-              <span>{custom ? dayChoiceLabel(dayStartFor(now, planner.dayOffset), now) : "A las"}</span>
+              <span>{custom ? dayChoiceLabel(dayStartFor(now, planner.dayOffset), now) : tr("findSunPanel.a_las")}</span>
               <input
                 type="time"
-                aria-label="Hora"
+                aria-label={tr("findSunPanel.hora")}
                 value={atTime}
                 onChange={(e) => setCustomTime(e.target.value)}
                 className={timeInput}
@@ -203,7 +204,7 @@ export default function FindSunPanel({
 
         {planner.intent !== "sunset" && (
           <section>
-            <Caps>Durante</Caps>
+            <Caps>{tr("findSunPanel.durante")}</Caps>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {DURATIONS.map((d) => (
                 <Chip key={d} active={planner.durationMinutes === d} onClick={() => setDuration(d)}>
@@ -215,32 +216,31 @@ export default function FindSunPanel({
         )}
 
         <section>
-          <Caps>¿Dónde?</Caps>
+          <Caps>{tr("findSunPanel.donde")}</Caps>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Chip active={planner.maxWalkingMinutes === null} onClick={() => void setNearby(false)}>
-              Toda Barcelona
+              {tr("findSunPanel.toda_barcelona")}
             </Chip>
             <Chip active={planner.maxWalkingMinutes !== null} onClick={() => void setNearby(true)}>
-              Cerca de mí · {NEARBY_MIN} min
+              {tr("findSunPanel.cerca_de_mi_min", { p0: NEARBY_MIN })}
             </Chip>
           </div>
         </section>
 
         <div className="pt-1">
           <PrimaryButton onClick={() => onSearch()} className="w-full justify-center" disabled={venuesLoading}>
-            {venuesLoading ? "Cargando terrazas…" : planner.intent === "shade" ? "Buscar sombra" : "Buscar sol"}
+            {venuesLoading ? tr("findSunPanel.cargando_terrazas") : planner.intent === "shade" ? tr("findSunPanel.buscar_sombra") : tr("findSunPanel.buscar_sol")}
           </PrimaryButton>
         </div>
         {option.id === "coffee" && (
           <p className="text-[12px] leading-snug text-ink-faint">
-            Los bares con terraza confirmada salen de OpenStreetMap; el resto son candidatos por estar
-            en planta baja. Podrás confirmar cuáles tienen mesas al sol.
+            {tr("findSunPanel.los_bares_con_terraza_confirmada")}
           </p>
         )}
 
         <div className="flex flex-wrap justify-between gap-2 border-t border-line pt-3">
-          <GhostButton onClick={onOpenPlaces}>Ver lugares →</GhostButton>
-          <GhostButton onClick={onOpenPlan}>Planificar una franja →</GhostButton>
+          <GhostButton onClick={onOpenPlaces}>{tr("findSunPanel.ver_lugares")}</GhostButton>
+          <GhostButton onClick={onOpenPlan}>{tr("findSunPanel.planificar_una_franja")}</GhostButton>
         </div>
       </div>
     </>
