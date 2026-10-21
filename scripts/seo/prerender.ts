@@ -101,8 +101,8 @@ function barrioOf(p: InventoryPlace): string | null {
 }
 
 function describe(p: InventoryPlace, label: string): string {
-  const what = p.type === "terrace" ? "su terraza" : label.toLowerCase() === "plaza" ? "la plaza" : "el sitio";
-  return `${p.name} (${label.toLowerCase()}, Barcelona): a qué hora le da el sol a ${what} y cuándo hay sombra, hoy y cualquier día, con las sombras de los edificios y la previsión de nubes.`;
+  const where = p.type === "terrace" ? " en su terraza" : "";
+  return `${p.name} (${label.toLowerCase()}, Barcelona): a qué hora da el sol${where} y cuándo hay sombra, hoy y cualquier día, con las sombras de los edificios y la previsión de nubes.`;
 }
 
 function distanceM(a: InventoryPlace, b: InventoryPlace): number {
@@ -193,7 +193,7 @@ function main() {
   const t0 = Date.now();
   const indexPath = path.join(DIST, "index.html");
   if (!existsSync(indexPath)) throw new Error("dist/index.html no existe: ¿se ejecutó vite build?");
-  const template = readFileSync(indexPath, "utf8").replaceAll("__SITE_URL__", SITE);
+  const template = readFileSync(indexPath, "utf8").replace(/__SITE_URL__/g, SITE);
   writeFileSync(indexPath, template);
 
   const dataPath = [path.join(DIST, "data", "places.json"), path.join(ROOT, "public", "data", "places.json")].find(existsSync);
@@ -244,7 +244,7 @@ function main() {
       address: { "@type": "PostalAddress", addressLocality: "Barcelona", addressCountry: "ES" },
       containedInPlace: { "@type": "City", name: "Barcelona" },
     };
-    let html = replaceBlock(template, "<!-- seo:start", "<!-- seo:end -->", headTags({ title, description, url, type: "place", jsonLd }));
+    let html = replaceBlock(template, "<!-- seo:start", "<!-- seo:end -->", headTags({ title, description, url, type: "website", jsonLd }));
     html = replaceBlock(html, "<!-- seo:body:start", "<!-- seo:body:end -->", placeBody(page, nearby));
     writePage(path.join(DIST, "lugar", page.slug), html);
     sitemap.push({ loc: url, lastmod, priority: p.type === "terrace" ? "0.5" : "0.6" });
