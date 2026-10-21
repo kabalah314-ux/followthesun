@@ -57,6 +57,8 @@ export interface BarcelonaMapProps {
   onToast(message: string): void;
   onCamera(c: CameraState): void;
   onUserLocation(p: LngLat): void;
+  /** Nombre más preciso de un punto ya elegido (cuando, tras acercarse, hay calles cargadas). */
+  onRename?(id: number, name: string, area: string): void;
   /** Inclinar el mapa al acercarse para ver los edificios en 3D. */
   autoTilt?: boolean;
   children?: ReactNode;
@@ -245,15 +247,20 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           return;
         }
         const { lng, lat } = e.lngLat as LngLat;
-        propsRef.current.onSelect({
-          id: nextSelectionId++,
-          lng,
-          lat,
-          name: provider.getPlaceName(created, lng, lat),
-        });
+        const id = nextSelectionId++;
+        const area = () => provider.getAreaName(created, lng, lat, 16);
+        const name = provider.getPlaceName(created, lng, lat);
+        propsRef.current.onSelect({ id, lng, lat, name, area: area() });
         const zoom = created.getZoom();
         const mobile = isMobile();
         if (zoom >= 14.2 && !mobile) return;
+        // Al acercarse se cargan las etiquetas de calle: se afina el nombre cuando termina el vuelo.
+        created.once("moveend", () =>
+          created.once("idle", () => {
+            if (disposed) return;
+            propsRef.current.onRename?.(id, provider.getPlaceName(created, lng, lat), area());
+          })
+        );
         created.easeTo({
           center: [lng, lat],
           zoom: Math.max(zoom, 15.2),

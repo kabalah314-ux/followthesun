@@ -31,6 +31,8 @@ export interface GeoBounds {
 export interface SelectedPoint extends LngLat {
   id: number;
   name: string;
+  /** Barrio o distrito (subtítulo y respaldo cuando no hay calle). */
+  area?: string;
 }
 
 /* -------------------------------------------------------------------------- */
