@@ -12,7 +12,7 @@ export default function Toast({ message, onDone }: { message: string | null; onD
     <div className="pointer-events-none absolute inset-x-0 top-24 z-40 flex justify-center px-4 sm:top-28">
       <div
         role="status"
-        className="fts-glass fts-slide-up rounded-full px-5 py-3 text-[12px] font-medium tracking-wide text-ink"
+        className="fts-glass fts-slide-up rounded-full px-5 py-3 text-[13px] font-medium tracking-wide text-ink"
       >
         {message}
       </div>

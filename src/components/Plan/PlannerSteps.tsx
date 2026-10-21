@@ -24,7 +24,7 @@ export function StepSummary({
           type="button"
           onClick={() => onStep(idx)}
           className={cn(
-            "rounded-full px-2.5 py-1 text-[10.5px] font-medium transition-colors duration-300",
+            "rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors duration-300",
             step === idx ? "bg-sun-soft text-sun-deep" : "bg-ink/[0.04] text-ink-soft hover:text-ink"
           )}
         >
@@ -57,10 +57,10 @@ export function PlaceTypeChips({ state, inventory, onChange }: TypeProps) {
         ))}
       </div>
       {inventory.state === "loading" && (
-        <p className="mt-2.5 text-[11px] text-ink-faint">Cargando los lugares de Barcelona…</p>
+        <p className="mt-2.5 text-[12.5px] text-ink-faint">Cargando los lugares de Barcelona…</p>
       )}
       {inventory.state === "unavailable" && (
-        <p className="mt-2.5 text-[11px] text-ink-faint">
+        <p className="mt-2.5 text-[12.5px] text-ink-faint">
           No hemos podido cargar los lugares. Comprueba tu conexión.
         </p>
       )}
@@ -87,7 +87,7 @@ export function DistanceStep({
           </Chip>
         ))}
       </div>
-      <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+      <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
         {hasOrigin
           ? "Tiempo a pie estimado desde tu ubicación (en línea recta con rodeo, no una ruta real)."
           : "Sin tu ubicación se busca en toda Barcelona. Al limitar el tiempo te la pediremos; es opcional."}

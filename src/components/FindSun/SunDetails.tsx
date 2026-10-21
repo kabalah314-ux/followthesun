@@ -47,8 +47,8 @@ const walkText = (r: SunSearchResult) =>
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{label}</dt>
-      <dd className="mt-1 text-[12.5px] font-medium leading-snug text-ink">{children}</dd>
+      <dt className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{label}</dt>
+      <dd className="mt-1 text-[13.5px] font-medium leading-snug text-ink">{children}</dd>
     </div>
   );
 }
@@ -67,10 +67,10 @@ function ConfRow({
   strong?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-[12px]">
+    <div className="flex items-center justify-between gap-3 text-[13px]">
       <div className="min-w-0">
         <span className={cn("font-medium", strong ? "text-ink" : "text-ink-soft")}>{label}</span>
-        {sub && <span className="ml-1.5 text-[10.5px] text-ink-faint">{sub}</span>}
+        {sub && <span className="ml-1.5 text-[12px] text-ink-faint">{sub}</span>}
       </div>
       <span className="shrink-0 text-ink">
         {missing ? <span className="text-ink-faint">Sin datos</span> : <ConfidenceBars value={value} />}
@@ -109,7 +109,7 @@ function ActionButton({
   active?: boolean;
 }) {
   const cls = cn(
-    "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[11px] font-medium transition-colors duration-300",
+    "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[12.5px] font-medium transition-colors duration-300",
     active ? "border-sun/60 bg-sun-soft text-sun-deep" : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
   );
   if (href) {
@@ -146,7 +146,7 @@ function Compare({ a, b }: { a: SunSearchResult; b: SunSearchResult }) {
     ["A pie", walkText(a), walkText(b)],
   ];
   return (
-    <div className="fts-fade-in mt-2.5 overflow-hidden rounded-2xl border border-line text-[11.5px]">
+    <div className="fts-fade-in mt-2.5 overflow-hidden rounded-2xl border border-line text-[12.5px]">
       <div className="grid grid-cols-[92px_1fr_1fr] gap-x-2 bg-ink/[0.04] px-3 py-2 font-semibold text-ink">
         <span />
         <span className="truncate">{a.place.name}</span>
@@ -267,10 +267,10 @@ export default function SunDetails({
           <Caps className="mt-2">Sun Score</Caps>
         </div>
         <div className="text-right">
-          <p className="text-[12px] font-medium text-ink">
+          <p className="text-[13px] font-medium text-ink">
             {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
           </p>
-          <p className="mt-1 max-w-[150px] text-[10.5px] leading-snug text-ink-soft">
+          <p className="mt-1 max-w-[150px] text-[12px] leading-snug text-ink-soft">
             {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
           </p>
         </div>
@@ -283,7 +283,7 @@ export default function SunDetails({
           end={request.endTime}
           highlight={result.searchWindow}
         />
-        <p className="mt-2 text-[10.5px] leading-snug text-ink-faint">
+        <p className="mt-2 text-[12px] leading-snug text-ink-faint">
           El contorno marca la mejor ventana de {fmtMin(D)} dentro de tu franja.
         </p>
       </div>
@@ -320,7 +320,7 @@ export default function SunDetails({
         <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
         <ConfRow label="Meteorología" sub="escala de barrio" value={d.weather} missing={!result.weatherAvailable} />
         <ConfRow label="Global" value={d.overall} strong />
-        <p className="pt-1 text-[10.5px] leading-snug text-ink-faint">
+        <p className="pt-1 text-[12px] leading-snug text-ink-faint">
           La sombra de los edificios es de precisión de calle; las nubes (satélite y previsión) tienen
           una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
         </p>
@@ -330,7 +330,7 @@ export default function SunDetails({
         <Caps>¿Por qué este lugar?</Caps>
         <ul className="mt-2.5 space-y-1.5">
           {result.reasons.map((reason, i) => (
-            <li key={i} className="flex gap-2.5 text-[12px] leading-snug text-ink-soft">
+            <li key={i} className="flex gap-2.5 text-[13px] leading-snug text-ink-soft">
               <span
                 aria-hidden
                 className={cn(
@@ -353,7 +353,7 @@ export default function SunDetails({
           <Caps>Tu franja</Caps>
           <ol className="mt-2.5 space-y-2">
             {result.narrative.map((e, i) => (
-              <li key={i} className="flex items-center gap-3 text-[12px]">
+              <li key={i} className="flex items-center gap-3 text-[13px]">
                 <span className="w-11 shrink-0 tabular-nums text-ink-faint">{formatClock(e.time)}</span>
                 <i className={cn("block h-[8px] w-[8px] shrink-0 rounded-full", DOT[e.kind])} />
                 <span className={cn("text-ink-soft", e.kind === "best" && "font-medium text-ink")}>{e.label}</span>
@@ -368,14 +368,14 @@ export default function SunDetails({
           type="button"
           onClick={() => setHowOpen((v) => !v)}
           aria-expanded={howOpen}
-          className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
+          className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
         >
           {howOpen ? "Ocultar cálculo" : "Cómo se calcula"}
         </button>
         {howOpen && (
           <div className="fts-fade-in mt-3 space-y-2">
             {result.scoreDetail.components.map((c) => (
-              <div key={c.key} className="flex items-center gap-2.5 text-[11px] text-ink-soft">
+              <div key={c.key} className="flex items-center gap-2.5 text-[12.5px] text-ink-soft">
                 <span className="w-[116px] shrink-0">{c.label}</span>
                 <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
                   <i className="block h-full rounded-full bg-sun/80" style={{ width: `${Math.round(c.value * 100)}%` }} />
@@ -386,7 +386,7 @@ export default function SunDetails({
               </div>
             ))}
             {result.scoreDetail.adjustments.map((a) => (
-              <div key={a.key} className="flex justify-between text-[11px] text-ink-soft">
+              <div key={a.key} className="flex justify-between text-[12.5px] text-ink-soft">
                 <span>{a.label}</span>
                 <span className="tabular-nums text-ink-faint">
                   {a.delta > 0 ? "+" : "−"}
@@ -394,7 +394,7 @@ export default function SunDetails({
                 </span>
               </div>
             ))}
-            <p className="border-t border-line pt-2 text-[10.5px] leading-snug text-ink-faint">
+            <p className="border-t border-line pt-2 text-[12px] leading-snug text-ink-faint">
               Orden de los resultados: Sun Score {R.score}
               {R.confidenceAdjustment !== 0 && ` · confianza ${R.confidenceAdjustment.toFixed(1)}`}
               {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`} ={" "}
@@ -409,13 +409,13 @@ export default function SunDetails({
       {isVenue && (
         <div className="mt-3.5 border-t border-line pt-3.5">
           <Caps>¿Hay mesas al sol aquí?</Caps>
-          <p className="mt-2 text-[11px] leading-snug text-ink-soft">{terraceNote}</p>
+          <p className="mt-2 text-[12.5px] leading-snug text-ink-soft">{terraceNote}</p>
           <div className="mt-2.5 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => handleTerraceFeedback(true)}
               className={cn(
-                "rounded-full border px-3 py-2 text-[11.5px] font-medium transition-colors duration-300",
+                "rounded-full border px-3 py-2 text-[12.5px] font-medium transition-colors duration-300",
                 feedback?.hasTerrace
                   ? "border-sun/60 bg-sun-soft text-sun-deep"
                   : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
@@ -427,7 +427,7 @@ export default function SunDetails({
               type="button"
               onClick={() => handleTerraceFeedback(false)}
               className={cn(
-                "rounded-full border px-3 py-2 text-[11.5px] font-medium transition-colors duration-300",
+                "rounded-full border px-3 py-2 text-[12.5px] font-medium transition-colors duration-300",
                 feedback && !feedback.hasTerrace
                   ? "border-ink/40 bg-ink/[0.06] text-ink"
                   : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
@@ -437,7 +437,7 @@ export default function SunDetails({
             </button>
           </div>
           {feedback && (
-            <p className="mt-2 text-[10.5px] text-ink-faint">
+            <p className="mt-2 text-[12px] text-ink-faint">
               Gracias — lo tendremos en cuenta en tus próximas búsquedas.
             </p>
           )}
@@ -454,7 +454,7 @@ export default function SunDetails({
                 type="button"
                 onClick={() => setCompareId(compareId === p.placeId ? null : p.placeId)}
                 className={cn(
-                  "max-w-[160px] truncate rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors",
+                  "max-w-[160px] truncate rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors",
                   compareId === p.placeId ? "bg-ink text-paper" : "bg-ink/[0.05] text-ink-soft hover:text-ink"
                 )}
               >

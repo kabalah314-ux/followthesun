@@ -104,8 +104,8 @@ function originLine(r: SunlightResult, now: number): string | null {
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{label}</dt>
-      <dd className="mt-1 truncate text-[12.5px] font-medium text-ink">{children}</dd>
+      <dt className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{label}</dt>
+      <dd className="mt-1 truncate text-[13.5px] font-medium text-ink">{children}</dd>
     </div>
   );
 }
@@ -143,7 +143,7 @@ function Breakdown({ b }: { b: ConfidenceBreakdown }) {
   return (
     <ul className="space-y-1.5">
       {items.map(([label, v]) => (
-        <li key={label} className="flex items-center gap-2.5 text-[10.5px] text-ink-soft">
+        <li key={label} className="flex items-center gap-2.5 text-[12px] text-ink-soft">
           <span className="w-[78px] shrink-0">{label}</span>
           <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
             <i
@@ -174,7 +174,7 @@ function SunlightBlock({ r, now }: { r: SunlightResult | null; now: number }) {
   }
 
   if (r.state === "night") {
-    return <p className="mt-4 text-[13px] text-ink-soft">El sol está bajo el horizonte a esta hora.</p>;
+    return <p className="mt-4 text-[14px] text-ink-soft">El sol está bajo el horizonte a esta hora.</p>;
   }
 
   const head = headline(r);
@@ -189,7 +189,7 @@ function SunlightBlock({ r, now }: { r: SunlightResult | null; now: number }) {
 
   return (
     <div className="mt-4">
-      <p className="fts-caps !text-[9px]">{r.origin === "forecast" ? "Luz solar prevista" : "Luz solar"}</p>
+      <p className="fts-caps !text-[11.5px]">{r.origin === "forecast" ? "Luz solar prevista" : "Luz solar"}</p>
       <div className="mt-2 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <SunGlyph state={head.glyph} size={28} className="shrink-0 transition-all duration-700" />
@@ -219,7 +219,7 @@ function SunlightBlock({ r, now }: { r: SunlightResult | null; now: number }) {
       </dl>
 
       {origin && (
-        <p className="mt-2.5 flex items-center gap-2 text-[11px] text-ink-soft">
+        <p className="mt-2.5 flex items-center gap-2 text-[12.5px] text-ink-soft">
           <i
             className={cn(
               "block h-[7px] w-[7px] shrink-0 rounded-full border",
@@ -231,20 +231,20 @@ function SunlightBlock({ r, now }: { r: SunlightResult | null; now: number }) {
           {origin}
         </p>
       )}
-      {note && <p className="mt-1.5 text-[10.5px] leading-snug text-ink-faint">{note}</p>}
+      {note && <p className="mt-1.5 text-[12px] leading-snug text-ink-faint">{note}</p>}
 
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mt-2.5 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
+        className="mt-2.5 text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
       >
         {open ? "Ocultar detalle" : "Ver detalle"}
       </button>
       {open && (
         <div className="fts-fade-in mt-2.5 space-y-3 rounded-2xl border border-line px-3.5 py-3">
           <Breakdown b={r.confidenceBreakdown} />
-          <p className="text-[10.5px] leading-[1.55] text-ink-soft">
+          <p className="text-[12px] leading-[1.55] text-ink-soft">
             Edificios: precisión de calle. Meteorología{wkm ? ` (≈ ${wkm} km)` : ""}: escala de barrio, no
             de calle.
             {r.weatherAvailable ? ` Dato dominante: ${DATA_ORIGIN_TEXT[r.dataOrigin]}.` : ""}
@@ -311,7 +311,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
       <SunlightBlock r={sunlight} now={now} />
 
       <div className="mt-4 border-t border-line pt-3.5">
-        <p className="fts-caps !text-[9px]">A lo largo del día</p>
+        <p className="fts-caps !text-[11.5px]">A lo largo del día</p>
         {!timeline ? (
           <div className="mt-3 space-y-2" aria-busy="true">
             {[0, 1].map((i) => (
@@ -323,7 +323,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             ))}
           </div>
         ) : timeline.intervals.length === 0 ? (
-          <p className="mt-3 text-[13px] text-ink-soft">Hoy no llega sol directo a este punto.</p>
+          <p className="mt-3 text-[14px] text-ink-soft">Hoy no llega sol directo a este punto.</p>
         ) : (
           <>
             <ul className="fts-scroll-y mt-2.5 max-h-[min(180px,22vh)] space-y-1 overflow-y-auto pr-0.5">
@@ -340,12 +340,12 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
                   >
                     <SunGlyph state={iv.state} size={22} className="shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium leading-tight text-ink">{intervalLabel(iv.state)}</p>
-                      <p className="mt-0.5 text-[12px] tabular-nums text-ink-soft">
+                      <p className="text-[14px] font-medium leading-tight text-ink">{intervalLabel(iv.state)}</p>
+                      <p className="mt-0.5 text-[13px] tabular-nums text-ink-soft">
                         {formatClock(iv.start)} — {formatClock(iv.end)}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                    <span className="shrink-0 text-[12.5px] tabular-nums text-ink-faint">
                       {formatDuration(iv.end - iv.start)}
                     </span>
                   </li>
@@ -353,14 +353,14 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
               })}
             </ul>
 
-            <div className="mt-2.5 flex items-center justify-between border-t border-line pt-3 text-[10px] font-medium uppercase tracking-[0.18em] text-ink-faint">
+            <div className="mt-2.5 flex items-center justify-between border-t border-line pt-3 text-[12px] font-medium uppercase tracking-[0.18em] text-ink-faint">
               <span>{timeline.weatherAvailable ? "Sol directo hoy" : "Sol posible hoy"}</span>
               <span className="font-serif text-[15px] normal-case tracking-normal text-ink">
                 {formatDuration(timeline.sunMs)}
               </span>
             </div>
             {!timeline.hasBuildings && (
-              <p className="mt-2 text-[11px] leading-snug text-ink-faint">
+              <p className="mt-2 text-[12.5px] leading-snug text-ink-faint">
                 Sin edificios cargados aquí: solo relieve y nubes. Acércate para afinar.
               </p>
             )}
@@ -375,7 +375,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             onClick={onToggleSave}
             aria-pressed={saved}
             className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[11px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+              "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[12.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
               saved ? "border-sun/60 bg-sun-soft text-sun-deep" : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
             )}
           >
@@ -388,7 +388,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=walking`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-[11px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+            className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
             Cómo llegar
           </a>

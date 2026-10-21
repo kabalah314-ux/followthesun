@@ -40,7 +40,7 @@ const PREFERENCES: Array<[SunPreference, string, string]> = [
 ];
 
 const timeInput =
-  "rounded-full border border-line bg-transparent px-3.5 py-2 text-[12px] tabular-nums text-ink outline-none transition-colors focus:border-sun";
+  "rounded-full border border-line bg-transparent px-3.5 py-2 text-[13px] tabular-nums text-ink outline-none transition-colors focus:border-sun";
 
 interface Props {
   search: SunSearchApi;
@@ -97,7 +97,7 @@ export default function SunPlanner(p: Props) {
       <>
         {header}
         {status === "places_unavailable" ? (
-          <p className="text-[12.5px] leading-relaxed text-ink-soft">
+          <p className="text-[13.5px] leading-relaxed text-ink-soft">
             No hemos podido cargar los lugares de Barcelona. Comprueba tu conexión e inténtalo de nuevo.
           </p>
         ) : (
@@ -202,7 +202,7 @@ export default function SunPlanner(p: Props) {
 
         <StepSummary items={summary} step={step} onStep={goToStep} />
 
-        <p key={`hint-${step}`} className="fts-fade-in mt-2 text-[11.5px] leading-relaxed text-ink-soft">
+        <p key={`hint-${step}`} className="fts-fade-in mt-2 text-[12.5px] leading-relaxed text-ink-soft">
           {STEP_HINTS[step]}
         </p>
 
@@ -250,7 +250,7 @@ export default function SunPlanner(p: Props) {
                 type="button"
                 onClick={() => setShowDistance((v) => !v)}
                 aria-expanded={showDistance}
-                className="mt-3.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
+                className="mt-3.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
               >
                 {showDistance ? "Ocultar la distancia" : "¿A qué distancia?"}
               </button>
@@ -269,7 +269,7 @@ export default function SunPlanner(p: Props) {
           {/* 2 · De qué hora a qué hora */}
           {step === 2 && (
             <div className="fts-fade-in">
-              <div className="flex flex-wrap items-center gap-2.5 text-[12px] text-ink-soft">
+              <div className="flex flex-wrap items-center gap-2.5 text-[13px] text-ink-soft">
                 <select
                   aria-label="Día"
                   value={planner.dayOffset}
@@ -306,19 +306,19 @@ export default function SunPlanner(p: Props) {
                 />
               </div>
 
-              <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+              <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
                 {shade
                   ? "Se busca el sitio con más sombra seguida durante toda esa franja."
                   : "Se busca el sitio con más sol seguido durante toda esa franja, no solo a una hora concreta."}
               </p>
 
               {pastToday && (
-                <p className="mt-2.5 text-[11px] leading-snug text-sun-deep">
+                <p className="mt-2.5 text-[12.5px] leading-snug text-sun-deep">
                   Esa franja ya ha pasado hoy: elige otro día o mueve la hora.
                 </p>
               )}
               {planner.dayOffset > 1 && (
-                <p className="mt-2.5 text-[11px] leading-snug text-ink-faint">
+                <p className="mt-2.5 text-[12.5px] leading-snug text-ink-faint">
                   Más allá de mañana no hay previsión: solo se calcula la geometría solar y las sombras
                   (sol posible, no confirmado).
                 </p>
@@ -348,7 +348,7 @@ export default function SunPlanner(p: Props) {
                 )}
               </div>
 
-              <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+              <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
                 {planner.preference === "balanced"
                   ? shade
                     ? "«Sombra agradable» sigue teniendo en cuenta el calor y el viento."

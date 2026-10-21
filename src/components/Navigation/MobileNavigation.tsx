@@ -32,7 +32,7 @@ export default function MobileNavigation({
                 onClick={() => onNavigate(v)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-full w-full flex-col items-center justify-center gap-1 rounded-2xl text-[10.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+                  "flex h-full w-full flex-col items-center justify-center gap-1 rounded-2xl text-[12px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
                   active ? "text-ink" : "text-ink-faint"
                 )}
               >

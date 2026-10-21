@@ -27,7 +27,7 @@ function Tip({ children }: { children: ReactNode }) {
   return (
     <span
       role="tooltip"
-      className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-paper opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+      className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium text-paper opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
     >
       {children}
     </span>
@@ -67,7 +67,7 @@ export default function MapControls(p: Props) {
     >
       <SunIndicator variant="dial" azimuthDeg={p.sun.azimuthDeg} altitudeDeg={p.sun.altitudeDeg} bearing={p.bearing} />
       {!p.isNow && (
-        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-ink px-1.5 py-[1px] text-[8.5px] font-semibold uppercase tracking-[0.12em] text-paper">
+        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-ink px-1.5 py-[1px] text-[11px] font-semibold uppercase tracking-[0.12em] text-paper">
           Ahora
         </span>
       )}

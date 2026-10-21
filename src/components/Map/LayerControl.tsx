@@ -58,11 +58,11 @@ export function SunLegend() {
   return (
     <div>
       <div className="h-[10px] w-full rounded-full ring-1 ring-ink/10" style={{ background: SUN_RAMP_CSS }} />
-      <div className="mt-1.5 flex justify-between text-[10px] text-ink-soft">
+      <div className="mt-1.5 flex justify-between text-[12px] text-ink-soft">
         <span>Sol débil</span>
         <span>Sol fuerte</span>
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[10.5px] text-ink-soft">
+      <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[12px] text-ink-soft">
         <span className="flex items-center gap-1.5">{dot("", { background: "#cfd6e2" })}Nubes</span>
         <span className="flex items-center gap-1.5">{dot("", { background: "#3b4377" })}Sombra</span>
       </div>

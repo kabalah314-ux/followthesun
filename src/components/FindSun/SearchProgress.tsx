@@ -48,7 +48,7 @@ export default function SearchProgress({
           <li
             key={s.label}
             className={cn(
-              "flex items-center gap-2 text-[11px] font-medium transition-colors duration-500",
+              "flex items-center gap-2 text-[12.5px] font-medium transition-colors duration-500",
               i === activeIdx ? "text-ink" : i < activeIdx ? "text-ink-soft" : "text-ink-faint"
             )}
           >
@@ -64,7 +64,7 @@ export default function SearchProgress({
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+      <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
         Calculando el sol, las sombras de los edificios y las nubes de cada lugar.
       </p>
     </div>

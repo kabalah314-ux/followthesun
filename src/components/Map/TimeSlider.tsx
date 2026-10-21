@@ -30,7 +30,7 @@ interface Props {
 
 const chip = (active: boolean) =>
   cn(
-    "rounded-full px-3 py-1.5 text-[11px] font-medium leading-none outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+    "rounded-full px-3 py-1.5 text-[12.5px] font-medium leading-none outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
     active ? "bg-ink text-paper" : "text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
   );
 
@@ -140,7 +140,7 @@ export default function TimeSlider(p: Props) {
             <button
               type="button"
               onClick={p.onNow}
-              className="fts-fade-in rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold text-ink outline-none transition-colors hover:bg-ink/[0.05] focus-visible:ring-2 focus-visible:ring-sun/60"
+              className="fts-fade-in rounded-full border border-line px-3 py-1.5 text-[12.5px] font-semibold text-ink outline-none transition-colors hover:bg-ink/[0.05] focus-visible:ring-2 focus-visible:ring-sun/60"
             >
               Ahora
             </button>
@@ -152,7 +152,7 @@ export default function TimeSlider(p: Props) {
             title="Ocultar la línea de tiempo"
             className="flex h-8 w-8 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
-            <span aria-hidden className="-mt-0.5 text-[11px]">
+            <span aria-hidden className="-mt-0.5 text-[12.5px]">
               ▾
             </span>
           </button>
@@ -160,7 +160,7 @@ export default function TimeSlider(p: Props) {
       </div>
 
       <div className={cn("flex items-end justify-between gap-3", p.compact ? "mt-1.5" : "mt-2")}>
-        <p className="min-w-0 truncate text-[10.5px] font-medium text-ink-soft">{label}</p>
+        <p className="min-w-0 truncate text-[12px] font-medium text-ink-soft">{label}</p>
         <p className={cn("shrink-0 font-serif leading-none tabular-nums text-ink", p.compact ? "text-[24px]" : "text-[30px]")}>
           {formatClock(selectedTime)}
         </p>
@@ -237,7 +237,7 @@ export default function TimeSlider(p: Props) {
         </div>
       </div>
 
-      <div className="relative h-3.5 text-[9.5px] tabular-nums text-ink-faint">
+      <div className="relative h-3.5 text-[11.5px] tabular-nums text-ink-faint">
         <span className="absolute left-0">{formatClock(range.start)}</span>
         {marks.map((t) =>
           frac(t) > 0.1 && frac(t) < 0.9 ? (
@@ -275,9 +275,9 @@ export function TimelineCollapsed({
         <span className="fts-caps block truncate">{dayLabel}</span>
         <span className="mt-1 block font-serif text-[26px] leading-none tabular-nums text-ink">{formatClock(selectedTime)}</span>
       </span>
-      <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
+      <span className="flex shrink-0 items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.16em] text-ink-soft">
         Hora
-        <span aria-hidden className="text-[11px]">
+        <span aria-hidden className="text-[12.5px]">
           ▴
         </span>
       </span>

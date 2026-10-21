@@ -74,7 +74,7 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
       <div className="mt-2 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-serif text-[24px] leading-[1.08] text-ink">{best.place.name}</p>
-          <p className="mt-1 text-[11px] text-ink-soft">
+          <p className="mt-1 text-[12.5px] text-ink-soft">
             {PLACE_TYPE_LABEL[best.locationType].singular} · confianza {CONFIDENCE_ES[confidenceWord(best.confidence)].toLowerCase()}
           </p>
         </div>
@@ -86,14 +86,14 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
 
       <ol className="mt-4 space-y-2.5">
         {steps(best).map((s, i) => (
-          <li key={i} className="flex items-center gap-3 text-[12.5px]">
+          <li key={i} className="flex items-center gap-3 text-[13.5px]">
             <span className="w-[86px] shrink-0 tabular-nums text-ink">{s.time}</span>
             <i className={cn("block h-[8px] w-[8px] shrink-0 rounded-full", DOT[s.tone])} />
             <span className={cn(s.tone === "sun" ? "font-medium text-ink" : "text-ink-soft")}>{s.label}</span>
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-[12px] text-ink-soft">
+      <p className="mt-3 text-[13px] text-ink-soft">
         {fmtMin(best.sunlightMinutes)} de sol directo de {fmtMin(best.requestedMinutes)}
         {best.weatherAvailable ? "" : " (sol posible: sin datos de nubes)"}
       </p>
@@ -107,7 +107,7 @@ export default function PlanResult({ outcome, activeId, saved, onPick, onToggleS
           <Caps>Cómo cambia la luz</Caps>
           <ol className="mt-2.5 space-y-2">
             {best.narrative.map((e, i) => (
-              <li key={i} className="flex items-center gap-3 text-[12px]">
+              <li key={i} className="flex items-center gap-3 text-[13px]">
                 <span className="w-11 shrink-0 tabular-nums text-ink-faint">{formatClock(e.time)}</span>
                 <i className={cn("block h-[7px] w-[7px] shrink-0 rounded-full", DOT[NARRATIVE_TONE[e.kind]])} />
                 <span className={cn("text-ink-soft", e.kind === "best" && "font-medium text-ink")}>{e.label}</span>

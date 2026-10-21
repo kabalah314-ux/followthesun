@@ -26,7 +26,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-[13px] text-ink">{label}</span>
+      <span className="text-[14px] text-ink">{label}</span>
       {children}
     </div>
   );
@@ -127,7 +127,7 @@ export default function SettingsPanel({ prefs, onChange, light, onRequestLocatio
               ]}
             />
           </Row>
-          <p className="text-[10.5px] text-ink-faint">«Auto» pasa a oscuro cuando el sol se pone a la hora elegida.</p>
+          <p className="text-[12px] text-ink-faint">«Auto» pasa a oscuro cuando el sol se pone a la hora elegida.</p>
           <div className="-mx-2">
             <Switch checked={prefs.showBuildings} onChange={(v) => onChange({ showBuildings: v })} label="Mostrar edificios" />
             <Switch
@@ -150,9 +150,9 @@ export default function SettingsPanel({ prefs, onChange, light, onRequestLocatio
 
         <Section title="Ubicación">
           <Row label="Permiso">
-            <span className="text-right text-[11.5px] text-ink-soft">{PERMISSION_TEXT[permission]}</span>
+            <span className="text-right text-[12.5px] text-ink-soft">{PERMISSION_TEXT[permission]}</span>
           </Row>
-          <p className="text-[10.5px] leading-snug text-ink-faint">
+          <p className="text-[12px] leading-snug text-ink-faint">
             La ubicación solo se usa para buscar sol cerca de ti y nunca sale de tu dispositivo.
           </p>
           {permission !== "denied" && <GhostButton onClick={onRequestLocation}>Usar mi ubicación</GhostButton>}

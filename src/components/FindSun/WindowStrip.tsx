@@ -59,7 +59,7 @@ export default function WindowStrip({ windows, start, end, highlight, compact }:
         )}
       </div>
       {!compact && (
-        <div className="mt-1.5 flex justify-between text-[9.5px] tabular-nums text-ink-faint">
+        <div className="mt-1.5 flex justify-between text-[11.5px] tabular-nums text-ink-faint">
           <span>{formatClock(start)}</span>
           <span>{formatClock(end)}</span>
         </div>

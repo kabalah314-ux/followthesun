@@ -95,9 +95,9 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
     <>
       <PanelHeader title="Recomendados" subtitle="Nueve sitios por categoría para descubrir" onClose={onClose} />
 
-      {inventory.state === "loading" && <p className="text-[12px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
+      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
       {inventory.state === "unavailable" && (
-        <p className="text-[12.5px] leading-relaxed text-ink-soft">
+        <p className="text-[13.5px] leading-relaxed text-ink-soft">
           No hemos podido cargar los lugares. Comprueba tu conexión e inténtalo de nuevo.
         </p>
       )}
@@ -106,14 +106,14 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
         <>
           <div className="mt-3 space-y-2">
             {types.map((t) => (
-              <div key={t} className="flex items-center gap-2.5 text-[12px] text-ink-soft">
+              <div key={t} className="flex items-center gap-2.5 text-[13px] text-ink-soft">
                 <span className="w-[104px] shrink-0 font-medium text-ink">{PLACE_TYPE_LABEL[t].plural}</span>
                 <span className="h-px flex-1 bg-line" />
                 <span className="tabular-nums text-ink-faint">{Math.min(PER_CATEGORY, inventory.counts[t])}</span>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-[11px] leading-snug text-ink-faint">
+          <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">
             {total} sitios reales de OpenStreetMap. Se sortean cada vez y se analiza su sol {dayWord.toLowerCase()}.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ export default function Recommended({ inventory, search, dayWord, activeId, onPi
 
       {picks.length === 0 && inventory.state === "ready" && (
         <div className="mt-3">
-          <p className="text-[12.5px] leading-relaxed text-ink-soft">Todavía no hay lugares cargados en esta zona.</p>
+          <p className="text-[13.5px] leading-relaxed text-ink-soft">Todavía no hay lugares cargados en esta zona.</p>
           <GhostButton onClick={onOpenPlaces} className="mt-3 text-sun-deep">
             Explorar lugares →
           </GhostButton>

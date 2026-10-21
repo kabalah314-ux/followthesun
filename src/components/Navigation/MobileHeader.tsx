@@ -71,7 +71,7 @@ export default function MobileHeader({ view, layersOpen, onToggleLayers, onLocat
           className="pointer-events-auto flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
         >
           <LogoMark size={26} className="text-ink" />
-          <span className="text-[11px] font-semibold tracking-[0.24em] text-ink">
+          <span className="text-[12.5px] font-semibold tracking-[0.24em] text-ink">
             <Wordmark />
           </span>
         </button>
@@ -99,14 +99,14 @@ export default function MobileHeader({ view, layersOpen, onToggleLayers, onLocat
                   }}
                   aria-current={view === v ? "page" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sun/60",
+                    "flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-left text-[14px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sun/60",
                     view === v ? "bg-ink/[0.07] text-ink" : "text-ink-soft hover:bg-ink/[0.04]"
                   )}
                 >
                   {NAV_ITEMS[v].icon(18)}
                   <span>
                     <span className="block font-medium text-ink">{NAV_ITEMS[v].label}</span>
-                    <span className="block text-[10.5px] text-ink-faint">{NAV_ITEMS[v].hint}</span>
+                    <span className="block text-[12px] text-ink-faint">{NAV_ITEMS[v].hint}</span>
                   </span>
                 </button>
               ))}

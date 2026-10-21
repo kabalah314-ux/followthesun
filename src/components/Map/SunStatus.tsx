@@ -49,7 +49,7 @@ export default function SunStatus({ stats, time, dayLabel, sunTimes, up, altitud
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label="Estado del sol — ver detalle"
-        className="fts-glass flex items-center gap-2.5 rounded-full py-2 pl-3 pr-3.5 text-[12px] outline-none transition-colors hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-sun/60"
+        className="fts-glass flex items-center gap-2.5 rounded-full py-2 pl-3 pr-3.5 text-[13px] outline-none transition-colors hover:bg-ink/[0.03] focus-visible:ring-2 focus-visible:ring-sun/60"
       >
         <i
           aria-hidden

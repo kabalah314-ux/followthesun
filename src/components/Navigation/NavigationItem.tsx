@@ -21,7 +21,7 @@ export default function NavigationItem({ item, active, compact, onSelect }: Prop
         aria-current={active ? "page" : undefined}
         aria-label={compact ? item.label : undefined}
         className={cn(
-          "group pointer-events-auto relative flex h-10 w-full items-center gap-3 rounded-[14px] text-[13px] font-medium outline-none transition-colors duration-300",
+          "group pointer-events-auto relative flex h-10 w-full items-center gap-3 rounded-[14px] text-[14px] font-medium outline-none transition-colors duration-300",
           compact ? "justify-center px-0" : "px-3",
           active ? "bg-ink/[0.07] text-ink" : "text-ink-soft hover:bg-ink/[0.04] hover:text-ink",
           "focus-visible:ring-2 focus-visible:ring-sun/60"
@@ -40,7 +40,7 @@ export default function NavigationItem({ item, active, compact, onSelect }: Prop
         {compact && (
           <span
             role="tooltip"
-            className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-[11px] font-medium text-paper opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
+            className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-ink px-3 py-1.5 text-[12.5px] font-medium text-paper opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100"
           >
             {item.label}
           </span>

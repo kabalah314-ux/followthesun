@@ -27,7 +27,7 @@ export function Chip({
       aria-pressed={active}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3.5 py-2 text-[12px] font-medium leading-none transition-all duration-300 active:scale-[0.97]",
+        "rounded-full border px-3.5 py-2 text-[13px] font-medium leading-none transition-all duration-300 active:scale-[0.97]",
         active
           ? "border-ink bg-ink text-paper"
           : "border-line bg-ink/[0.03] text-ink hover:bg-ink/[0.07]",
@@ -41,7 +41,7 @@ export function Chip({
 }
 
 export function Caps({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("fts-caps !text-[9px]", className)}>{children}</p>;
+  return <p className={cn("fts-caps !text-[11.5px]", className)}>{children}</p>;
 }
 
 export function PrimaryButton({
@@ -61,7 +61,7 @@ export function PrimaryButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "fts-cta pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-ink px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.26em] text-paper transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-40",
+        "fts-cta pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-ink px-5 py-3 text-[12.5px] font-semibold uppercase tracking-[0.26em] text-paper transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-40",
         className
       )}
     >
@@ -85,7 +85,7 @@ export function GhostButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-soft transition-colors hover:text-ink",
+        "text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-soft transition-colors hover:text-ink",
         className
       )}
     >
@@ -118,8 +118,8 @@ export function Switch({
     >
       {swatch && <span className="flex w-4 shrink-0 justify-center">{swatch}</span>}
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-medium text-ink">{label}</span>
-        {hint && <span className="block text-[10.5px] leading-snug text-ink-faint">{hint}</span>}
+        <span className="block text-[14px] font-medium text-ink">{label}</span>
+        {hint && <span className="block text-[12px] leading-snug text-ink-faint">{hint}</span>}
       </span>
       <span
         aria-hidden
@@ -161,7 +161,7 @@ export function Segmented<T extends string>({
           aria-checked={value === o.id}
           onClick={() => onChange(o.id)}
           className={cn(
-            "rounded-full px-3 py-1.5 text-[11.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+            "rounded-full px-3 py-1.5 text-[12.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
             value === o.id ? "bg-ink text-paper" : "text-ink-soft hover:text-ink"
           )}
         >

@@ -155,7 +155,7 @@ export function PanelHeader({
         )}
         <div className="min-w-0">
           <h2 className="font-serif text-[25px] leading-none text-ink">{title}</h2>
-          {subtitle && <p className="mt-1.5 text-[12px] text-ink-soft">{subtitle}</p>}
+          {subtitle && <p className="mt-1.5 text-[13px] text-ink-soft">{subtitle}</p>}
         </div>
       </div>
       {onClose && (

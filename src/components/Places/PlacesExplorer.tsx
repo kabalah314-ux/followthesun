@@ -30,9 +30,9 @@ export default function PlacesExplorer({ inventory, category, onCategory, search
     <>
       <PanelHeader title="Lugares" subtitle={`Dónde da el sol ${dayWord.toLowerCase()}`} onClose={onClose} />
 
-      {inventory.state === "loading" && <p className="text-[12px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
+      {inventory.state === "loading" && <p className="text-[13px] text-ink-soft">Cargando los lugares de Barcelona…</p>}
       {inventory.state === "unavailable" && (
-        <p className="text-[12.5px] leading-relaxed text-ink-soft">
+        <p className="text-[13.5px] leading-relaxed text-ink-soft">
           No hemos podido cargar los lugares. Comprueba tu conexión e inténtalo de nuevo.
         </p>
       )}
@@ -67,7 +67,7 @@ export default function PlacesExplorer({ inventory, category, onCategory, search
         </div>
       </div>
 
-      <p className="mt-4 text-[10px] text-ink-faint">
+      <p className="mt-4 text-[12px] text-ink-faint">
         Lugares © OpenStreetMap. Se muestran solo categorías con datos. Las terrazas se piden aparte: se
         conoce el local, no la posición de las mesas.
       </p>

@@ -30,7 +30,7 @@ const wm2 = (v: number | null | undefined) =>
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t border-white/10 pt-2.5">
-      <h3 className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.22em] text-amber-300/90">{title}</h3>
+      <h3 className="mb-1.5 text-[11.5px] font-bold uppercase tracking-[0.22em] text-amber-300/90">{title}</h3>
       <div className="space-y-0.5">{children}</div>
     </section>
   );
@@ -48,7 +48,7 @@ function L({ k, v }: { k: string; v: ReactNode }) {
 function Big({ label, value, tone }: { label: string; value: number | null; tone: string }) {
   return (
     <div className="flex-1 rounded-lg bg-white/[0.06] px-2.5 py-2 text-center">
-      <p className="text-[8.5px] font-bold uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/45">{label}</p>
       <p className={cn("mt-1 text-[20px] font-semibold tabular-nums", tone)}>{f(value)}</p>
     </div>
   );
@@ -112,14 +112,14 @@ export default function DebugPanel({ latitude, longitude, time, source, onSource
   return (
     <aside
       className={cn(
-        "fixed bottom-3 left-3 z-[60] max-h-[calc(100dvh-1.5rem)] w-[min(94vw,380px)] overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1226]/95 p-3.5 font-mono text-[10.5px] leading-[1.5] text-white/90 shadow-2xl backdrop-blur",
+        "fixed bottom-3 left-3 z-[60] max-h-[calc(100dvh-1.5rem)] w-[min(94vw,380px)] overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1226]/95 p-3.5 font-mono text-[12px] leading-[1.5] text-white/90 shadow-2xl backdrop-blur",
         !open && "overflow-hidden"
       )}
     >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between text-[10px] font-bold uppercase tracking-[0.22em] text-amber-300"
+        className="flex w-full items-center justify-between text-[12px] font-bold uppercase tracking-[0.22em] text-amber-300"
       >
         <span>debug · weather</span>
         <span>{open ? "—" : "+"}</span>
@@ -226,7 +226,7 @@ export default function DebugPanel({ latitude, longitude, time, source, onSource
                   type="button"
                   onClick={() => onSourceChange(m)}
                   className={cn(
-                    "flex-1 rounded-md px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors",
+                    "flex-1 rounded-md px-2 py-1.5 text-[12px] font-bold uppercase tracking-wider transition-colors",
                     source === m ? "bg-amber-300 text-black" : "bg-white/[0.07] text-white/70 hover:bg-white/[0.12]"
                   )}
                 >

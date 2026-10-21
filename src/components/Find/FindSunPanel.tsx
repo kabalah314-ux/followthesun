@@ -34,7 +34,7 @@ const DURATIONS = [30, 60, 120, 180];
 const NEARBY_MIN = 15;
 
 const timeInput =
-  "w-[92px] rounded-full border border-line bg-transparent px-3 py-1.5 text-[12px] tabular-nums text-ink outline-none transition-colors focus:border-sun";
+  "w-[92px] rounded-full border border-line bg-transparent px-3 py-1.5 text-[13px] tabular-nums text-ink outline-none transition-colors focus:border-sun";
 
 interface Props {
   search: SunSearchApi;
@@ -85,7 +85,7 @@ export default function FindSunPanel({
       <>
         {header}
         <p className="font-serif text-[20px] leading-tight text-ink">No hemos podido cargar los lugares de Barcelona.</p>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-ink-soft">
+        <p className="mt-2 text-[13.5px] leading-relaxed text-ink-soft">
           Comprueba tu conexión e inténtalo de nuevo. No mostramos resultados inventados.
         </p>
         <div className="mt-4 flex justify-between">
@@ -188,7 +188,7 @@ export default function FindSunPanel({
                 </Chip>
               </>
             )}
-            <span className="flex items-center gap-1.5 pl-1 text-[12px] text-ink-soft">
+            <span className="flex items-center gap-1.5 pl-1 text-[13px] text-ink-soft">
               <span>{custom ? dayChoiceLabel(dayStartFor(now, planner.dayOffset), now) : "A las"}</span>
               <input
                 type="time"
@@ -232,7 +232,7 @@ export default function FindSunPanel({
           </PrimaryButton>
         </div>
         {option.id === "coffee" && (
-          <p className="text-[10.5px] leading-snug text-ink-faint">
+          <p className="text-[12px] leading-snug text-ink-faint">
             Los bares con terraza confirmada salen de OpenStreetMap; el resto son candidatos por estar
             en planta baja. Podrás confirmar cuáles tienen mesas al sol.
           </p>

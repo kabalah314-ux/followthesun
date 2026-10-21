@@ -98,12 +98,12 @@ function InfoPanelBase({ stats, time, sunTimes, up, altitudeDeg, azimuthDeg, lig
           <span className="ml-0.5 align-top text-[18px] text-ink-soft">%</span>
         </p>
       </div>
-      <p key={text} className="fts-fade-in mt-3.5 text-[12.5px] leading-[1.55] text-ink-soft">
+      <p key={text} className="fts-fade-in mt-3.5 text-[13.5px] leading-[1.55] text-ink-soft">
         {text}
       </p>
       <div className="mt-3.5 space-y-2.5 border-t border-line pt-3">
         <SourceStatusLine light={light} />
-        <p className="text-[9px] font-semibold uppercase tracking-[0.16em] tabular-nums text-ink-faint">
+        <p className="text-[11.5px] font-semibold uppercase tracking-[0.16em] tabular-nums text-ink-faint">
           {up ? `Sol a ${Math.round(altitudeDeg)}° · ${compassLabel(azimuthDeg)}` : "Bajo el horizonte"} · % del área visible con sol directo
         </p>
       </div>

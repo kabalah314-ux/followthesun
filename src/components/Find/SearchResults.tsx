@@ -75,17 +75,17 @@ export default function SearchResults({ outcome, failed, activeId, onPick, onEdi
           {title ?? (results.length === 1 ? "1 lugar encontrado" : `${results.length} mejores lugares`)}
         </p>
       )}
-      {req && <p className="mt-1.5 text-[11px] text-ink-soft">{describeRequest(req)}</p>}
+      {req && <p className="mt-1.5 text-[12.5px] text-ink-soft">{describeRequest(req)}</p>}
 
       {noFull && (
         <div className="mt-3">
-          <p className="text-[12.5px] leading-relaxed text-ink-soft">
+          <p className="text-[13.5px] leading-relaxed text-ink-soft">
             {failed
               ? "Algo ha fallado al calcularlo. Inténtalo de nuevo."
               : NO_SUN_TEXT[outcome?.noSunReason ?? "none"]}
           </p>
           {shown.length > 0 && outcome && (
-            <p className="mt-2 text-[13px] font-medium text-ink">
+            <p className="mt-2 text-[14px] font-medium text-ink">
               Mejor opción disponible: {fmtMin(outcome.meta.bestAvailableMinutes)} de sol directo
             </p>
           )}
@@ -95,7 +95,7 @@ export default function SearchResults({ outcome, failed, activeId, onPick, onEdi
       {outcome && outcome.notices.length > 0 && (
         <ul className="mt-3 space-y-1">
           {outcome.notices.map((n) => (
-            <li key={n} className="flex gap-2 text-[10.5px] leading-snug text-ink-faint">
+            <li key={n} className="flex gap-2 text-[12px] leading-snug text-ink-faint">
               <span aria-hidden>·</span>
               <span>{NOTICE_TEXT[n]}</span>
             </li>

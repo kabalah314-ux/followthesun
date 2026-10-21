@@ -41,10 +41,10 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
         <LogoMark size={compact ? 30 : 32} className="shrink-0 text-ink" />
         {!compact && (
           <span className="min-w-0 text-left leading-none">
-            <span className="block whitespace-nowrap text-[11.5px] font-semibold tracking-[0.24em] text-ink">
+            <span className="block whitespace-nowrap text-[12.5px] font-semibold tracking-[0.24em] text-ink">
               <Wordmark />
             </span>
-            <span className="mt-1.5 block font-serif text-[12.5px] italic text-ink-soft">Barcelona</span>
+            <span className="mt-1.5 block font-serif text-[13.5px] italic text-ink-soft">Barcelona</span>
           </span>
         )}
       </button>
@@ -83,7 +83,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
           aria-label={compact ? "Expandir menú" : "Plegar menú"}
           aria-expanded={!compact}
           className={cn(
-            "pointer-events-auto mt-2 flex h-9 items-center gap-3 rounded-[14px] text-[11.5px] text-ink-faint outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60",
+            "pointer-events-auto mt-2 flex h-9 items-center gap-3 rounded-[14px] text-[12.5px] text-ink-faint outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60",
             compact ? "mx-2 justify-center" : "mx-2.5 px-3"
           )}
         >

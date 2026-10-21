@@ -122,19 +122,19 @@ export default function SourceStatusLine({ light }: { light: LightSourceState })
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="group flex w-full items-center gap-2 text-left text-[10.5px] leading-snug text-ink-soft transition-colors hover:text-ink"
+        className="group flex w-full items-center gap-2 text-left text-[12px] leading-snug text-ink-soft transition-colors hover:text-ink"
       >
         <Dot kind={kind} busy={busy && kind === "loading"} />
         <span className="min-w-0 flex-1">{sourceLabel(light)}</span>
         <span
           aria-hidden
-          className={cn("text-[9px] text-ink-faint transition-transform duration-300", open && "rotate-180")}
+          className={cn("text-[11.5px] text-ink-faint transition-transform duration-300", open && "rotate-180")}
         >
           ▾
         </span>
       </button>
       {open && (
-        <div className="fts-fade-in mt-2 text-[10.5px] leading-[1.55] text-ink-soft">
+        <div className="fts-fade-in mt-2 text-[12px] leading-[1.55] text-ink-soft">
           <Detail l={light} />
         </div>
       )}

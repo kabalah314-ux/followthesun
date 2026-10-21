@@ -46,11 +46,11 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-faint">
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint">
             {eyebrow ?? (best ? "Mejor opción" : `Opción ${r.rank}`)}
           </p>
           <p className="mt-1 line-clamp-2 font-serif text-[18px] leading-[1.12] text-ink">{r.place.name}</p>
-          <p className="mt-1 text-[10.5px] text-ink-soft">
+          <p className="mt-1 text-[12px] text-ink-soft">
             {PLACE_TYPE_LABEL[r.locationType].singular}
             {r.walking ? ` · ≈ ${r.walking.durationMinutes} min a pie` : ""}
           </p>
@@ -63,7 +63,7 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
 
       <div className="mt-2.5 flex items-center gap-2">
         <SunGlyph state={glyphOf(r)} size={18} className="shrink-0" />
-        <p className="text-[12.5px] font-medium text-ink">
+        <p className="text-[13.5px] font-medium text-ink">
           {fmtMin(r.sunlightMinutes)} {r.weatherAvailable ? "de sol" : "de sol posible"}
         </p>
         <span className="ml-auto">
@@ -74,7 +74,7 @@ export default function SunResultCard({ result: r, active, rangeStart, rangeEnd,
       <div className="mt-2.5">
         <WindowStrip windows={r.windows} start={rangeStart} end={rangeEnd} compact />
       </div>
-      <p className="mt-2 truncate text-[10.5px] text-ink-faint">{extra}</p>
+      <p className="mt-2 truncate text-[12px] text-ink-faint">{extra}</p>
     </button>
   );
 }

@@ -12,17 +12,17 @@
 @property --ink {
   syntax: "<color>";
   inherits: true;
-  initial-value: #2a2733;
+  initial-value: #1f1c26;
 }
 @property --ink-soft {
   syntax: "<color>";
   inherits: true;
-  initial-value: rgba(42, 39, 51, 0.64);
+  initial-value: #4a4553;
 }
 @property --ink-faint {
   syntax: "<color>";
   inherits: true;
-  initial-value: rgba(42, 39, 51, 0.4);
+  initial-value: #6b6573;
 }
 @property --glass {
   syntax: "<color>";
@@ -62,9 +62,10 @@
 
 :root {
   --paper: #f6f1e8;
-  --ink: #2a2733;
-  --ink-soft: rgba(42, 39, 51, 0.64);
-  --ink-faint: rgba(42, 39, 51, 0.4);
+  /* Contraste sobre --paper: ink 15:1 · ink-soft 8,3:1 · ink-faint 5,0:1 (mínimo para texto). */
+  --ink: #1f1c26;
+  --ink-soft: #4a4553;
+  --ink-faint: #6b6573;
   --glass: rgba(250, 246, 239, 0.74);
   --glass-strong: rgba(252, 249, 244, 0.94);
   --line: rgba(42, 39, 51, 0.09);
@@ -93,8 +94,8 @@
 :root[data-theme="night"] {
   --paper: #0f1428;
   --ink: #eceff8;
-  --ink-soft: rgba(236, 239, 248, 0.68);
-  --ink-faint: rgba(236, 239, 248, 0.42);
+  --ink-soft: rgba(236, 239, 248, 0.8);
+  --ink-faint: rgba(236, 239, 248, 0.62);
   --glass: rgba(18, 24, 48, 0.68);
   --glass-strong: rgba(20, 27, 54, 0.94);
   --line: rgba(255, 255, 255, 0.1);

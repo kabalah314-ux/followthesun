@@ -68,7 +68,7 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
         <div className="rounded-2xl border border-dashed border-line px-4 py-5 text-center">
           <Heart size={22} strokeWidth={1.5} absoluteStrokeWidth className="mx-auto text-ink-faint" />
           <p className="mt-3 font-serif text-[18px] leading-tight text-ink">Aún no has guardado ningún sitio.</p>
-          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-soft">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">
             Pulsa «Guardar» en un resultado de Find the Sun o en cualquier punto del mapa (tu casa, tu banco
             favorito…) y aquí verás cuándo le da el sol.
           </p>
@@ -94,7 +94,7 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
                     <SunGlyph state={l.glyph} size={24} className={cn("shrink-0", s === "loading" && "animate-pulse")} />
                     <span className="min-w-0">
                       <span className="block truncate text-[13.5px] font-medium text-ink">{p.name}</span>
-                      <span className="block truncate text-[11px] text-ink-soft">
+                      <span className="block truncate text-[12.5px] text-ink-soft">
                         {PLACE_TYPE_LABEL[p.type].singular} · {l.text}
                       </span>
                     </span>
@@ -114,7 +114,7 @@ export default function SavedPlaces({ saved, activeId, onOpen, onRemove, onClose
         </ul>
       )}
 
-      <p className="mt-4 text-[10px] text-ink-faint">Guardado solo en este dispositivo.</p>
+      <p className="mt-4 text-[12px] text-ink-faint">Guardado solo en este dispositivo.</p>
     </>
   );
 }
