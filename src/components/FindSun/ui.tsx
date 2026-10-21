@@ -61,7 +61,7 @@ export function PrimaryButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "fts-cta pointer-events-auto inline-flex items-center gap-2.5 rounded-full bg-ink px-5 py-3 text-[12.5px] font-semibold uppercase tracking-[0.26em] text-paper transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-40",
+        "fts-cta pointer-events-auto inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-ink px-5 py-3 text-[14.5px] font-semibold tracking-[0.01em] text-paper transition-all duration-500 hover:-translate-y-0.5 active:scale-[0.98] disabled:opacity-40",
         className
       )}
     >
@@ -85,7 +85,7 @@ export function GhostButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "text-[12px] font-semibold uppercase tracking-[0.18em] text-ink-soft transition-colors hover:text-ink",
+        "inline-flex min-h-[44px] items-center text-[13.5px] font-semibold text-ink-soft transition-colors hover:text-ink",
         className
       )}
     >

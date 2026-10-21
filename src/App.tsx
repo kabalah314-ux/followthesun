@@ -20,7 +20,9 @@ import Sidebar from "./components/Navigation/Sidebar";
 import PointPanel from "./components/PointPanel";
 import { PROVENANCE_WORD } from "./components/SourceStatusLine";
 import Splash from "./components/Splash";
-import { MapPin, Star } from "./components/LineIcons";
+import NowPanel from "./components/Now/NowPanel";
+import NearbyStrip from "./components/Now/NearbyStrip";
+import SearchHub from "./components/Search/SearchHub";
 import Toast from "./components/Toast";
 import AnswerCard from "./components/Now/AnswerCard";
 
@@ -62,6 +64,7 @@ import { getPlaceSunSummaryCached } from "./services/placeSunService";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
 import { describeCity, type SunShadeMode } from "./lib/answer";
 import { SUN_INTENTS } from "./lib/placeTypes";
+import { isSearchView } from "./lib/routing";
 import { distanceMeters } from "./lib/coordinates";
 import { onIdle } from "./lib/idle";
 import { DEFAULT_PLANNER, buildSearchRequest, oneHourOfSun, type PlannerState } from "./lib/planning";
@@ -259,11 +262,13 @@ export default function App() {
   const planSearch = useSunSearch();
   const placesSearch = useSunSearch();
   const recommendedSearch = useSunSearch();
+  /** «Cerca de ti ahora» (Ahora): los tres mejores sitios para la próxima hora. */
+  const nowSearch = useSunSearch();
   const [findPlanner, setFindPlanner] = useState<PlannerState>(DEFAULT_PLANNER);
   const [planPlanner, setPlanPlanner] = useState<PlannerState>(() => initialPlan(Date.now()));
   const [placesCategory, setPlacesCategory] = useState<LocationTypeFilter>("any");
   const inventory = usePlaceInventory(
-    view === "find" || view === "plan" || view === "places" || view === "recommended"
+    view === "now" || view === "find" || view === "plan" || view === "places" || view === "recommended"
   );
   const { saved, toggle } = useSavedPlaces();
 
@@ -423,7 +428,9 @@ export default function App() {
 
   /* ------------------------------ resultados de la vista actual ------------------------------ */
   const viewOutcome =
-    view === "find"
+    view === "now"
+      ? nowSearch.state.outcome
+      : view === "find"
       ? findSearch.state.outcome
       : view === "plan"
         ? planSearch.state.outcome
@@ -622,11 +629,12 @@ export default function App() {
     );
   }, [sunShade.mode, findStatus]);
 
-  const answerVisible = view === "explore" && !activeResult && !selection && !answerHidden;
+  const answerVisible = view === "now" && !activeResult && !selection && !answerHidden;
   const answerTimeLabel = isNow ? `Ahora · ${formatClock(selectedTime)}` : `${dayChoiceLabel(dayStart, now)} · ${formatClock(selectedTime)}`;
-  const answerCard = (compact: boolean) => (
+  const answerCard = (compact: boolean, inline = false) => (
     <AnswerCard
       compact={compact}
+      inline={inline}
       answer={cityAnswer}
       timeLabel={answerTimeLabel}
       mode={sunShade.mode}
@@ -635,9 +643,76 @@ export default function App() {
       busy={nearbyBusy}
       onNearby={(m) => void startNearby(m)}
       onMyPoint={showMyPoint}
-      onHide={() => setAnswerHidden(true)}
+      onHide={inline ? undefined : () => setAnswerHidden(true)}
     />
   );
+
+  /* ------------------------------ Ahora: «Cerca de ti ahora» ------------------------------ */
+  // Próximas 2 h (hasta la puesta si se busca sol), 1 h mínima, cerca de la ubicación o, sin ella,
+  // del centro. Pasada la puesta (o a menos de 45 min), las primeras horas de mañana.
+  const nowTomorrow = placesTomorrow;
+  const nowKeyRef = useRef("");
+  const [nowLocating, setNowLocating] = useState(false);
+  useEffect(() => {
+    if (view !== "now") return;
+    const mode = sunShade.mode;
+    const origin: LngLat = userLocation ?? { lng: BARCELONA.lng, lat: BARCELONA.lat };
+    const key = `${mode}|${dayKey}|${Math.floor(now / (15 * MIN))}|${origin.lng.toFixed(3)},${origin.lat.toFixed(3)}|${nowTomorrow ? 1 : 0}`;
+    if (nowKeyRef.current === key) return;
+    nowKeyRef.current = key;
+    const t = Date.now();
+    let start: number;
+    let end: number;
+    if (nowTomorrow) {
+      const sun = solarService.getSunTimes(dayStartFor(t, 1), BARCELONA.lat, BARCELONA.lng);
+      start = sun.sunrise + 90 * MIN;
+      end = start + 2 * HOUR;
+    } else {
+      start = Math.floor(t / MIN) * MIN;
+      end = mode === "sun" ? Math.min(start + 2 * HOUR, todaySunset) : start + 2 * HOUR;
+    }
+    const span = Math.max(10, Math.round((end - start) / MIN));
+    void nowSearch.run({
+      startTime: start,
+      endTime: end,
+      minimumSunlightMinutes: Math.min(60, span),
+      maximumWalkingMinutes: userLocation ? 20 : 30,
+      origin,
+      locationType: "any",
+      intent: mode,
+      preference: SUN_INTENTS[mode].preference,
+      limit: 3,
+    });
+  }, [view, sunShade.mode, dayKey, now, userLocation, nowTomorrow, nowSearch, todaySunset]);
+
+  const locateForNow = useCallback(async () => {
+    setNowLocating(true);
+    await requestUserLocation();
+    setNowLocating(false);
+  }, [requestUserLocation]);
+
+  const modeWord = sunShade.mode === "shade" ? "sombra" : "sol";
+  const nearby = {
+    title: nowTomorrow
+      ? `Mañana con ${modeWord}`
+      : userLocation
+        ? `Con ${modeWord} cerca de ti`
+        : `Con ${modeWord} cerca del centro`,
+    results: shownResults(nowSearch.state.outcome).slice(0, 3),
+    loading: nowSearch.state.status === "searching" || (view === "now" && nowSearch.state.status === "idle"),
+    emptyText: nowTomorrow
+      ? "Todavía no hay sitios para mañana."
+      : `No encontramos sitios con ${modeWord} seguida en la próxima hora. Prueba en Buscar.`,
+    mode: sunShade.mode,
+    now,
+    sunset: todaySunset,
+    hasLocation: !!userLocation,
+    locating: nowLocating,
+    activeId,
+    onUseLocation: () => void locateForNow(),
+    onPick: pickFromView,
+    onMore: () => go("find"),
+  };
 
   /* ------------------------------ teclado ------------------------------ */
   useEffect(() => {
@@ -647,14 +722,17 @@ export default function App() {
       if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) return;
       if (layersOpen) setLayersOpen(false);
       else if (activeResult || selection) closeDetail();
-      else if (view !== "explore") go("explore");
+      else if (view !== "explore" && view !== "now") go("explore");
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [layersOpen, activeResult, selection, view, closeDetail, go]);
 
   /* ------------------------------ geometría de la pantalla ------------------------------ */
-  const panelOpen = PANEL_VIEWS.has(view);
+  // En móvil, Ahora no es una hoja: la tarjeta va arriba y los sitios en una tira sobre la línea de tiempo.
+  const panelOpen = PANEL_VIEWS.has(view) && !(isMobile && view === "now");
+  const panelLabel = isSearchView(view) ? "Buscar" : NAV_ITEMS[view].label;
+  const nearbyStrip = isMobile && view === "now" && !activeResult && !selection;
   const hasDetail = !!activeResult || !!selection;
   const navW = isMobile ? 0 : device === "tablet" || prefs.sidebarCollapsed ? LAYOUT.sidebarCompact : LAYOUT.sidebarExpanded;
   const navRight = isMobile ? 0 : LAYOUT.gap + navW;
@@ -675,10 +753,12 @@ export default function App() {
     mapController.current?.setInsets(
       isMobile
         ? {
-            top: 104,
+            top: answerVisible && !sheetOpen ? 270 : 104,
             left: 0,
             right: 0,
-            bottom: sheetOpen ? Math.round(window.innerHeight * 0.5) : prefs.timelineHidden ? 150 : 200,
+            bottom: sheetOpen
+              ? Math.round(window.innerHeight * 0.5)
+              : (prefs.timelineHidden ? 150 : 200) + (nearbyStrip ? 128 : 0),
           }
         : {
             top: 64,
@@ -687,7 +767,7 @@ export default function App() {
             bottom: showTimeline ? timelineSpace + LAYOUT.gap * 2 : LAYOUT.gap,
           }
     );
-  }, [isMobile, sheetOpen, mapLeft, detailRight, showTimeline, timelineSpace, prefs.timelineHidden]);
+  }, [isMobile, sheetOpen, mapLeft, detailRight, showTimeline, timelineSpace, prefs.timelineHidden, answerVisible, nearbyStrip]);
 
   /* ------------------------------ contenido de los paneles ------------------------------ */
   const detailNode: ReactNode =
@@ -704,6 +784,7 @@ export default function App() {
             onToggleSave={() => toggleSaveResult(activeResult.result)}
             onShare={() => void shareResult(activeResult.result)}
             onClose={closeDetail}
+            now={now}
             onTerraceFeedback={(hasTerrace: boolean) =>
               setToast(
                 hasTerrace
@@ -736,6 +817,8 @@ export default function App() {
     <Suspense fallback={<PanelFallback />}>
       {(() => {
         switch (view) {
+      case "now":
+        return <NowPanel answerCard={answerCard(false, true)} {...nearby} />;
       case "find":
         return (
           <FindSunPanel
@@ -836,6 +919,15 @@ export default function App() {
     </Suspense>
   );
 
+  /** Las pestañas de Buscar comparten un contenedor con su título y sus pestañas. */
+  const panelNode: ReactNode = isSearchView(view) ? (
+    <SearchHub view={view} onTab={(v) => go(v)} onClose={closeView}>
+      {viewNode}
+    </SearchHub>
+  ) : (
+    viewNode
+  );
+
   const layerPanel = <LayerControl prefs={prefs} onChange={setPrefs} onClose={() => setLayersOpen(false)} />;
   /** Relieve 3D efectivo: hace falta ver los edificios. */
   const buildings3D = prefs.showBuildings && (prefs.buildings3D || FEATURES.buildings3D);
@@ -921,13 +1013,13 @@ export default function App() {
             <ContextPanel
               device={device}
               side="left"
-              label={detailInLeft ? "Detalle" : NAV_ITEMS[view].label}
+              label={detailInLeft ? "Detalle" : panelLabel}
               width={panelW}
               style={{ left: navRight + LAYOUT.gap, top: LAYOUT.gap, bottom: LAYOUT.gap }}
               resetKey={view}
               key={detailInLeft ? "detail" : view}
             >
-              {detailInLeft ? detailNode : viewNode}
+              {detailInLeft ? detailNode : panelNode}
             </ContextPanel>
           )}
 
@@ -958,7 +1050,7 @@ export default function App() {
               azimuthDeg={sunPos.azimuthDeg}
               light={light}
             />
-            {answerVisible && <div className="mt-2">{answerCard(false)}</div>}
+
           </div>
 
           <div className="pointer-events-none absolute right-3 z-20" style={{ top: LAYOUT.gap }}>
@@ -1001,7 +1093,7 @@ export default function App() {
             onToggleLayers={() => setLayersOpen((v) => !v)}
             onLocate={() => mapController.current?.locate()}
             onNavigate={go}
-            onBrand={() => go("explore")}
+            onBrand={() => go("now")}
             layerPanel={layerPanel}
           />
 
@@ -1047,35 +1139,20 @@ export default function App() {
             <ContextPanel
               device="mobile"
               side="left"
-              label={hasDetail ? "Detalle" : NAV_ITEMS[view].label}
+              label={hasDetail ? "Detalle" : panelLabel}
               mobileBottom={LAYOUT.mobileNav}
               resetKey={hasDetail ? `d${selection?.id ?? activeId}` : view}
               key={hasDetail ? "detail" : view}
               onDismiss={hasDetail ? closeDetail : () => go("explore")}
             >
-              {hasDetail ? detailNode : viewNode}
+              {hasDetail ? detailNode : panelNode}
             </ContextPanel>
           ) : (
             <div className="fixed inset-x-2 z-20" style={{ bottom: `calc(${LAYOUT.mobileNav}px + env(safe-area-inset-bottom) + 8px)` }}>
-              {/* En Explorar, accesos directos a las secciones que no están en la barra inferior. */}
-              {view === "explore" && (
-                <div className="fts-fade-in pointer-events-auto mb-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => go("places")}
-                    className="fts-glass flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11.5px] font-medium text-ink"
-                  >
-                    <MapPin size={15} />
-                    Lugares
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => go("recommended")}
-                    className="fts-glass flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[11.5px] font-medium text-ink"
-                  >
-                    <Star size={15} />
-                    Recomendados
-                  </button>
+              {/* Ahora: los sitios cerca, encima de la línea de tiempo (sin taparla). */}
+              {nearbyStrip && (
+                <div className="fts-fade-in mb-2">
+                  <NearbyStrip {...nearby} />
                 </div>
               )}
               <div className="pointer-events-auto">{timeline}</div>

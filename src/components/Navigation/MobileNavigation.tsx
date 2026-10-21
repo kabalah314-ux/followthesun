@@ -1,12 +1,10 @@
 import type { AppView } from "../../lib/routing";
 import { cn } from "../../utils/cn";
-import { MOBILE_NAV, NAV_ITEMS } from "./navItems";
-
-const SHORT: Partial<Record<AppView, string>> = { find: "Sol/sombra", plan: "Planificar" };
+import { MOBILE_NAV, NAV_ITEMS, isNavActive } from "./navItems";
 
 /**
- * Barra inferior móvil: solo las cuatro acciones principales. Lugares, Ajustes y Acerca de están
- * en el menú «Más» de la cabecera (y Lugares también desde Find the Sun).
+ * Barra inferior móvil: los cuatro destinos (Ahora, Mapa, Buscar, Mis sitios). Ajustes y Acerca de
+ * están en el menú «Más» de la cabecera; Más tarde, Lugares y Sorpréndeme son pestañas de Buscar.
  */
 export default function MobileNavigation({
   view,
@@ -24,7 +22,7 @@ export default function MobileNavigation({
       <ul className="mx-auto flex h-16 max-w-[480px] items-stretch justify-around px-2">
         {MOBILE_NAV.map((v) => {
           const item = NAV_ITEMS[v];
-          const active = view === v;
+          const active = isNavActive(v, view);
           return (
             <li key={v} className="flex-1">
               <button
@@ -40,12 +38,12 @@ export default function MobileNavigation({
                   className={cn(
                     "flex h-8 w-12 items-center justify-center rounded-full transition-colors duration-300",
                     active && "bg-ink/[0.07]",
-                    v === "find" && "text-sun-deep"
+                    v === "now" && "text-sun-deep"
                   )}
                 >
                   {item.icon(21)}
                 </span>
-                <span>{SHORT[v] ?? item.label}</span>
+                <span>{item.label}</span>
               </button>
             </li>
           );

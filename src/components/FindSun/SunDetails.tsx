@@ -6,6 +6,7 @@ import {
   fmtMin,
   influenceWord,
 } from "../../lib/formatSun";
+import { describeResult } from "../../lib/placeAnswer";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { formatClock } from "../../services/timeService";
 import { venueFeedbackService } from "../../services/venueFeedbackService";
@@ -37,6 +38,13 @@ const DOT: Record<SunWindowKind | "best", string> = {
   uncertain: "bg-ink/20",
   night: "bg-ink/10",
   best: "bg-sun-deep",
+};
+
+const RELIABILITY: Record<ReturnType<typeof confidenceWord>, string> = {
+  very_high: "Seguro",
+  high: "Seguro",
+  medium: "Bastante seguro",
+  low: "Depende de las nubes",
 };
 
 const windowText = (r: SunSearchResult) =>
@@ -177,6 +185,8 @@ interface Props {
   embedded?: boolean;
   /** Confirmación de si el negocio tiene terraza (solo para resultados de tipo negocio). */
   onTerraceFeedback?(hasTerrace: boolean): void;
+  /** Instante de referencia de la frase-respuesta (por defecto, cuando se abre la ficha). */
+  now?: number;
 }
 
 /**
@@ -194,8 +204,11 @@ export default function SunDetails({
   className,
   embedded,
   onTerraceFeedback,
+  now,
 }: Props) {
   const [howOpen, setHowOpen] = useState(false);
+  const [openedAt] = useState(() => Date.now());
+  const answer = describeResult(result, now ?? openedAt, request.intent === "shade" ? "shade" : "sun");
   const [feedback, setFeedback] = useState(() => venueFeedbackService.get(result.placeId));
   const meta = result.place.metadata ?? {};
   const openingHours = typeof meta.openingHours === "string" ? meta.openingHours : null;
@@ -264,19 +277,31 @@ export default function SunDetails({
         </button>
       </div>
 
-      <div className="mt-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="font-serif text-[54px] leading-[0.82] tracking-tight text-ink">{result.score}</p>
-          <Caps className="mt-2">Sun Score</Caps>
-        </div>
-        <div className="text-right">
-          <p className="text-[13px] font-medium text-ink">
-            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
-          </p>
-          <p className="mt-1 max-w-[150px] text-[12px] leading-snug text-ink-soft">
-            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
-          </p>
-        </div>
+      <div
+        className={cn(
+          "mt-3 rounded-2xl px-3.5 py-3",
+          answer.state === "sun" || answer.state === "partial" ? "bg-sun-soft" : "bg-ink/[0.045]"
+        )}
+      >
+        <p className="text-[18px] font-semibold leading-snug text-ink">{answer.headline}</p>
+        {answer.detail && <p className="mt-1 text-[14px] leading-snug text-ink-soft">{answer.detail}</p>}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <ActionButton
+          href={`https://www.google.com/maps/dir/?api=1&destination=${result.spot.latitude},${result.spot.longitude}&travelmode=walking`}
+        >
+          <RouteIcon />
+          Cómo llegar
+        </ActionButton>
+        <ActionButton onClick={onToggleSave} active={saved}>
+          <HeartIcon filled={saved} />
+          {saved ? "Guardado" : "Guardar"}
+        </ActionButton>
+        <ActionButton onClick={onShare}>
+          <ShareIcon />
+          Compartir
+        </ActionButton>
       </div>
 
       <div className="mt-4">
@@ -297,19 +322,17 @@ export default function SunDetails({
           <span className="font-normal text-ink-faint"> de {fmtMin(D)}</span>
         </Row>
         <Row label="Mejor ventana">{windowText(result)}</Row>
-        <Row label="Sombra urbana">
+        <Row label="Edificios">
           {result.buildingsKnown
             ? result.urbanShadowMinutes <= 0.05 * D
-              ? "Mínima"
+              ? "Casi no tapan"
               : fmtMin(result.urbanShadowMinutes)
             : "Sin verificar"}
         </Row>
-        <Row label="Influencia de nubes">
+        <Row label="Nubes">
           {result.weatherAvailable ? influenceWord(result.cloudInfluence) : "Sin datos"}
         </Row>
-        <Row label="Confianza">
-          <ConfidenceBars value={result.confidence} />
-        </Row>
+        <Row label="Fiabilidad">{RELIABILITY[confidenceWord(result.confidence)]}</Row>
         <Row label="Distancia">{walkText(result)}</Row>
         {openingHours && (
           <div className="col-span-2">
@@ -317,17 +340,6 @@ export default function SunDetails({
           </div>
         )}
       </dl>
-
-      <div className="mt-4 space-y-2 border-t border-line pt-3.5">
-        <Caps>Confianza</Caps>
-        <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
-        <ConfRow label="Meteorología" sub="escala de barrio" value={d.weather} missing={!result.weatherAvailable} />
-        <ConfRow label="Global" value={d.overall} strong />
-        <p className="pt-1 text-[12px] leading-snug text-ink-faint">
-          La sombra de los edificios es de precisión de calle; las nubes (satélite y previsión) tienen
-          una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
-        </p>
-      </div>
 
       <div className="mt-4 border-t border-line pt-3.5">
         <Caps>¿Por qué este lugar?</Caps>
@@ -365,49 +377,6 @@ export default function SunDetails({
           </ol>
         </div>
       )}
-
-      <div className="mt-4 border-t border-line pt-3">
-        <button
-          type="button"
-          onClick={() => setHowOpen((v) => !v)}
-          aria-expanded={howOpen}
-          className="text-[11.5px] font-semibold uppercase tracking-[0.18em] text-ink-faint transition-colors hover:text-ink"
-        >
-          {howOpen ? "Ocultar cálculo" : "Cómo se calcula"}
-        </button>
-        {howOpen && (
-          <div className="fts-fade-in mt-3 space-y-2">
-            {result.scoreDetail.components.map((c) => (
-              <div key={c.key} className="flex items-center gap-2.5 text-[12.5px] text-ink-soft">
-                <span className="w-[116px] shrink-0">{c.label}</span>
-                <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
-                  <i className="block h-full rounded-full bg-sun/80" style={{ width: `${Math.round(c.value * 100)}%` }} />
-                </span>
-                <span className="w-[60px] shrink-0 text-right tabular-nums text-ink-faint">
-                  {Math.round(c.weight * 100)} % · +{c.contribution.toFixed(0)}
-                </span>
-              </div>
-            ))}
-            {result.scoreDetail.adjustments.map((a) => (
-              <div key={a.key} className="flex justify-between text-[12.5px] text-ink-soft">
-                <span>{a.label}</span>
-                <span className="tabular-nums text-ink-faint">
-                  {a.delta > 0 ? "+" : "−"}
-                  {Math.abs(a.delta).toFixed(1)}
-                </span>
-              </div>
-            ))}
-            <p className="border-t border-line pt-2 text-[12px] leading-snug text-ink-faint">
-              Orden de los resultados: Sun Score {R.score}
-              {R.confidenceAdjustment !== 0 && ` · confianza ${R.confidenceAdjustment.toFixed(1)}`}
-              {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`}
-              {!!R.placeAdjustment && ` · terraza sin confirmar ${R.placeAdjustment.toFixed(1)}`} ={" "}
-              {R.value.toFixed(1)}. Un resultado de confianza baja no gana a otro casi igual de confianza
-              alta.
-            </p>
-          </div>
-        )}
-      </div>
 
       {/* Negocios: la gente confirma si de verdad hay mesas al sol. */}
       {isVenue && (
@@ -470,21 +439,76 @@ export default function SunDetails({
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3.5">
-        <ActionButton onClick={onToggleSave} active={saved}>
-          <HeartIcon filled={saved} />
-          {saved ? "Guardado" : "Guardar"}
-        </ActionButton>
-        <ActionButton onClick={onShare}>
-          <ShareIcon />
-          Compartir
-        </ActionButton>
-        <ActionButton
-          href={`https://www.google.com/maps/dir/?api=1&destination=${result.spot.latitude},${result.spot.longitude}&travelmode=walking`}
+      <div className="mt-4 border-t border-line pt-1.5">
+        <button
+          type="button"
+          onClick={() => setHowOpen((v) => !v)}
+          aria-expanded={howOpen}
+          className="flex min-h-[44px] w-full items-center justify-between gap-3 text-left text-[14px] font-semibold text-ink-soft outline-none transition-colors hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
         >
-          <RouteIcon />
-          Cómo llegar
-        </ActionButton>
+          <span>Cómo lo sabemos</span>
+          <span aria-hidden className="text-[18px] leading-none">{howOpen ? "−" : "+"}</span>
+        </button>
+        {howOpen && (
+          <div className="fts-fade-in mt-2 space-y-4 pb-1">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="font-serif text-[54px] leading-[0.82] tracking-tight text-ink">{result.score}</p>
+          <Caps className="mt-2">Sun Score</Caps>
+        </div>
+        <div className="text-right">
+          <p className="text-[13px] font-medium text-ink">
+            {result.rank === 1 ? "Mejor opción" : `Opción ${result.rank}`}
+          </p>
+          <p className="mt-1 max-w-[150px] text-[12px] leading-snug text-ink-soft">
+            {result.weatherAvailable ? ORIGIN_ES[result.origin] : "Sin datos de nubes"}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t border-line pt-3.5">
+        <Caps>Confianza</Caps>
+        <ConfRow label="Geometría" sub="sol y edificios" value={d.geometry} />
+        <ConfRow label="Meteorología" sub="escala de barrio" value={d.weather} missing={!result.weatherAvailable} />
+        <ConfRow label="Global" value={d.overall} strong />
+        <p className="pt-1 text-[12px] leading-snug text-ink-faint">
+          La sombra de los edificios es de precisión de calle; las nubes (satélite y previsión) tienen
+          una resolución de kilómetros: indican la luz de la zona, no la de este rincón exacto.
+        </p>
+      </div>
+
+          <div className="fts-fade-in mt-3 space-y-2">
+            {result.scoreDetail.components.map((c) => (
+              <div key={c.key} className="flex items-center gap-2.5 text-[12.5px] text-ink-soft">
+                <span className="w-[116px] shrink-0">{c.label}</span>
+                <span className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
+                  <i className="block h-full rounded-full bg-sun/80" style={{ width: `${Math.round(c.value * 100)}%` }} />
+                </span>
+                <span className="w-[60px] shrink-0 text-right tabular-nums text-ink-faint">
+                  {Math.round(c.weight * 100)} % · +{c.contribution.toFixed(0)}
+                </span>
+              </div>
+            ))}
+            {result.scoreDetail.adjustments.map((a) => (
+              <div key={a.key} className="flex justify-between text-[12.5px] text-ink-soft">
+                <span>{a.label}</span>
+                <span className="tabular-nums text-ink-faint">
+                  {a.delta > 0 ? "+" : "−"}
+                  {Math.abs(a.delta).toFixed(1)}
+                </span>
+              </div>
+            ))}
+            <p className="border-t border-line pt-2 text-[12px] leading-snug text-ink-faint">
+              Orden de los resultados: Sun Score {R.score}
+              {R.confidenceAdjustment !== 0 && ` · confianza ${R.confidenceAdjustment.toFixed(1)}`}
+              {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`}
+              {!!R.placeAdjustment && ` · terraza sin confirmar ${R.placeAdjustment.toFixed(1)}`} ={" "}
+              {R.value.toFixed(1)}. Un resultado de confianza baja no gana a otro casi igual de confianza
+              alta.
+            </p>
+          </div>
+          </div>
+        )}
       </div>
     </section>
   );

@@ -15,9 +15,12 @@ interface Props {
   busy?: boolean;
   onNearby(mode: SunShadeMode): void;
   onMyPoint?(): void;
-  onHide(): void;
+  /** Sin `onHide` no se muestra el botón de ocultar. */
+  onHide?(): void;
   /** Móvil: ancho completo. */
   compact?: boolean;
+  /** Dentro de otro panel (Ahora en escritorio): sin vidrio propio y a todo el ancho. */
+  inline?: boolean;
 }
 
 const ACTION: Record<SunShadeMode, { label: string; short: string; glyph: "sun" | "shade" }> = {
@@ -41,6 +44,7 @@ export default function AnswerCard({
   onMyPoint,
   onHide,
   compact,
+  inline,
 }: Props) {
   const order: SunShadeMode[] = mode === "shade" ? ["shade", "sun"] : ["sun", "shade"];
   const night = answer.state === "night";
@@ -49,21 +53,28 @@ export default function AnswerCard({
     <section
       aria-label="Ahora"
       className={cn(
-        "fts-glass fts-pop-in pointer-events-auto rounded-[22px] p-4",
-        // En móvil deja libre la columna de controles del mapa (derecha).
-        compact ? "w-[calc(100vw-5rem)] max-w-[420px]" : "w-[336px]"
+        "pointer-events-auto rounded-[22px]",
+        inline
+          ? "w-full bg-ink/[0.035] p-4"
+          : cn(
+              "fts-glass fts-pop-in p-4",
+              // En móvil deja libre la columna de controles del mapa (derecha).
+              compact ? "w-[calc(100vw-5rem)] max-w-[420px]" : "w-[336px]"
+            )
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className={cn("flex items-start justify-between gap-2", !onHide && "mb-2")}>
         <p className="fts-caps !text-[12px]">{timeLabel}</p>
-        <button
-          type="button"
-          onClick={onHide}
-          aria-label="Ocultar la tarjeta"
-          className="-mr-2.5 -mt-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
-        >
-          <CloseIcon />
-        </button>
+        {onHide && (
+          <button
+            type="button"
+            onClick={onHide}
+            aria-label="Ocultar la tarjeta"
+            className="-mr-2.5 -mt-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
+          >
+            <CloseIcon />
+          </button>
+        )}
       </div>
 
       <div className="-mt-1 flex items-start gap-3">

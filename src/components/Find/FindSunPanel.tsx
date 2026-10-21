@@ -228,7 +228,7 @@ export default function FindSunPanel({
 
         <div className="pt-1">
           <PrimaryButton onClick={() => onSearch()} className="w-full justify-center" disabled={venuesLoading}>
-            {venuesLoading ? "Cargando terrazas…" : "Buscar sol/sombra"}
+            {venuesLoading ? "Cargando terrazas…" : planner.intent === "shade" ? "Buscar sombra" : "Buscar sol"}
           </PrimaryButton>
         </div>
         {option.id === "coffee" && (
