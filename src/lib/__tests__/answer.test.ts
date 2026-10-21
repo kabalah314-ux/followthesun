@@ -89,6 +89,11 @@ describe("describeCity", () => {
   it("modo sombra y nubes", () => {
     const shade = describeCity({ time: at(12, 0), sunrise: at(8, 11), sunset: at(19, 3), sunPercent: 62, shadePercent: 38, mode: "shade", clock });
     expect(shade.headline).toBe("Sombra en el 38 % de las calles que ves");
+    const pending = describeCity({ time: at(12, 0), sunrise: at(8, 11), sunset: at(19, 3), sunPercent: 0, shadePercent: 0, clock });
+    expect(pending.headline).toBe("Calculando dónde da el sol…");
+    const shady = describeCity({ time: at(18, 30), sunrise: at(8, 11), sunset: at(19, 3), sunPercent: 4, shadePercent: 96, clock });
+    expect(shady.headline).toBe("Casi todo está a la sombra ahora");
+    expect(shady.state).toBe("shade");
     const cloudy = describeCity({ time: at(12, 0), sunrise: at(8, 11), sunset: at(19, 3), cloudPercent: 80, clock });
     expect(cloudy.headline).toBe("Las nubes tapan casi todo el sol");
   });

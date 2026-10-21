@@ -192,12 +192,25 @@ export function describeCity(input: CityAnswerInput): SunAnswer {
   if (input.cloudPercent != null && input.cloudPercent >= 65) {
     return { state: "cloud", headline: "Las nubes tapan casi todo el sol", detail, remainingMs: null };
   }
+  // Sin muestras todavía (el mapa acaba de cargar o se está recalculando la hora): sol y sombra a 0.
+  const sampled = (input.sunPercent ?? 0) + (input.shadePercent ?? 0) > 0;
+  if (!sampled && (input.sunPercent != null || input.shadePercent != null)) {
+    return { state: "sun", headline: "Calculando dónde da el sol…", detail, remainingMs: null };
+  }
   if (shadeMode) {
     const shade = input.shadePercent ?? (input.sunPercent != null ? 100 - input.sunPercent : null);
     return {
       state: "shade",
       headline: shade != null ? `Sombra en el ${round(shade)} % de las calles que ves` : "Hace calor: busca la sombra",
       detail,
+      remainingMs: null,
+    };
+  }
+  if (input.sunPercent != null && input.sunPercent < 10) {
+    return {
+      state: "shade",
+      headline: "Casi todo está a la sombra ahora",
+      detail: `Sol directo en el ${round(input.sunPercent)} % de las calles que ves · ${detail}`,
       remainingMs: null,
     };
   }
