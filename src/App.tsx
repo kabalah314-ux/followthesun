@@ -516,6 +516,8 @@ export default function App() {
     async (ref: PlaceLinkRef) => {
       const place = await resolvePlaceRef(ref);
       if (!place) return false;
+      // Se vuela al lugar en cuanto se conoce; la ficha se abre cuando termina su análisis.
+      mapController.current?.flyToPoint(place.longitude, place.latitude, 16);
       const summary = await getPlaceSunSummaryCached(place).catch(() => null);
       if (!summary?.result || !summary.request) return false;
       openResult(summary.result, summary.request, [summary.result]);

@@ -38,6 +38,8 @@ export function useDeepLink(o: Options) {
     if (link.view) opts.current.flyTo(link.view.lng, link.view.lat, link.view.zoom);
     if (link.place) {
       restoring.current = true;
+      // La hora del enlace se aplica ya: el análisis del lugar puede tardar unos segundos.
+      if (link.time != null) opts.current.showTimeAt(link.time);
       void opts.current
         .openPlace(link.place)
         .catch(() => false)
