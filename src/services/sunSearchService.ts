@@ -40,8 +40,10 @@ import {
   calculateRankingValue,
   calculateSunScore,
   compareResults,
+  terraceRankingAdjustment,
   type ReasonSubject,
 } from "./sunScoreService";
+import { venueService, withResolvedName } from "./venueService";
 import { sunlightService, type SpotShadow, type WeatherSeries } from "./sunlightService";
 import { startOfZoneDay } from "./timeService";
 import { urbanGeometryService, type UrbanGeometry } from "./urbanGeometryService";
@@ -130,11 +132,14 @@ export function selectCandidates(places: SunPlace[], req: NormalizedSunRequest):
   const types = new Set(allowedTypes(req));
   const origin = req.origin ?? null;
   const limit = req.maximumWalkingMinutes;
-  const out: Array<Candidate & { sort: number }> = [];
+  const out: Array<Candidate & { sort: number; priority: number }> = [];
 
   for (const place of places) {
     if (!types.has(place.type)) continue;
     let walkingMinutes: number | undefined;
+    // A igual distancia (o tamaño), primero lo más fiable: terraza con licencia > confirmada > probable.
+    const rank = place.metadata?.terraceRank;
+    const priority = typeof rank === "number" ? -rank : 0;
     if (origin) {
       const straight = distanceMeters(origin.lng, origin.lat, place.longitude, place.latitude);
       // En un parque grande ya se está «dentro» a una distancia menor que la del centro.
@@ -146,10 +151,11 @@ export function selectCandidates(places: SunPlace[], req: NormalizedSunRequest):
       place,
       walkingMinutes,
       sort: origin ? (walkingMinutes ?? 0) : -(place.areaM2 ?? 0),
+      priority,
     });
   }
 
-  out.sort((a, b) => a.sort - b.sort);
+  out.sort((a, b) => a.sort - b.sort || a.priority - b.priority);
   return out.slice(0, S.maxCandidates).map((e) => ({ place: e.place, walkingMinutes: e.walkingMinutes }));
 }
 
@@ -517,7 +523,12 @@ export async function findBestSunPlaces(
     });
 
     const overall = m.meanConfidence;
-    const rankingDetail = calculateRankingValue(scoreDetail.score, overall, walking?.durationMinutes);
+    const rankingDetail = calculateRankingValue(
+      scoreDetail.score,
+      overall,
+      walking?.durationMinutes,
+      terraceRankingAdjustment(place)
+    );
 
     drafts.push({
       placeId: place.id,
@@ -593,8 +604,8 @@ export async function findBestSunPlaces(
     }));
   };
 
-  const results = pick(full);
-  const bestAvailable = results.length === 0 ? pick(useful) : [];
+  const results = await nameLicensedTerraces(pick(full));
+  const bestAvailable = results.length === 0 ? await nameLicensedTerraces(pick(useful)) : [];
   check(signal);
   report("ranking", 1, 1, true);
 
@@ -629,6 +640,34 @@ export async function findBestSunPlaces(
     reason = req.intent === "shade" ? "none" : open < S.minUsefulSunFraction * D ? "clouds" : "shade";
   }
   return outcome("no_results", { bestAvailable, noSunReason: reason, ...meta });
+}
+
+/**
+ * Las terrazas con licencia municipal sin local identificado se llaman «Terraza autorizada ·
+ * dirección». Para los pocos resultados que se enseñan se busca el nombre del local en OSM; si no
+ * se encuentra o la red falla, se quedan como están (nunca se inventa un nombre).
+ */
+const TERRACE_NAME_WAIT_MS = 4500;
+
+async function nameLicensedTerraces(list: SunSearchResult[]): Promise<SunSearchResult[]> {
+  const unnamed = list.filter((r) => r.place.metadata?.licensed && r.place.metadata?.named === false);
+  if (unnamed.length === 0) return list;
+  try {
+    // Si Overpass tarda, los resultados salen ya; lo que llegue después queda guardado para otra vez.
+    const names = await Promise.race([
+      venueService.resolveTerraceNames(unnamed.map((r) => r.place)),
+      new Promise<Awaited<ReturnType<typeof venueService.resolveTerraceNames>>>((resolve) =>
+        setTimeout(() => resolve(new Map()), TERRACE_NAME_WAIT_MS)
+      ),
+    ]);
+    if (names.size === 0) return list;
+    return list.map((r) => {
+      const found = names.get(r.placeId);
+      return found ? { ...r, place: withResolvedName(r.place, found) } : r;
+    });
+  } catch {
+    return list;
+  }
 }
 
 export const sunSearchService = {

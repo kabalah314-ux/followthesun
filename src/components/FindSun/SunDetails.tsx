@@ -17,6 +17,7 @@ import type {
   TerraceCertainty,
   VenueCategory,
 } from "../../types";
+import { licenseSummary, type TerraceLicenseInfo } from "../../services/openData/terraceMatching";
 import { cn } from "../../utils/cn";
 import { CloseIcon } from "../Icons";
 import { Caps, ConfidenceBars } from "./ui";
@@ -208,8 +209,10 @@ export default function SunDetails({
   /* Negocios: certeza de terraza + feedback de la persona. */
   const isVenue = meta.venue === true;
   const terrace = meta.terrace as TerraceCertainty | undefined;
-  const terraceNote =
-    terrace === "confirmed"
+  const license = (meta.licensed ?? null) as TerraceLicenseInfo | null;
+  const terraceNote = license
+    ? `${licenseSummary(license)} Se calcula el sol del punto de la licencia y de un anillo a su alrededor.`
+    : terrace === "confirmed"
       ? "Terraza confirmada en OpenStreetMap: se calcula el sol del local y de un anillo a su alrededor, porque no se sabe dónde están las mesas."
       : terrace === "likely"
         ? "Candidato: el local está en planta baja, pero nadie ha confirmado que saque mesas a la calle. Compruébalo y dínoslo."
@@ -397,7 +400,8 @@ export default function SunDetails({
             <p className="border-t border-line pt-2 text-[12px] leading-snug text-ink-faint">
               Orden de los resultados: Sun Score {R.score}
               {R.confidenceAdjustment !== 0 && ` · confianza ${R.confidenceAdjustment.toFixed(1)}`}
-              {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`} ={" "}
+              {R.distanceAdjustment !== 0 && ` · distancia ${R.distanceAdjustment.toFixed(1)}`}
+              {!!R.placeAdjustment && ` · terraza sin confirmar ${R.placeAdjustment.toFixed(1)}`} ={" "}
               {R.value.toFixed(1)}. Un resultado de confianza baja no gana a otro casi igual de confianza
               alta.
             </p>
