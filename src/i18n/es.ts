@@ -714,6 +714,7 @@ export const es = {
   "route.min_de_sombra": "{p0} min de sombra",
   "route.minutos": "{p0} min",
   "route.nota": "Sombra de los edificios a la hora a la que pasas por cada tramo. Rutas:",
+  "route.nota_arboles": "Sombra de los edificios y de los árboles a la hora a la que pasas por cada tramo. Rutas:",
   "route.paseos_de_como_mucho": "Paseos de como mucho",
   "route.pct_sol": "{p0} % al sol",
   "route.pct_sombra": "{p0} % a la sombra",

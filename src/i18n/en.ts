@@ -716,6 +716,7 @@ export const en: Record<MessageKey, string> = {
   "route.min_de_sombra": "{p0} min of shade",
   "route.minutos": "{p0} min",
   "route.nota": "Building shade at the time you pass each stretch. Routes:",
+  "route.nota_arboles": "Shade from buildings and trees at the time you pass each stretch. Routes:",
   "route.paseos_de_como_mucho": "Walks of at most",
   "route.pct_sol": "{p0}% in the sun",
   "route.pct_sombra": "{p0}% in the shade",

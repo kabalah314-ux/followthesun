@@ -108,7 +108,7 @@ export default function RouteBlock({
             })}
           </ul>
           <p className="mt-1.5 text-[12px] leading-snug text-ink-faint">
-            {tr("route.nota")} {WALK_ROUTE_ATTRIBUTION}
+            {tr(mine.trees ? "route.nota_arboles" : "route.nota")} {WALK_ROUTE_ATTRIBUTION}
           </p>
         </>
       )}

@@ -3,7 +3,10 @@ import { LIGHT_MODEL_CONFIG, SEARCH_CONFIG } from "../config";
 import type { SunShadeMode } from "../lib/answer";
 import { routeWaypoints, sampleLine, shadeSegments, summarizeShade } from "../lib/routeShade";
 import type { LngLatPair } from "../lib/terraceShape";
-import { createShadowEvaluator } from "../services/shadowService";
+import { createTreeShadeTester } from "../graphics/trees/treeShade";
+import { treeStore } from "../graphics/trees/treeStore";
+import { leafDensities } from "../graphics/trees/treeTiles";
+import { TREE_SHADE_THRESHOLD, createShadowEvaluator } from "../services/shadowService";
 import { solarService } from "../services/solarService";
 import { urbanGeometryService } from "../services/urbanGeometryService";
 import { walkRoutes } from "../services/walkRouteService";
@@ -34,9 +37,11 @@ export interface ShadeRouteState {
   to: LngLat | null;
   routes: ShadeRoute[];
   best: number;
+  /** Se contó la sombra de los árboles (hay datos de arbolado en la zona). */
+  trees: boolean;
 }
 
-const IDLE: ShadeRouteState = { status: "idle", placeId: null, mode: "shade", departure: 0, from: null, to: null, routes: [], best: 0 };
+const IDLE: ShadeRouteState = { status: "idle", placeId: null, mode: "shade", departure: 0, from: null, to: null, routes: [], best: 0, trees: false };
 const SPEED_M_PER_MIN = SEARCH_CONFIG.walking.speedMetersPerMinute;
 const tick = () => new Promise<void>((r) => setTimeout(r, 0));
 
@@ -61,6 +66,16 @@ export function useShadeRoute() {
       const points = sampled.flat().filter((_, i) => i % 6 === 0).map((s) => ({ lng: s.lng, lat: s.lat }));
       const geo = await urbanGeometryService.load(points, SEARCH_CONFIG.shadowRadiusM);
       if (id !== run.current) return;
+      // Árboles de la calle (si ya hay datos de arbolado): en Barcelona dan buena parte de la sombra.
+      const all = raw.flatMap((r) => r.coords);
+      const lngs = all.map((c) => c[0]);
+      const lats = all.map((c) => c[1]);
+      const bounds = { west: Math.min(...lngs) - 0.001, east: Math.max(...lngs) + 0.001, south: Math.min(...lats) - 0.001, north: Math.max(...lats) + 0.001 };
+      const trees = await treeStore
+        .batchFor(bounds, { lng: (bounds.west + bounds.east) / 2, lat: (bounds.south + bounds.north) / 2 }, 120_000)
+        .catch(() => null);
+      if (id !== run.current) return;
+      const leaf = leafDensities(new Date(departure));
       const minutesOf = (m: number) => Math.max(1, Math.round(m / SPEED_M_PER_MIN));
       const shortest = Math.min(...raw.map((r) => minutesOf(r.distanceM)));
       const sunAtStart = solarService.getPosition(departure, from.lat, from.lng);
@@ -76,7 +91,8 @@ export function useShadeRoute() {
           const sun = solarService.getPosition(t, s.lat, s.lng);
           if (sun.altitudeDeg < LIGHT_MODEL_CONFIG.MIN_SUN_ELEVATION_DEG) return true;
           const r = createShadowEvaluator({ latitude: s.lat, longitude: s.lng, buildings: geo.buildings }).evaluate(sun);
-          return r.urbanShadow || r.terrainShadow;
+          if (r.urbanShadow || r.terrainShadow) return true;
+          return trees ? createTreeShadeTester(trees, s.lng, s.lat, 40).shadeAt(sun.azimuth, sun.altitude, leaf) >= TREE_SHADE_THRESHOLD : false;
         });
         const sum = summarizeShade(samples, shaded);
         const minutes = minutesOf(raw[k].distanceM);
@@ -98,7 +114,7 @@ export function useShadeRoute() {
         const b = routes[best];
         if (score(r) > score(b) + 2 || (Math.abs(score(r) - score(b)) <= 2 && r.minutes < b.minutes)) best = i;
       });
-      setState({ ...IDLE, ...base, status: "ready", routes, best });
+      setState({ ...IDLE, ...base, status: "ready", routes, best, trees: !!trees && trees.count > 0 });
     } catch {
       if (id === run.current) setState({ ...IDLE, ...base, status: "error" });
     }

@@ -716,6 +716,7 @@ export const ca: Record<MessageKey, string> = {
   "route.min_de_sombra": "{p0} min d'ombra",
   "route.minutos": "{p0} min",
   "route.nota": "Ombra dels edificis a l'hora que passes per cada tram. Rutes:",
+  "route.nota_arboles": "Ombra dels edificis i dels arbres a l'hora que passes per cada tram. Rutes:",
   "route.paseos_de_como_mucho": "Passejades de com a molt",
   "route.pct_sol": "{p0} % al sol",
   "route.pct_sombra": "{p0} % a l'ombra",
