@@ -19,6 +19,7 @@ import WindowStrip from "../FindSun/WindowStrip";
 import AffiliateSlot from "./AffiliateSlot";
 import CompareBlock from "./CompareBlock";
 import HowWeKnow from "./HowWeKnow";
+import OwnerBlock from "./OwnerBlock";
 import PhotoLightBlock from "./PhotoLightBlock";
 import TerraceBlock from "./TerraceBlock";
 import { tr, trPlural } from "../../i18n";
@@ -349,6 +350,8 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
       />
 
       {result && <HowWeKnow result={result} />}
+
+      <OwnerBlock place={place} />
     </div>
   );
 }

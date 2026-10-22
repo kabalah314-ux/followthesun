@@ -479,6 +479,13 @@ export const es = {
   "nearbyStrip.mas_sitios": "Más sitios →",
   "nearbyStrip.usar_mi_ubicacion": "Usar mi ubicación",
   "nowPanel.mas_sitios_y_otras_horas": "Más sitios y otras horas →",
+  "owner.codigo": "Código del widget",
+  "owner.copiado": "Copiado",
+  "owner.copiar": "Copiar código",
+  "owner.gratis": "Gratis y sin registro. Sin publicidad dentro del widget.",
+  "owner.texto": "Pon en tu web el sol de hoy de tu terraza; se actualiza solo cada día. Copia este código:",
+  "owner.titulo": "¿Es tu local?",
+  "owner.ver": "Ver el widget",
   "photo.aqui_despejado": "Sin edificios delante del sol: {p0} (si las nubes lo permiten)",
   "photo.aqui_despejado_nubes": "Sin edificios delante del sol ({p0}), pero se esperan nubes",
   "photo.aqui_edificios": "Aquí la tapan los edificios: luz suave, sin sombras duras",
@@ -1013,6 +1020,12 @@ export const es = {
   "why.min_a_pie": "{p0} min a pie",
   "why.terraza_con_mesa_one": "terraza con {n} mesa",
   "why.terraza_con_mesas_other": "terraza con {n} mesas",
+  "widget.hoy": "Sol hoy",
+  "widget.manana": "Sol mañana",
+  "widget.no_encontrado": "No encontramos este sitio.",
+  "widget.sin_sol": "Sin sol directo en todo el día",
+  "widget.sol": "Sol directo: {p0}",
+  "widget.total": "{p0} de sol",
 } as const;
 
 export type MessageKey = keyof typeof es;

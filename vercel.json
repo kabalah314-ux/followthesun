@@ -2,7 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!assets/|_vercel/|data/).*)", "destination": "/index.html" }],
+  "rewrites": [
+    { "source": "/widget/:path*", "destination": "/widget.html" },
+    { "source": "/((?!assets/|_vercel/|data/|widget\\.html).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/data/(.*)",

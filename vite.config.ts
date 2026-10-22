@@ -16,6 +16,17 @@ const singleFile = process.env.SINGLE_FILE === "1";
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), ...(singleFile ? [viteSingleFile()] : [])],
+  // Dos páginas: la app y el widget «Sol de hoy» para webs de locales (sin mapa).
+  build: singleFile
+    ? undefined
+    : {
+        rollupOptions: {
+          input: {
+            main: path.resolve(__dirname, "index.html"),
+            widget: path.resolve(__dirname, "widget.html"),
+          },
+        },
+      },
   server: { host: "0.0.0.0", port: 3000, allowedHosts: true },
   preview: { host: "0.0.0.0", port: 3000, allowedHosts: true },
   resolve: {
