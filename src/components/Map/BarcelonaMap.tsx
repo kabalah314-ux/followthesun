@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { BUILDINGS_3D, CITY_BOUNDS, FEATURES, MAP_CONFIG } from "../../config";
+import { BUILDINGS_3D, CITY_BOUNDS, FEATURES, GRAPHICS, MAP_CONFIG } from "../../config";
+import { cinematicCamera, extraInsets, fitInsets, insetsOffset, type CinematicOptions } from "../../graphics/cinematic";
+import { qualityApi } from "../../graphics/quality";
 import { easeOutCubic } from "../../lib/coordinates";
 import { preferences } from "../../lib/preferences";
 import {
@@ -41,6 +43,17 @@ export interface MapController {
   fitPoints(points: LngLat[]): void;
   /** Zonas del mapa tapadas por la interfaz: encuadres y vuelos las respetan. */
   setInsets(insets: MapInsets): void;
+  /**
+   * Vuelo «de cine» a un lugar: inclinado (60°) y de espaldas al sol (rumbo = azimut solar + 180°),
+   * así se ven de frente las fachadas iluminadas. Respeta lo que tapa la interfaz.
+   */
+  flyToCinematic(lng: number, lat: number, opts: CinematicOptions): void;
+  /**
+   * Aplica los márgenes como `padding` del mapa: también se desplaza el punto de fuga en 3D (la
+   * perspectiva queda centrada en la parte visible). Coherente con `setInsets`: lo que ya cubre el
+   * padding no se vuelve a desplazar en vuelos ni encuadres.
+   */
+  setPadding(insets: MapInsets, opts?: { animate?: boolean }): void;
 }
 
 export interface MapInsets {
@@ -80,11 +93,12 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
   const [map, setMap] = useState<MapLike | null>(null);
   const [revealed, setRevealed] = useState(false);
   const insetsRef = useRef<MapInsets>({ top: 0, right: 0, bottom: 0, left: 0 });
+  /** Márgenes ya aplicados como `padding` del mapa (ver `setPadding`). */
+  const paddingRef = useRef<MapInsets>({ top: 0, right: 0, bottom: 0, left: 0 });
+  /** Lo que la interfaz tapa y el padding del mapa aún no cubre. */
+  const extra = () => extraInsets(insetsRef.current, paddingRef.current);
   /** Desplazamiento que centra un punto en la parte VISIBLE del mapa. */
-  const visibleOffset = (): [number, number] => {
-    const i = insetsRef.current;
-    return [(i.left - i.right) / 2, (i.top - i.bottom) / 2];
-  };
+  const visibleOffset = (): [number, number] => insetsOffset(extraInsets(insetsRef.current, paddingRef.current));
 
   /* ------------------------------ proveedor bajo demanda ------------------------------ */
   useEffect(() => {
@@ -285,19 +299,32 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
       // cenital. Si la persona inclina o reorienta el mapa a mano, manda ella (hasta volver a alejarse).
       let tiltArmed = true;
       let autoTilted = false;
+      /** El rumbo actual viene de un vuelo de cine (no de la persona): se endereza al alejarse. */
+      let cinematicBearing = false;
       created.on("pitchstart", (e: { originalEvent?: unknown }) => {
         if (e?.originalEvent) {
           tiltArmed = false;
           autoTilted = false;
         }
       });
+      created.on("rotatestart", (e: { originalEvent?: unknown }) => {
+        if (e?.originalEvent) cinematicBearing = false;
+      });
       created.on("moveend", () => {
         if (disposed || !propsRef.current.autoTilt) return;
         const z = created.getZoom();
         const pitch = created.getPitch();
         if (z < BUILDINGS_3D.autoTiltResetZoom) {
-          if (autoTilted && pitch > 1) created.easeTo({ pitch: 0, duration: 800, easing: easeOutCubic });
+          if (autoTilted && pitch > 1) {
+            created.easeTo({
+              pitch: 0,
+              ...(cinematicBearing ? { bearing: 0 } : {}),
+              duration: 800,
+              easing: easeOutCubic,
+            });
+          }
           autoTilted = false;
+          cinematicBearing = false;
           tiltArmed = true;
           return;
         }
@@ -308,7 +335,33 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
         }
       });
 
-      /* 7 · Controlador para la interfaz. */
+      /* 7 · Calidad gráfica: nitidez (pixel ratio) y zoom máximo; aviso si baja sola. */
+      const applyQuality = () => {
+        const s = qualityApi.get().settings;
+        try {
+          const dpr = window.devicePixelRatio || 1;
+          const want = dpr > s.maxPixelRatio ? s.maxPixelRatio : null;
+          const current = created.getPixelRatio?.();
+          if (want === null ? current !== dpr : current !== want) created.setPixelRatio?.(want);
+          if (created.getMaxZoom?.() !== s.maxZoom) created.setMaxZoom?.(s.maxZoom);
+        } catch {
+          /* proveedor sin estos ajustes */
+        }
+      };
+      applyQuality();
+      let seenDowngrades = qualityApi.get().downgrades;
+      cleanups.push(
+        qualityApi.subscribe((q) => {
+          if (disposed) return;
+          applyQuality();
+          if (q.downgrades > seenDowngrades) {
+            seenDowngrades = q.downgrades;
+            propsRef.current.onToast(tr("barcelonaMap.calidad_grafica_reducida_para"));
+          }
+        })
+      );
+
+      /* 8 · Controlador para la interfaz. */
       propsRef.current.onReady({
         zoomIn: () => created.zoomIn({ duration: 350 }),
         zoomOut: () => created.zoomOut({ duration: 350 }),
@@ -346,8 +399,9 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
             ],
             {
               padding: (() => {
-                // Lo que tapa la interfaz + margen, sin dejar menos de 120 px de mapa útil.
-                const i = insetsRef.current;
+                // Lo que tapa la interfaz (y el padding del mapa no cubre) + margen, sin dejar
+                // menos de 120 px de mapa útil.
+                const i = extra();
                 const W = container.clientWidth;
                 const H = container.clientHeight;
                 const sx = Math.min(1, Math.max(0, W - 120) / Math.max(1, i.left + i.right + 96));
@@ -367,6 +421,39 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
         },
         setInsets: (insets) => {
           insetsRef.current = insets;
+        },
+        setPadding: (insets, opts) => {
+          insetsRef.current = insets;
+          const fitted = fitInsets(insets, container.clientWidth, container.clientHeight);
+          paddingRef.current = fitted;
+          try {
+            if (opts?.animate === false) created.setPadding?.(fitted);
+            else created.easeTo({ padding: fitted, duration: 450, easing: easeOutCubic });
+          } catch {
+            /* proveedor sin padding: quedan los desplazamientos de `setInsets` */
+            paddingRef.current = { top: 0, right: 0, bottom: 0, left: 0 };
+          }
+        },
+        flyToCinematic: (lng, lat, opts) => {
+          const cam = cinematicCamera(opts, created.getZoom(), {
+            maxPitch: MAP_CONFIG.maxPitch,
+            maxZoom: created.getMaxZoom?.() ?? MAP_CONFIG.maxZoom,
+          });
+          // Cuenta como inclinación automática: al alejarse vuelve a la vista cenital y al norte.
+          tiltArmed = false;
+          autoTilted = true;
+          cinematicBearing = true;
+          created.flyTo({
+            center: [lng, lat],
+            zoom: cam.zoom,
+            pitch: cam.pitch,
+            bearing: cam.bearing,
+            offset: visibleOffset(),
+            duration: GRAPHICS.cinematic.durationMs,
+            curve: 1.42,
+            // Decorativo: con «reducir movimiento» se salta directamente.
+            essential: false,
+          });
         },
         locate: async () => {
           try {
@@ -443,7 +530,7 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
     if (map) provider?.applyTheme(map, theme);
   }, [map, provider, theme]);
 
-  const context = useMemo(() => ({ map, provider }), [map, provider]);
+  const context = useMemo(() => ({ map, provider, theme }), [map, provider, theme]);
 
   return (
     <MapContext.Provider value={context}>
