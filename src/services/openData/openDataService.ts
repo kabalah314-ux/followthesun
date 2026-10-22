@@ -3,6 +3,7 @@ import type { SunPlace } from "../../types";
 import { isFreshStatic, loadStatic, type OpenDataSectionKey } from "../staticData";
 import {
   datastoreSearch,
+  datastoreSearchOnce,
   datastoreSql,
   fetchText,
   newestResource,
@@ -72,13 +73,6 @@ async function resourcesOf(slug: string): Promise<CkanResource[]> {
   return packageResources(slug);
 }
 
-async function newestCsvRows(slug: string) {
-  const resources = await resourcesOf(slug);
-  const csv = newestResource(resources, "csv");
-  if (!csv) throw new Error(`Open Data BCN: «${slug}» sin CSV`);
-  return csvToObjects(await fetchText(csv.url));
-}
-
 /** Fila con las claves en mayúsculas y los valores como texto (el datastore devuelve números). */
 export function normalizeRow(r: Record<string, unknown>): CsvRow {
   const out: CsvRow = {};
@@ -92,32 +86,38 @@ export function normalizeRow(r: Record<string, unknown>): CsvRow {
 const hasColumns = (row: CsvRow | undefined, required: readonly string[]) => !!row && required.every((c) => c in row);
 
 /**
- * Filas de un conjunto tabular: primero del datastore (JSON paginado; es lo que responde bien desde
- * el ETL) con solo las columnas necesarias, y si no, del CSV más reciente. Si ninguna fuente trae
- * las columnas esperadas, falla con lo que se vio (para el registro del ETL) en lugar de dar 0 filas.
+ * Filas de un conjunto tabular: primero el CSV más reciente (lo de siempre, rápido) y, si no trae
+ * las columnas esperadas, el datastore (JSON paginado) con un tiempo máximo y sin reintentos para
+ * no atascar el ETL. Si ninguna fuente sirve, falla con lo que vio (para el registro del ETL) en
+ * lugar de dar 0 filas.
  */
 async function tabularRows(slug: string, required: readonly string[], wanted: readonly string[]): Promise<CsvRow[]> {
   const seen: string[] = [];
   try {
+    const resources = await resourcesOf(slug);
+    const csv = newestResource(resources, "csv");
+    if (!csv) throw new Error("sin CSV");
+    const text = await fetchText(csv.url);
+    const rows = csvToObjects(text).map((r) => normalizeRow(r));
+    if (rows.length > 0 && hasColumns(rows[0], required)) return rows;
+    const head = text.slice(0, 120).replace(/\s+/g, " ");
+    seen.push(`csv «${csv.name ?? csv.url}» ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 8).join(",")}] «${head}»`);
+  } catch (e) {
+    seen.push(`csv: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  try {
     const id = await datastoreIdOf(slug);
     let records: Array<Record<string, unknown>>;
     try {
-      records = await datastoreSearch<Record<string, unknown>>(id, wanted, { pageSize: 5000, maxRows: 60_000 });
+      records = await datastoreSearchOnce<Record<string, unknown>>(id, wanted, { pageSize: 2000, maxRows: 60_000 });
     } catch {
-      records = await datastoreSearch<Record<string, unknown>>(id, [], { pageSize: 5000, maxRows: 60_000 });
+      records = await datastoreSearchOnce<Record<string, unknown>>(id, [], { pageSize: 2000, maxRows: 60_000 });
     }
     const rows = records.map(normalizeRow);
     if (rows.length > 0 && hasColumns(rows[0], required)) return rows;
-    seen.push(`datastore ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 10).join(",")}]`);
+    seen.push(`datastore ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 8).join(",")}]`);
   } catch (e) {
     seen.push(`datastore: ${e instanceof Error ? e.message : String(e)}`);
-  }
-  try {
-    const rows = (await newestCsvRows(slug)).map((r) => normalizeRow(r));
-    if (rows.length > 0 && hasColumns(rows[0], required)) return rows;
-    seen.push(`csv ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 10).join(",").slice(0, 160)}]`);
-  } catch (e) {
-    seen.push(`csv: ${e instanceof Error ? e.message : String(e)}`);
   }
   throw new Error(`Open Data BCN: «${slug}» sin filas con ${required.join(", ")} (${seen.join(" · ")})`);
 }

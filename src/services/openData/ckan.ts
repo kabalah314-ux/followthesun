@@ -119,6 +119,34 @@ export async function datastoreSearch<T>(
   return out;
 }
 
+/**
+ * Como `datastoreSearch`, pero con un tiempo máximo por página y sin reintentos: para probar una
+ * fuente alternativa sin quedarse atascado (el ETL reintenta mucho y con esperas largas).
+ */
+export async function datastoreSearchOnce<T>(
+  resourceId: string,
+  fields: readonly string[],
+  opts: { pageSize?: number; maxRows?: number; timeoutMs?: number } = {}
+): Promise<T[]> {
+  const pageSize = opts.pageSize ?? 2000;
+  const maxRows = opts.maxRows ?? 20_000;
+  const timeoutMs = opts.timeoutMs ?? 45_000;
+  const out: T[] = [];
+  for (let offset = 0; offset < maxRows; offset += pageSize) {
+    const params: Record<string, string> = { resource_id: resourceId, limit: String(pageSize), offset: String(offset) };
+    if (fields.length > 0) params.fields = fields.join(",");
+    const url = `${C.apiBase}datastore_search?${new URLSearchParams(params).toString()}`;
+    const res = await fetchTimed(url, settings.headers ? { headers: settings.headers } : {}, timeoutMs);
+    const json = (await res.json()) as CkanEnvelope<{ records?: T[]; total?: number }>;
+    if (!json || json.success !== true) throw new Error("Open Data BCN: datastore_search sin éxito");
+    const records = json.result.records ?? [];
+    out.push(...records);
+    const total = typeof json.result.total === "number" ? json.result.total : out.length;
+    if (records.length < pageSize || out.length >= total) break;
+  }
+  return out;
+}
+
 export async function datastoreSql<T>(sql: string): Promise<T[]> {
   const result = await action<{ records?: T[] }>("datastore_search_sql", { sql });
   return result.records ?? [];
