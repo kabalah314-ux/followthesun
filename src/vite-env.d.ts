@@ -13,6 +13,8 @@ interface ImportMetaEnv {
   readonly VITE_OVERPASS_URL?: string;
   /** "hash" para servidores estáticos sin redirección de rutas a index.html (opcional). */
   readonly VITE_ROUTER_MODE?: string;
+  /** Token de cliente de Mapillary para fotos de calle y 360° en la ficha (opcional). */
+  readonly VITE_MAPILLARY_TOKEN?: string;
 }
 
 interface ImportMeta {
