@@ -98,7 +98,7 @@ export async function fetchText(url: string, timeoutMs = settings.timeoutMs): Pr
   return decodeBytes(new Uint8Array(await res.arrayBuffer()));
 }
 
-/** Todos los registros de un recurso del datastore, solo con `fields`, en páginas. */
+/** Todos los registros de un recurso del datastore, solo con `fields` (todos si va vacío), en páginas. */
 export async function datastoreSearch<T>(
   resourceId: string,
   fields: readonly string[],
@@ -108,12 +108,9 @@ export async function datastoreSearch<T>(
   const maxRows = opts.maxRows ?? 20_000;
   const out: T[] = [];
   for (let offset = 0; offset < maxRows; offset += pageSize) {
-    const page = await action<{ records?: T[]; total?: number }>("datastore_search", {
-      resource_id: resourceId,
-      fields: fields.join(","),
-      limit: String(pageSize),
-      offset: String(offset),
-    });
+    const params: Record<string, string> = { resource_id: resourceId, limit: String(pageSize), offset: String(offset) };
+    if (fields.length > 0) params.fields = fields.join(",");
+    const page = await action<{ records?: T[]; total?: number }>("datastore_search", params);
     const records = page.records ?? [];
     out.push(...records);
     const total = typeof page.total === "number" ? page.total : out.length;

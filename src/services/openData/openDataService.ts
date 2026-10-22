@@ -10,7 +10,7 @@ import {
   type CkanResource,
 } from "./ckan";
 import { OPEN_DATA_CONFIG as C } from "./config";
-import { csvToObjects } from "./csv";
+import { csvToObjects, type CsvRow } from "./csv";
 import {
   NASIA_FIELDS,
   PLAY_FIELDS,
@@ -79,6 +79,65 @@ async function newestCsvRows(slug: string) {
   return csvToObjects(await fetchText(csv.url));
 }
 
+/** Fila con las claves en mayúsculas y los valores como texto (el datastore devuelve números). */
+export function normalizeRow(r: Record<string, unknown>): CsvRow {
+  const out: CsvRow = {};
+  for (const [k, v] of Object.entries(r)) {
+    if (v === null || v === undefined) continue;
+    out[k.trim().toUpperCase()] = typeof v === "string" ? v : String(v);
+  }
+  return out;
+}
+
+const hasColumns = (row: CsvRow | undefined, required: readonly string[]) => !!row && required.every((c) => c in row);
+
+/**
+ * Filas de un conjunto tabular: primero del datastore (JSON paginado; es lo que responde bien desde
+ * el ETL) con solo las columnas necesarias, y si no, del CSV más reciente. Si ninguna fuente trae
+ * las columnas esperadas, falla con lo que se vio (para el registro del ETL) en lugar de dar 0 filas.
+ */
+async function tabularRows(slug: string, required: readonly string[], wanted: readonly string[]): Promise<CsvRow[]> {
+  const seen: string[] = [];
+  try {
+    const id = await datastoreIdOf(slug);
+    let records: Array<Record<string, unknown>>;
+    try {
+      records = await datastoreSearch<Record<string, unknown>>(id, wanted, { pageSize: 5000, maxRows: 60_000 });
+    } catch {
+      records = await datastoreSearch<Record<string, unknown>>(id, [], { pageSize: 5000, maxRows: 60_000 });
+    }
+    const rows = records.map(normalizeRow);
+    if (rows.length > 0 && hasColumns(rows[0], required)) return rows;
+    seen.push(`datastore ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 10).join(",")}]`);
+  } catch (e) {
+    seen.push(`datastore: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  try {
+    const rows = (await newestCsvRows(slug)).map((r) => normalizeRow(r));
+    if (rows.length > 0 && hasColumns(rows[0], required)) return rows;
+    seen.push(`csv ${rows.length} filas [${Object.keys(rows[0] ?? {}).slice(0, 10).join(",").slice(0, 160)}]`);
+  } catch (e) {
+    seen.push(`csv: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  throw new Error(`Open Data BCN: «${slug}» sin filas con ${required.join(", ")} (${seen.join(" · ")})`);
+}
+
+/** Columnas que usan `parseTerraces` y `parseFountains`. */
+export const TERRACE_COLUMNS = [
+  "EMPLACAMENT",
+  "NOM_BARRI",
+  "NOM_DISTRICTE",
+  "SUPERFICIE_OCUPADA",
+  "TAULES",
+  "CADIRES",
+  "TAULES_CALCADA",
+  "VIGENCIA",
+  "OCUPACIO",
+  "LATITUD",
+  "LONGITUD",
+] as const;
+export const FOUNTAIN_COLUMNS = ["CODI", "NOM", "CARRER", "NUMERO_CARRER", "NOM_BARRI", "LATITUD", "LONGITUD"] as const;
+
 async function datastoreIdOf(slug: string): Promise<string> {
   const resources = await resourcesOf(slug);
   const r = newestResource(resources, "csv", { datastore: true }) ?? resources.find((x) => x.datastore_active);
@@ -101,7 +160,7 @@ async function nasiaRecords(slug: string): Promise<NasiaRecord[]> {
 }
 
 const LOADERS: Record<OpenDataPlaceSet, () => Promise<SunPlace[]>> = {
-  fountains: async () => parseFountains(await newestCsvRows(C.datasets.fountains)),
+  fountains: async () => parseFountains(await tabularRows(C.datasets.fountains, ["LATITUD", "LONGITUD"], FOUNTAIN_COLUMNS)),
   shelters: async () => parseShelters(await nasiaRecords(C.datasets.shelters)),
   toilets: async () => parseToilets(await nasiaRecords(C.datasets.toilets)),
   viewpoints: async () => parseViewpoints(await nasiaRecords(C.datasets.viewpoints)),
@@ -142,7 +201,8 @@ async function staticThenLive<P, T>(key: OpenDataSectionKey, unpack: (p: P[]) =>
 
 /** Descarga directa de Open Data BCN, sin cachés (la usa el ETL de datos precalculados). */
 export const openDataLive = {
-  terraces: async (): Promise<LicensedTerrace[]> => parseTerraces(await newestCsvRows(C.datasets.terraces)),
+  terraces: async (): Promise<LicensedTerrace[]> =>
+    parseTerraces(await tabularRows(C.datasets.terraces, ["LATITUD", "LONGITUD", "EMPLACAMENT"], TERRACE_COLUMNS)),
   places: LOADERS,
 };
 
