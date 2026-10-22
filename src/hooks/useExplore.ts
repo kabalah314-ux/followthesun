@@ -16,6 +16,7 @@ import { tasteFactor } from "../lib/taste";
 import { placeService } from "../services/placeService";
 import { solarService } from "../services/solarService";
 import { tasteStore } from "../services/tasteService";
+import { loadBenches } from "../services/benchService";
 import { venueService, venueToSunPlace } from "../services/venueService";
 import type { LngLat, SunPlace, SunPlaceType, SunSearchOutcome, SunSearchResult } from "../types";
 import type { SunShadeMode } from "../lib/answer";
@@ -124,6 +125,9 @@ export function useExplore(o: Options): ExploreState {
             const others: SunPlaceType[] = (c.spec.types ?? []).filter((t) => t !== "terrace");
             const extra = others.length ? ((await placeService.load().catch(() => null))?.places ?? []).filter((p) => others.includes(p.type)) : [];
             places = [...venuePlaces, ...extra];
+          } else if (c.spec.benches) {
+            // Bancos: se descargan aparte (solo al buscarlos).
+            places = await loadBenches().catch(() => []);
           } else if (needsFilter) {
             places = (await placeService.load().catch(() => null))?.places;
           }

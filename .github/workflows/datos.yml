@@ -46,8 +46,17 @@ jobs:
           osmium export "$RUNNER_TEMP/venues.osm.pbf" -f geojsonseq -a type,id -o "$RUNNER_TEMP/venues.geojsonseq" --overwrite
           wc -l "$RUNNER_TEMP/venues.geojsonseq"
           echo "VENUES_GEOJSONSEQ=$RUNNER_TEMP/venues.geojsonseq" >> "$GITHUB_ENV"
+          # Bancos de la calle (utilidad «Banco al sol o a la sombra»).
+          osmium tags-filter "$RUNNER_TEMP/cataluna.osm.pbf" n/amenity=bench -o "$RUNNER_TEMP/benches.osm.pbf" --overwrite
+          osmium export "$RUNNER_TEMP/benches.osm.pbf" -f geojsonseq -a type,id -o "$RUNNER_TEMP/benches.geojsonseq" --overwrite
+          wc -l "$RUNNER_TEMP/benches.geojsonseq"
+          echo "BENCHES_GEOJSONSEQ=$RUNNER_TEMP/benches.geojsonseq" >> "$GITHUB_ENV"
       - name: Generar inventario
         run: npx vite-node scripts/etl/build-inventory.ts
+      - name: Generar bancos
+        # Si falla, se conserva el fichero anterior.
+        continue-on-error: true
+        run: npx vite-node scripts/etl/build-benches.ts
       - name: Generar arbolado (árboles 3D y sus sombras)
         # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
         continue-on-error: true

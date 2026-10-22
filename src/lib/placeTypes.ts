@@ -25,6 +25,7 @@ export const PLACE_TYPE_LABEL: Record<SunPlaceType, { singular: string; plural: 
   climate_shelter: { singular: tr("placeTypes.refugio_climatico"), plural: tr("placeTypes.refugios_climaticos") },
   fountain: { singular: tr("placeTypes.fuente"), plural: tr("placeTypes.fuentes") },
   toilet: { singular: tr("placeTypes.lavabo_publico"), plural: tr("placeTypes.lavabos_publicos") },
+  bench: { singular: tr("benches.banco"), plural: tr("benches.bancos") },
 };
 
 /**
@@ -50,7 +51,8 @@ export const SERVICE_PLACE_TYPES: SunPlaceType[] = ["climate_shelter", "fountain
 /** Servicios que tiene sentido ofrecer al buscar sombra (contra el calor). */
 export const SHADE_SERVICE_TYPES: SunPlaceType[] = ["climate_shelter", "fountain"];
 
-export const ALL_PLACE_TYPES: SunPlaceType[] = [...PLACE_TYPE_ORDER, ...SERVICE_PLACE_TYPES];
+/** Bancos: solo se buscan cuando se piden (chip «Bancos»); se descargan aparte. */
+export const ALL_PLACE_TYPES: SunPlaceType[] = [...PLACE_TYPE_ORDER, ...SERVICE_PLACE_TYPES, "bench"];
 
 /** Tipos que vienen de Open Data BCN (atribución CC BY 4.0). */
 export const OPEN_DATA_PLACE_TYPES: SunPlaceType[] = ["playground", ...SERVICE_PLACE_TYPES];
@@ -63,10 +65,10 @@ export const OPEN_DATA_PLACE_TYPES: SunPlaceType[] = ["playground", ...SERVICE_P
 export const PUBLIC_PLACE_TYPES: SunPlaceType[] = ["beach", "park", "square", "viewpoint", "open_space"];
 
 /**
- * Categorías previstas sin fuente de datos todavía. Para activarlas hará falta una fuente por
- * elemento (bancos: OSM `amenity=bench`; cafés y restaurantes: el mismo Overpass con otros filtros).
+ * Categorías previstas sin fuente de datos todavía (cafés y restaurantes como lugares propios: el
+ * mismo extracto de OpenStreetMap con otros filtros).
  */
-export const RESERVED_PLACE_TYPES: ReservedPlaceType[] = ["bench", "cafe", "restaurant"];
+export const RESERVED_PLACE_TYPES: ReservedPlaceType[] = ["cafe", "restaurant"];
 
 export interface IntentDef {
   label: string;

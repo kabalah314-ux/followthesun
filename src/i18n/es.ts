@@ -146,6 +146,9 @@ export const es = {
   "barcelonaMap.estas_fuera_de_barcelona_mostrando": "Estás fuera de Barcelona — mostrando la ciudad.",
   "barcelonaMap.mapa_base_no_disponible_mostrando": "Mapa base no disponible: mostrando una versión simplificada.",
   "barcelonaMap.no_se_pudo_cargar_el": "No se pudo cargar el mapa · usando el mapa abierto.",
+  "benches.banco": "Banco",
+  "benches.bancos": "Bancos",
+  "benches.con_respaldo": "Banco con respaldo",
   "calle.acera_sol": "Acera al sol: la del lado {p0}. La del lado {p1}, a la sombra.",
   "calle.ambas_sol": "Las dos aceras al sol.",
   "calle.ambas_sombra": "Las dos aceras a la sombra.",
@@ -158,6 +161,7 @@ export const es = {
   "calle.titulo": "Esta calle",
   "calle.y": " y ",
   "chips.atardecer": "Atardecer",
+  "chips.bancos": "Bancos",
   "chips.con_perro": "Con perro",
   "chips.ninos": "Niños",
   "chips.parques": "Parques",
@@ -1028,7 +1032,9 @@ export const es = {
   "widget.no_encontrado": "No encontramos este sitio.",
   "widget.sin_sol": "Sin sol directo en todo el día",
   "widget.sol": "Sol directo: {p0}",
-  "widget.total": "{p0} de sol",
+  "widget.sol_suave": "Sol suave entre nubes: {p0}",
+  "widget.total": "{p0} de sol directo",
+  "widget.total_suave": "{p0} de sol suave",
 } as const;
 
 export type MessageKey = keyof typeof es;

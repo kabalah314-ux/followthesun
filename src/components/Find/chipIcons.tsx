@@ -66,6 +66,11 @@ export const CHIP_ICON: Record<ChipId, ReactNode> = {
       <path d="M12.5 11c-2.5 0-4.5 2.6-4.5 5 0 1.6 1.1 2.5 2.5 2.5 1 0 1.3-.5 2-.5s1 .5 2 .5c1.4 0 2.5-.9 2.5-2.5 0-2.4-2-5-4.5-5z" />
     </S>
   ),
+  benches: (
+    <S>
+      <path d="M4 13h16M5 9h14M6 9V6.5M18 9V6.5M6 13v5M18 13v5M5 9v4M19 9v4" />
+    </S>
+  ),
 };
 
 export const FilterIcon = () => (

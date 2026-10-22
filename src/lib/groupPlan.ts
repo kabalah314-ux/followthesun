@@ -35,6 +35,8 @@ const TYPES: SunPlaceType[] = [
   "climate_shelter",
   "fountain",
   "toilet",
+  // Al final: los enlaces ya compartidos conservan sus índices.
+  "bench",
 ];
 
 const r5 = (v: number) => Math.round(v * 1e5) / 1e5;

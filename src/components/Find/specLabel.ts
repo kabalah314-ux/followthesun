@@ -16,6 +16,7 @@ export const CHIP_LABEL: Record<ChipId, MessageKey> = {
   sunset: "chips.atardecer",
   work: "chips.trabajar",
   dog: "chips.con_perro",
+  benches: "chips.bancos",
 };
 
 export const COLLECTION_TEXT: Record<string, { title: MessageKey; hint: MessageKey }> = {

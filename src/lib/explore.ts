@@ -25,8 +25,8 @@ const DAY = 86_400_000;
 /*  Chips y filtros                                                            */
 /* -------------------------------------------------------------------------- */
 
-export type ChipId = "sun" | "shade" | "terraces" | "parks" | "beach" | "kids" | "sunset" | "work" | "dog";
-export const CHIPS: readonly ChipId[] = ["sun", "shade", "terraces", "parks", "beach", "kids", "sunset", "work", "dog"];
+export type ChipId = "sun" | "shade" | "terraces" | "parks" | "beach" | "kids" | "benches" | "sunset" | "work" | "dog";
+export const CHIPS: readonly ChipId[] = ["sun", "shade", "terraces", "parks", "beach", "kids", "benches", "sunset", "work", "dog"];
 
 export interface ExploreFilters {
   /** Abierto a la hora elegida (los que no tienen horario conocido se quedan). */
@@ -129,6 +129,8 @@ export interface ExploreSpec {
   types: SunPlaceType[] | null;
   /** Usa el inventario de locales (bares y cafés con terraza). */
   venues: boolean;
+  /** Usa los bancos de la calle (se descargan aparte). */
+  benches: boolean;
   when: ExploreWhen;
   durationMinutes: number;
   /** Filtros que trae la propia búsqueda («café abierto con wifi»). */
@@ -149,6 +151,7 @@ const base = (key: string, patch: Partial<ExploreSpec>): ExploreSpec => ({
   mode: null,
   types: null,
   venues: false,
+  benches: false,
   when: { kind: "now" },
   durationMinutes: 60,
   filters: {},
@@ -187,6 +190,9 @@ export function chipSpec(chip: ChipId, area: Area | null = null): ExploreSpec {
       return base(k, { chip, types: ["terrace"], venues: true, durationMinutes: 120, preferWifi: true, area });
     case "dog":
       return base(k, { chip, types: ["park", "open_space"], area });
+    case "benches":
+      // Un banco al sol (o a la sombra) para la próxima media hora.
+      return base(k, { chip, types: ["bench"], benches: true, durationMinutes: 30, area });
   }
 }
 
@@ -197,6 +203,7 @@ export function querySpec(q: ParsedQuery): ExploreSpec | null {
   if (!q.understood) return null;
   const types = new Set<SunPlaceType>();
   let venues = false;
+  let benches = false;
   let duration = 60;
   let preferWifi = false;
   let mode = q.mode;
@@ -252,6 +259,11 @@ export function querySpec(q: ParsedQuery): ExploreSpec | null {
       case "toilet":
         types.add("toilet");
         break;
+      case "bench":
+        types.add("bench");
+        benches = true;
+        duration = 30;
+        break;
       case "sunset":
         sunset = true;
         break;
@@ -277,6 +289,7 @@ export function querySpec(q: ParsedQuery): ExploreSpec | null {
     mode,
     types: types.size ? [...types] : null,
     venues,
+    benches,
     when,
     durationMinutes: duration,
     filters,

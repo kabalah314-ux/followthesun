@@ -30,7 +30,8 @@ export type QueryTopic =
   | "dog"
   | "shelter"
   | "fountain"
-  | "toilet";
+  | "toilet"
+  | "bench";
 
 export type QueryFilter = "open" | "wifi" | "accessible" | "licensed";
 
@@ -94,6 +95,7 @@ const LEXICON: Array<[string[], Effect]> = [
   [["refugio", "refugios", "refugio climatico", "refugios climaticos", "refugi", "refugis", "refugi climatic", "refugis climatics", "cooling centre", "cooling center", "shelter", "shelters"], { topic: "shelter", mode: "shade" }],
   [["fuente", "fuentes", "agua", "beber agua", "font", "fonts", "aigua", "fountain", "fountains", "water", "drinking water"], { topic: "fountain" }],
   [["lavabo", "lavabos", "bano", "banos", "aseo", "aseos", "wc", "bany", "banys", "toilet", "toilets", "restroom", "restrooms", "bathroom"], { topic: "toilet" }],
+  [["banco", "bancos", "banquito", "sentarme", "sentarse", "banc", "bancs", "seure", "bench", "benches", "sit down"], { topic: "bench" }],
   [["abierto", "abiertos", "abierta", "abierto ahora", "obert", "oberts", "oberta", "open", "open now"], { filter: "open" }],
   [["wifi", "wi fi", "internet"], { filter: "wifi" }],
   [["accesible", "accesibles", "silla de ruedas", "adaptado", "accessible", "cadira de rodes", "adaptat", "wheelchair"], { filter: "accessible" }],

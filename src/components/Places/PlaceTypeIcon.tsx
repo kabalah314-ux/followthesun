@@ -15,6 +15,7 @@ const PATHS: Record<SunPlaceType, string[]> = {
   climate_shelter: ["M4 11l8-6 8 6", "M6 10v10h12V10", "M12 13v4", "M10 15h4"],
   fountain: ["M12 21v-6", "M8 21h8", "M12 15c-2.2 0-4-1.6-4-3.5 0-2 4-6.5 4-6.5s4 4.5 4 6.5c0 1.9-1.8 3.5-4 3.5z"],
   toilet: ["M8 6a1.5 1.5 0 1 0 0-.01", "M16 6a1.5 1.5 0 1 0 0-.01", "M6 21v-6H5l1.5-6h3L11 15h-1v6", "M14 9h4v6h-1v6h-2v-6h-1z"],
+  bench: ["M4 13h16", "M5 9h14", "M6 9V6.5M18 9V6.5", "M6 13v5M18 13v5", "M5 9v4M19 9v4"],
 };
 
 export default function PlaceTypeIcon({

@@ -4,7 +4,6 @@ import { LogoMark } from "../components/Logo";
 import { parsePlaceSlug } from "../lib/deepLinks";
 import { fmtMin } from "../lib/formatSun";
 import { PLACE_TYPE_LABEL } from "../lib/placeTypes";
-import { sunMinutesOf } from "../lib/weekGrid";
 import { cloudService } from "../services/cloudService";
 import { resolvePlaceRef } from "../services/placeLinkService";
 import { satelliteService } from "../services/satelliteService";
@@ -27,17 +26,19 @@ type State =
 const MIN = 60_000;
 const HOUR = 3_600_000;
 
-/** Tramos de sol directo de al menos 10 min (el parcial cuenta). */
-export function sunRanges(windows: readonly SunWindow[]): Array<[number, number]> {
+/** Tramos de al menos 10 min de las clases pedidas (huecos de hasta 5 min se ignoran). */
+export function sunRanges(windows: readonly SunWindow[], kinds: readonly SunWindow["kind"][] = ["sun"]): Array<[number, number]> {
   const out: Array<[number, number]> = [];
   for (const w of windows) {
-    if (w.kind !== "sun" && w.kind !== "partial") continue;
+    if (!kinds.includes(w.kind)) continue;
     const last = out[out.length - 1];
-    if (last && w.start - last[1] <= 2 * MIN) last[1] = Math.max(last[1], w.end);
+    if (last && w.start - last[1] <= 5 * MIN) last[1] = Math.max(last[1], w.end);
     else out.push([w.start, w.end]);
   }
   return out.filter(([a, b]) => b - a >= 10 * MIN);
 }
+
+const totalMinutes = (ranges: Array<[number, number]>) => Math.round(ranges.reduce((acc, [a, b]) => acc + (b - a), 0) / MIN);
 
 export default function SunWidget() {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -114,8 +115,12 @@ export default function SunWidget() {
   }
 
   const { place, result, start, end, tomorrow, slug } = state;
-  const ranges = result ? sunRanges(result.windows) : [];
-  const minutes = result ? sunMinutesOf(result.windows) : 0;
+  // Primero el sol directo; si no lo hay, el sol suave entre nubes; si tampoco, «sin sol».
+  const direct = result ? sunRanges(result.windows, ["sun"]) : [];
+  const soft = direct.length === 0 && result ? sunRanges(result.windows, ["sun", "partial"]) : [];
+  const ranges = direct.length > 0 ? direct : soft;
+  const minutes = totalMinutes(ranges);
+  const span = ranges.map(([a, b]) => `${formatClock(a)}–${formatClock(b)}`).join(" · ");
   const type = PLACE_TYPE_LABEL[place.type]?.singular ?? "";
   const href = `${window.location.origin}/lugar/${slug}`;
   return (
@@ -127,7 +132,7 @@ export default function SunWidget() {
         </p>
         <p className="mt-1 truncate font-serif text-[21px] leading-[1.1]">{place.name}</p>
         <p className="mt-1 truncate text-[13.5px] font-semibold">
-          {ranges.length > 0 ? tr("widget.sol", { p0: ranges.map(([a, b]) => `${formatClock(a)}–${formatClock(b)}`).join(" · ") }) : tr("widget.sin_sol")}
+          {direct.length > 0 ? tr("widget.sol", { p0: span }) : soft.length > 0 ? tr("widget.sol_suave", { p0: span }) : tr("widget.sin_sol")}
         </p>
       </div>
       <div>
@@ -137,7 +142,9 @@ export default function SunWidget() {
             <LogoMark size={16} />
             I Follow the Sun ↗
           </a>
-          {minutes > 0 && <span className="tabular-nums">{tr("widget.total", { p0: fmtMin(minutes) })}</span>}
+          {minutes > 0 && (
+            <span className="tabular-nums">{tr(direct.length > 0 ? "widget.total" : "widget.total_suave", { p0: fmtMin(minutes) })}</span>
+          )}
         </div>
       </div>
     </div>

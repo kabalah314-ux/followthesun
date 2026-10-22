@@ -62,6 +62,7 @@ describe("chips y búsquedas escritas → misma forma", () => {
     expect(chipSpec("sunset")).toMatchObject({ mode: "sun", when: { kind: "sunset", dayOffset: null }, durationMinutes: 30 });
     expect(chipSpec("work")).toMatchObject({ venues: true, durationMinutes: 120, preferWifi: true });
     expect(chipSpec("dog").types).toEqual(["park", "open_space"]);
+    expect(chipSpec("benches")).toMatchObject({ types: ["bench"], benches: true, durationMinutes: 30, mode: null });
   });
 
   it("la intención del motor sigue al modo de la app salvo que el chip lo fije", () => {

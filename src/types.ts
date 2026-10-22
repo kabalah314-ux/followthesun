@@ -577,13 +577,15 @@ export type SunPlaceType =
   /** Fuente de agua de boca (Open Data BCN). */
   | "fountain"
   /** Lavabo público (Open Data BCN). */
-  | "toilet";
+  | "toilet"
+  /** Banco de la calle (OpenStreetMap `amenity=bench`, precalculado). */
+  | "bench";
 
 /**
  * Categorías RESERVADAS: previstas pero sin datos reales detrás todavía (bancos, cafés y
  * restaurantes como lugares propios). No se ofrecen en la interfaz hasta tener una fuente.
  */
-export type ReservedPlaceType = "bench" | "cafe" | "restaurant";
+export type ReservedPlaceType = "cafe" | "restaurant";
 
 /** Compatible con GeoJSON.Polygon (coordenadas [lng, lat]). */
 export interface GeoPolygon {
