@@ -22,9 +22,16 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, appendFil
 import { resolve } from "node:path";
 import { PLACES_CONFIG } from "../../src/config";
 import { isRetryable, withRetry } from "../../src/lib/net";
-import { configureCkan } from "../../src/services/openData/ckan";
+import { configureCkan, datastoreSearch, packageResources } from "../../src/services/openData/ckan";
 import { OPEN_DATA_CONFIG } from "../../src/services/openData/config";
 import { packPlaces, packTerraces } from "../../src/services/openData/datasets";
+import {
+  NEIGHBORHOOD_FIELDS,
+  createNeighborhoodIndex,
+  splitBounds,
+  toNeighborhoods,
+  type NeighborhoodRecord,
+} from "../../src/services/openData/neighborhoods";
 import { OPEN_DATA_PLACE_SETS, openDataLive } from "../../src/services/openData/openDataService";
 import { overpass } from "../../src/services/overpass";
 import { buildOverpassQuery, normalizeOverpass, type OvElement } from "../../src/services/placeService";
@@ -32,6 +39,7 @@ import {
   STATIC_DATA_VERSION,
   acceptStatic,
   type OpenDataSectionKey,
+  type PackedVenue,
   type StaticOpenDataFile,
   type StaticPlacesFile,
   type StaticSource,
@@ -56,7 +64,12 @@ const BCN_SOURCE: StaticSource = {
 
 /** Mínimos razonables: por debajo, la respuesta está incompleta y no debe sustituir a la anterior. */
 const MIN_PLACES = 300;
-const MIN_VENUES = 1500;
+/** Negocios con nombre (cafés, bares, restaurantes…). Además, nunca menos del 70 % del fichero anterior. */
+const MIN_VENUES = 600;
+/** Conjunto «Unitats administratives de la ciutat» de Open Data BCN (barrios y distritos, CC BY 4.0). */
+const NEIGHBORHOODS_DATASET = "20170706-districtes-barris";
+/** Tope para las consultas de negocios por teselas: si se pasa, se conserva el fichero anterior. */
+const VENUES_DEADLINE_MS = 25 * 60_000;
 
 configureCkan({
   headers: { "User-Agent": UA },
@@ -107,12 +120,27 @@ function write(file: string, data: unknown) {
   console.log(`  → ${file}: ${(statSync(path).size / 1024).toFixed(0)} KB`);
 }
 
-const overpassEtl = <T>(query: string, timeoutMs: number) =>
+const overpassEtl = <T>(query: string, timeoutMs: number, retries = 2) =>
   withRetry(() => overpass<T>(query, { timeoutMs, headers: { "User-Agent": UA }, includeCooling: true }), {
-    retries: 2,
+    retries,
     delaysMs: [20_000, 60_000],
     retryOn: () => true,
   });
+
+type Places = StaticPlacesFile["places"];
+type NeighborhoodIndex = ReturnType<typeof createNeighborhoodIndex>;
+
+/** Añade `metadata.neighborhood` y `metadata.district` a cada lugar que cae dentro de un barrio. */
+function withNeighborhoods(list: Places, index: NeighborhoodIndex): { places: Places; located: number } {
+  let located = 0;
+  const places = list.map((p) => {
+    const hit = index.locate(p.latitude, p.longitude);
+    if (!hit) return p;
+    located++;
+    return { ...p, metadata: { ...(p.metadata ?? {}), neighborhood: hit.name, district: hit.district } };
+  });
+  return { places, located };
+}
 
 async function main() {
   const bbox = PLACES_CONFIG.bbox;
@@ -129,23 +157,69 @@ async function main() {
     (v) => v.length
   );
   const prevPlaces = readPrevious<StaticPlacesFile>("places.json", "places");
-  if (places) {
-    const file: StaticPlacesFile = { v: STATIC_DATA_VERSION, kind: "places", generatedAt: NOW, sources: [OSM_SOURCE], bbox, places };
-    write("places.json", file);
-  } else if (!prevPlaces) warn("places.json no existe todavía y no se ha podido generar");
 
-  /* 2 · Negocios de OpenStreetMap (todos, sin tope: aquí no hay prisa) */
+  /* 1b · Barrio de cada lugar, para las páginas /barrio/<slug> del prerender */
+  const neighborhoods = await step(
+    "Open Data BCN · barrios",
+    async () => {
+      const resources = await packageResources(NEIGHBORHOODS_DATASET);
+      const res = resources.find((r) => r.datastore_active && /barris/i.test(r.name ?? "") && /csv/i.test(r.format ?? ""));
+      if (!res) throw new Error("no se encuentra el recurso de barrios en el conjunto");
+      const records = await datastoreSearch<NeighborhoodRecord>(res.id, NEIGHBORHOOD_FIELDS, { pageSize: 100, maxRows: 300 });
+      const list = toNeighborhoods(records);
+      if (list.length < 60) throw new Error(`solo ${list.length} barrios con geometría`);
+      return list;
+    },
+    (v) => v.length
+  );
+  const index = neighborhoods ? createNeighborhoodIndex(neighborhoods) : null;
+
+  const basePlaces = places ?? prevPlaces?.places ?? null;
+  if (basePlaces) {
+    let list = basePlaces;
+    if (index) {
+      const r = withNeighborhoods(basePlaces, index);
+      list = r.places;
+      console.log(`  barrio asignado a ${r.located} de ${list.length} lugares`);
+    }
+    // Se escribe si hay lugares nuevos o si los anteriores ganan el barrio (conservando su fecha).
+    if (places || index) {
+      const generatedAt = places ? NOW : prevPlaces!.generatedAt;
+      const file: StaticPlacesFile = { v: STATIC_DATA_VERSION, kind: "places", generatedAt, sources: [OSM_SOURCE], bbox, places: list };
+      write("places.json", file);
+    }
+  } else warn("places.json no existe todavía y no se ha podido generar");
+
+  /* 2 · Negocios de OpenStreetMap, en 3 × 3 teselas: consultas más ligeras que una sola de toda la
+   *     ciudad (algunos servidores la cortan) y un recuento por tesela para el resumen. */
+  const prevVenues = readPrevious<StaticVenuesFile>("venues.json", "venues");
+  const minVenues = Math.max(MIN_VENUES, Math.round((prevVenues?.venues.length ?? 0) * 0.7));
   const venues = await step(
     "OSM · cafés, bares y restaurantes",
     async () => {
-      const elements = await overpassEtl<OvNode>(buildVenueQuery(bbox, null, 240), 300_000);
-      const list = elements.map(packVenueElement).filter((v): v is NonNullable<typeof v> => v !== null);
-      if (list.length < MIN_VENUES) throw new Error(`solo ${list.length} negocios (mínimo ${MIN_VENUES})`);
+      const t0 = Date.now();
+      const byRef = new Map<string, PackedVenue>();
+      const perTile: number[] = [];
+      for (const tile of splitBounds(bbox, 3, 3)) {
+        if (Date.now() - t0 > VENUES_DEADLINE_MS) throw new Error(`tiempo agotado tras ${perTile.length} de 9 teselas`);
+        const elements = await overpassEtl<OvNode>(buildVenueQuery(tile, null, 180), 200_000, 1);
+        let added = 0;
+        for (const el of elements) {
+          const v = packVenueElement(el);
+          if (v && !byRef.has(v[0])) {
+            byRef.set(v[0], v);
+            added++;
+          }
+        }
+        perTile.push(added);
+      }
+      console.log(`  negocios por tesela: ${perTile.join(" · ")}`);
+      const list = [...byRef.values()];
+      if (list.length < minVenues) throw new Error(`solo ${list.length} negocios (mínimo ${minVenues}; por tesela ${perTile.join("/")})`);
       return list.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
     },
     (v) => v.length
   );
-  const prevVenues = readPrevious<StaticVenuesFile>("venues.json", "venues");
   if (venues) {
     const file: StaticVenuesFile = { v: STATIC_DATA_VERSION, kind: "venues", generatedAt: NOW, sources: [OSM_SOURCE], bbox, venues };
     write("venues.json", file);

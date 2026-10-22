@@ -169,7 +169,16 @@ function placeBody(page: Page, nearby: Page[]): string {
   );
 }
 
+/** Centro aproximado de un barrio: la media de sus lugares (para abrir el mapa allí). */
+function centerOf(pages: Page[]): { lat: number; lng: number } {
+  const lat = pages.reduce((s, p) => s + p.place.latitude, 0) / pages.length;
+  const lng = pages.reduce((s, p) => s + p.place.longitude, 0) / pages.length;
+  return { lat, lng };
+}
+
 function barrioBody(name: string, pages: Page[]): string {
+  const c = centerOf(pages);
+  const mapHref = `/?c=${c.lat.toFixed(5)},${c.lng.toFixed(5)}&amp;z=15`;
   const links = pages
     .slice(0, 60)
     .map((n) => `<li><a href="/lugar/${n.slug}" style="color:#9a4d06">${esc(n.place.name)}</a> · ${esc(n.label.toLowerCase())}</li>`)
@@ -179,6 +188,7 @@ function barrioBody(name: string, pages: Page[]): string {
     `<p style="margin:0;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#9a4d06">Barrio · Barcelona</p>` +
     `<h1 style="font:600 1.9rem/1.2 'Instrument Serif',Georgia,serif;margin:.4rem 0 .6rem">Sol y sombra en ${esc(name)}</h1>` +
     `<p style="margin:0 0 1rem;color:#4a4553">Terrazas, plazas y parques de ${esc(name)} y a qué hora les da el sol (o la sombra), minuto a minuto.</p>` +
+    `<p style="margin:0 0 1.5rem"><a href="${mapHref}" style="color:#1f1c26;font-weight:600">Ver el sol de ahora en ${esc(name)}</a></p>` +
     `<ul style="margin:0;padding-left:1.1rem;color:#4a4553">${links}</ul>` +
     `</main>`
   );
@@ -264,7 +274,19 @@ function main() {
     const url = `${SITE}/barrio/${slug}`;
     const title = `Sol y sombra en ${name}, Barcelona | I Follow the Sun`;
     const description = `Terrazas, plazas y parques de ${name} con sol o con sombra ahora, y hasta qué hora.`;
-    let html = replaceBlock(template, "<!-- seo:start", "<!-- seo:end -->", headTags({ title, description, url, type: "website" }));
+    const c = centerOf(list);
+    const district = list.map((p) => p.place.metadata?.district).find((d): d is string => typeof d === "string" && d.trim() !== "");
+    const jsonLd = {
+      "@context": "https://schema.org",
+      "@type": "Place",
+      name: `${name}, Barcelona`,
+      url,
+      geo: { "@type": "GeoCoordinates", latitude: Number(c.lat.toFixed(5)), longitude: Number(c.lng.toFixed(5)) },
+      containedInPlace: district
+        ? { "@type": "AdministrativeArea", name: district, containedInPlace: { "@type": "City", name: "Barcelona" } }
+        : { "@type": "City", name: "Barcelona" },
+    };
+    let html = replaceBlock(template, "<!-- seo:start", "<!-- seo:end -->", headTags({ title, description, url, type: "website", jsonLd }));
     html = replaceBlock(html, "<!-- seo:body:start", "<!-- seo:body:end -->", barrioBody(name, list));
     writePage(path.join(DIST, "barrio", slug), html);
     sitemap.push({ loc: url, lastmod, priority: "0.7" });
