@@ -39,6 +39,10 @@ jobs:
         # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
         continue-on-error: true
         run: npx vite-node scripts/etl/build-trees.ts
+      - name: Generar alturas del Catastro (sombras de edificios sin altura en OSM)
+        # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
+        continue-on-error: true
+        run: npx vite-node scripts/etl/build-heights.ts
       - name: Guardar los datos si han cambiado
         env:
           BRANCH: ${{ github.ref_name }}

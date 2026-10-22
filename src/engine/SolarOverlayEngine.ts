@@ -23,6 +23,7 @@ import {
   type BuildingSet,
 } from "../services/buildingService";
 import { lightFusionService } from "../services/lightFusionService";
+import { catastroHeights } from "../services/map/catastroHeights";
 import { HILLSHADE_LAYER_ID, ReliefLayer } from "../services/map/relief";
 import type { MapLike } from "../services/map/types";
 import { createWeatherSolarSource, type SolarFieldSource } from "../services/solarFieldService";
@@ -210,6 +211,7 @@ export class SolarOverlayEngine {
   private treeReq = 0;
   private relief: ReliefLayer;
   private reliefKey = "";
+  private unsubHeights: () => void;
   /** Momento en que se pidió mostrar la capa (0 = aún no): la luz aparece en ~1,8 s. */
   private revealAt = 0;
   private revealK = 0;
@@ -258,6 +260,12 @@ export class SolarOverlayEngine {
 
     this.quality = qualityApi.get();
     this.unsubQuality = qualityApi.subscribe(this.onQuality);
+    // Llegan alturas del Catastro: se vuelven a extraer los edificios para sus sombras.
+    this.unsubHeights = catastroHeights.subscribe(() => {
+      if (this.destroyed) return;
+      this.sourceDirty = true;
+      this.scheduleRefresh(120);
+    });
     this.applyRenderer();
 
     this.raf = requestAnimationFrame(this.loop);
@@ -382,6 +390,7 @@ export class SolarOverlayEngine {
     window.clearTimeout(this.pointEmitTimer);
     this.unsubWeather();
     this.unsubQuality();
+    this.unsubHeights();
     this.map.off("render", this.onRender);
     this.map.off("resize", this.markDirty);
     this.map.off("movestart", this.onMoveStart);
