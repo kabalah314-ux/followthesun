@@ -31,8 +31,8 @@ export type Destination = "explore" | "plans" | "mine";
 export const DESTINATIONS: readonly Destination[] = ["explore", "plans", "mine"];
 
 /** Secciones de Planes, en el orden en que se ofrecen. */
-export type PlansTab = "route" | "week" | "later" | "group" | "alerts";
-export const PLANS_TABS: readonly PlansTab[] = ["route", "week", "later", "group", "alerts"];
+export type PlansTab = "route" | "week" | "later" | "sport" | "group" | "alerts";
+export const PLANS_TABS: readonly PlansTab[] = ["route", "week", "later", "sport", "group", "alerts"];
 
 /** Secciones de Mis sitios. */
 export type MineTab = "lists" | "home" | "history";
@@ -52,6 +52,7 @@ export const TAB_PARAM: Record<ViewTab, string> = {
   route: "ruta",
   week: "semana",
   later: "mas-tarde",
+  sport: "deporte",
   group: "grupo",
   alerts: "alertas",
   lists: "listas",

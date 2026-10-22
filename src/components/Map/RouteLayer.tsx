@@ -1,11 +1,22 @@
 import { useEffect, useRef } from "react";
 import type { ShadeRouteState } from "../../hooks/useShadeRoute";
+import type { LngLatPair } from "../../lib/terraceShape";
 import { useMapContext } from "./MapContext";
 
 /**
- * RouteLayer — la ruta por la sombra en el mapa: la elegida con sus tramos al sol (ámbar) y a la
- * sombra (azul) sobre un borde claro; las alternativas, finas y en gris.
+ * RouteLayer — una ruta en el mapa con sus tramos al sol (ámbar) y a la sombra (azul) sobre un
+ * borde claro; las alternativas, finas y en gris. Sirve para la ruta por la sombra hasta un sitio
+ * y para los recorridos de correr o ir en bici.
  */
+
+export interface RouteDrawing {
+  routes: Array<{ coords: LngLatPair[]; segments: Array<{ coords: LngLatPair[]; shaded: boolean }> }>;
+  /** La que se dibuja entera con sus tramos (las demás, como alternativas). */
+  best: number;
+}
+
+/** La ruta por la sombra hasta un sitio, lista para dibujar. */
+export const drawingOfShadeRoute = (s: ShadeRouteState | null): RouteDrawing | null => (s && s.status === "ready" ? { routes: s.routes, best: s.best } : null);
 
 const SOURCE = "fts-route";
 const ALT = "fts-route-alt";
@@ -17,9 +28,9 @@ const COLORS = {
   night: { sun: "#f2b866", shade: "#8da2da", alt: "#eceff8", casing: "#0f1428" },
 } as const;
 
-function toGeoJSON(s: ShadeRouteState | null) {
+function toGeoJSON(s: RouteDrawing | null) {
   const features: unknown[] = [];
-  if (s && s.status === "ready") {
+  if (s) {
     s.routes.forEach((r, i) => {
       if (i === s.best) return;
       features.push({ type: "Feature", properties: { k: "alt" }, geometry: { type: "LineString", coordinates: r.coords } });
@@ -35,7 +46,7 @@ function toGeoJSON(s: ShadeRouteState | null) {
   return { type: "FeatureCollection", features };
 }
 
-export default function RouteLayer({ state }: { state: ShadeRouteState | null }) {
+export default function RouteLayer({ state }: { state: RouteDrawing | null }) {
   const { map, theme } = useMapContext();
   const stateRef = useRef(state);
   stateRef.current = state;

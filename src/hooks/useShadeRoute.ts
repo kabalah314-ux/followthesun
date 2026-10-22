@@ -3,7 +3,7 @@ import { LIGHT_MODEL_CONFIG, SEARCH_CONFIG } from "../config";
 import type { SunShadeMode } from "../lib/answer";
 import { routeWaypoints, sampleLine, shadeSegments, summarizeShade } from "../lib/routeShade";
 import type { LngLatPair } from "../lib/terraceShape";
-import { createTreeShadeTester } from "../graphics/trees/treeShade";
+import { buildTreeGrid, createTreeShadeTester } from "../graphics/trees/treeShade";
 import { treeStore } from "../graphics/trees/treeStore";
 import { leafDensities } from "../graphics/trees/treeTiles";
 import { TREE_SHADE_THRESHOLD, createShadowEvaluator } from "../services/shadowService";
@@ -75,6 +75,7 @@ export function useShadeRoute() {
         .batchFor(bounds, { lng: (bounds.west + bounds.east) / 2, lat: (bounds.south + bounds.north) / 2 }, 120_000)
         .catch(() => null);
       if (id !== run.current) return;
+      const grid = trees ? buildTreeGrid(trees) : undefined;
       const leaf = leafDensities(new Date(departure));
       const minutesOf = (m: number) => Math.max(1, Math.round(m / SPEED_M_PER_MIN));
       const shortest = Math.min(...raw.map((r) => minutesOf(r.distanceM)));
@@ -92,7 +93,7 @@ export function useShadeRoute() {
           if (sun.altitudeDeg < LIGHT_MODEL_CONFIG.MIN_SUN_ELEVATION_DEG) return true;
           const r = createShadowEvaluator({ latitude: s.lat, longitude: s.lng, buildings: geo.buildings }).evaluate(sun);
           if (r.urbanShadow || r.terrainShadow) return true;
-          return trees ? createTreeShadeTester(trees, s.lng, s.lat, 40).shadeAt(sun.azimuth, sun.altitude, leaf) >= TREE_SHADE_THRESHOLD : false;
+          return trees ? createTreeShadeTester(trees, s.lng, s.lat, 40, grid).shadeAt(sun.azimuth, sun.altitude, leaf) >= TREE_SHADE_THRESHOLD : false;
         });
         const sum = summarizeShade(samples, shaded);
         const minutes = minutesOf(raw[k].distanceM);

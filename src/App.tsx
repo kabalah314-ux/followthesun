@@ -17,7 +17,7 @@ import CloudLayer from "./components/Map/CloudLayer";
 import LayerControl from "./components/Map/LayerControl";
 import MapControls from "./components/Map/MapControls";
 import MapMarkers from "./components/Map/MapMarkers";
-import RouteLayer from "./components/Map/RouteLayer";
+import RouteLayer, { drawingOfShadeRoute, type RouteDrawing } from "./components/Map/RouteLayer";
 import ShadowLayer from "./components/Map/ShadowLayer";
 import StreetProbe, { type StreetInfo } from "./components/Map/StreetProbe";
 import TerraceLayer from "./components/Map/TerraceLayer";
@@ -57,6 +57,8 @@ import { useReducedMotion } from "./hooks/useReducedMotion";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSea } from "./hooks/useSea";
 import { useShadeRoute } from "./hooks/useShadeRoute";
+import { useSportRoute } from "./hooks/useSportRoute";
+import { shadeSegments } from "./lib/routeShade";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useStreetSun } from "./hooks/useStreetSun";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
@@ -135,6 +137,7 @@ const SunRoutePanel = lazy(() => import("./components/Plan/SunRoutePanel"));
 const WeekPanel = lazy(() => import("./components/Plan/WeekPanel"));
 const GroupPlanPanel = lazy(() => import("./components/Plan/GroupPlanPanel"));
 const AlertsPanel = lazy(() => import("./components/Plan/AlertsPanel"));
+const SportPanel = lazy(() => import("./components/Plan/SportPanel"));
 const ListsPanel = lazy(() => import("./components/Saved/ListsPanel"));
 const HomePanel = lazy(() => import("./components/Saved/HomePanel"));
 const HistoryPanel = lazy(() => import("./components/Saved/HistoryPanel"));
@@ -357,6 +360,8 @@ export default function App() {
   useEffect(() => {
     if (routePlaceId && routePlaceId !== card?.data.place.id) clearRoute();
   }, [routePlaceId, card?.data.place.id, clearRoute]);
+  // Correr o ir en bici a la sombra (Planes › Correr y bici).
+  const sportRoute = useSportRoute();
   // «Comparar dos sitios»: el sitio apartado para compararlo con el de la siguiente ficha.
   const [comparePlace, setComparePlace] = useState<SunPlace | null>(null);
   // La terraza de la ficha dibujada en el mapa con su % al sol a la hora elegida (B10).
@@ -376,6 +381,14 @@ export default function App() {
     const step = Math.max(1, Math.floor(r.coords.length / 30));
     mapController.current?.fitPoints(r.coords.filter((_, i) => i % step === 0 || i === r.coords.length - 1).map(([lng, lat]) => ({ lng, lat })));
   }, [routeReady]);
+  // Igual con el recorrido de correr o ir en bici (al calcularlo y al pasar a otra vuelta).
+  const sportShown = sportRoute.state.status === "ready" ? sportRoute.state.routes[sportRoute.state.route] : null;
+  useEffect(() => {
+    if (!sportShown) return;
+    const c = sportShown.coords;
+    const step = Math.max(1, Math.floor(c.length / 30));
+    mapController.current?.fitPoints(c.filter((_, i) => i % step === 0 || i === c.length - 1).map(([lng, lat]) => ({ lng, lat })));
+  }, [sportShown]);
   const selCounter = useRef(1_000_000);
   const savedTime = useRef<SavedTime | null>(null);
   const cardSeq = useRef(0);
@@ -896,6 +909,23 @@ export default function App() {
   }, []);
 
   /* ------------------------------ pines del mapa (sincronizados con las listas) ------------------------------ */
+  // La capa de rutas dibuja la ruta por la sombra de la ficha abierta o, en Planes › Correr y bici,
+  // el recorrido con sus tramos a la sombra para la hora de salida elegida.
+  const sportStart = view === "plans" && plansTab === "sport" && sportShown ? sportShown.coords[0] : null;
+  const routeDrawing = useMemo<RouteDrawing | null>(() => {
+    if (card && shadeRoute.state.placeId === card.data.place.id && shadeRoute.state.status === "ready") return drawingOfShadeRoute(shadeRoute.state);
+    const s = sportRoute.state;
+    if (view !== "plans" || plansTab !== "sport" || s.status !== "ready") return null;
+    return {
+      best: s.route,
+      routes: s.routes.map((r, i) => {
+        if (i !== s.route) return { coords: r.coords, segments: [] };
+        const shaded = r.shaded[s.slot];
+        // Sin horas de salida (hoy ya no hay sol): todo el recorrido sin sol.
+        return { coords: r.coords, segments: shaded ? shadeSegments(r.samples, shaded) : [{ coords: r.coords, shaded: true }] };
+      }),
+    };
+  }, [card, shadeRoute.state, sportRoute.state, view, plansTab]);
   const activePin = hoverId ?? card?.data.place.id ?? null;
   const highlights = useMemo<Highlight[]>(() => {
     const pin = (id: string, lng: number, lat: number, name: string, i: number, firstPrimary: boolean): Highlight => {
@@ -911,6 +941,7 @@ export default function App() {
         const p = weekCandidates[0].place;
         return [pin(p.id, p.longitude, p.latitude, p.name, 0, true)];
       }
+      if (plansTab === "sport" && sportStart) return [pin("sport-start", sportStart[0], sportStart[1], tr("sport.salida"), 0, true)];
       return EMPTY_HIGHLIGHTS;
     }
     if (view === "mine") {
@@ -919,7 +950,7 @@ export default function App() {
       if (mineTab === "history") return history.slice(0, 12).map((e, i) => pin(e.id, e.longitude, e.latitude, e.name, i, false));
     }
     return EMPTY_HIGHLIGHTS;
-  }, [view, plansTab, mineTab, explore.results, route, planSearch.state.outcome, sharedPlan, groupDraft, weekCandidates, saved, home, history, activePin]);
+  }, [view, plansTab, mineTab, explore.results, route, planSearch.state.outcome, sharedPlan, groupDraft, weekCandidates, saved, home, history, activePin, sportStart]);
 
   const handlePickSpot = useCallback(
     (id: string) => {
@@ -1269,6 +1300,20 @@ export default function App() {
           onToast={setToast}
         />
       )}
+      {plansTab === "sport" && (
+        <SportPanel
+          now={now}
+          appMode={sunShade.mode}
+          origin={userLocation}
+          onUseLocation={() => void locateMe()}
+          state={sportRoute.state}
+          onCompute={(target, sport, dayStart, at, mode) => void sportRoute.compute(target, sport, dayStart, at, mode)}
+          onCancel={sportRoute.clear}
+          onSelectSlot={sportRoute.selectSlot}
+          onNextRoute={sportRoute.nextRoute}
+          onShowTime={showTimeAt}
+        />
+      )}
       {plansTab === "alerts" && <AlertsPanel now={now} savedCount={saved.length} onOpenSaved={() => go("mine", "lists")} />}
     </Suspense>
   );
@@ -1614,7 +1659,7 @@ export default function App() {
       </SolarOverlay>
       <MapMarkers selection={selection} userLocation={userLocation} highlights={highlights} activeSpotId={activePin} onPickSpot={handlePickSpot} />
       <TerraceLayer data={terraceSun} />
-      <RouteLayer state={card && shadeRoute.state.placeId === card.data.place.id ? shadeRoute.state : null} />
+      <RouteLayer state={routeDrawing} />
       <StreetProbe point={selection} onStreet={setStreetInfo} />
     </BarcelonaMap>
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { latToMy, lngToMx, metersPerMercatorUnit } from "../../../lib/coordinates";
-import { createTreeShadeTester } from "../treeShade";
+import { buildTreeGrid, createTreeShadeTester } from "../treeShade";
 import { TREE_INSTANCE_STRIDE, type TreeBatch } from "../treeStore";
 import { TREE_KIND } from "../species";
 
@@ -63,5 +63,20 @@ describe("sombra de árboles en un punto (CPU)", () => {
   it("los árboles lejanos ni se miran", () => {
     const t = createTreeShadeTester(batchOf([platano(6), { ...platano(0), x: 300 }]), LNG, LAT);
     expect(t.candidates).toBe(1);
+  });
+
+  it("con la rejilla da lo mismo que recorriendo el lote entero", () => {
+    const trees = [platano(6), platano(14), { ...platano(-30), x: 25 }, { ...platano(0), x: 55 }, { ...platano(0), x: 300 }, { ...platano(-70), x: -41 }];
+    const batch = batchOf(trees);
+    const grid = buildTreeGrid(batch, 20);
+    for (const [lng, lat] of [
+      [LNG, LAT],
+      [LNG + 0.0004, LAT - 0.0002],
+    ]) {
+      const a = createTreeShadeTester(batch, lng, lat, 60);
+      const b = createTreeShadeTester(batch, lng, lat, 60, grid);
+      expect(b.candidates).toBe(a.candidates);
+      for (const alt of [20, 35, 50]) expect(b.shadeAt(SOUTH, alt * DEG, SUMMER)).toBeCloseTo(a.shadeAt(SOUTH, alt * DEG, SUMMER), 9);
+    }
   });
 });

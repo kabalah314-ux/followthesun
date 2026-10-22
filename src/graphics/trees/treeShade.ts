@@ -28,23 +28,66 @@ interface Crown {
   kind: number;
 }
 
-export function createTreeShadeTester(batch: TreeBatch, lng: number, lat: number, radiusM = 60): TreeShadeTester {
+/**
+ * Rejilla de los árboles de un lote (celdas de `cellM` metros): para preparar muchos puntos
+ * seguidos (una ruta) sin recorrer el lote entero en cada uno.
+ */
+export interface TreeGrid {
+  batch: TreeBatch;
+  cellM: number;
+  cells: Map<number, number[]>;
+}
+
+const cellKey = (cx: number, cy: number) => (cx + 32768) * 65536 + (cy + 32768);
+
+export function buildTreeGrid(batch: TreeBatch, cellM = 40): TreeGrid {
+  const cells = new Map<number, number[]>();
+  const inst = batch.instances;
+  for (let i = 0; i < batch.count; i++) {
+    const o = i * TREE_INSTANCE_STRIDE;
+    const k = cellKey(Math.floor(inst[o] / cellM), Math.floor(inst[o + 1] / cellM));
+    const list = cells.get(k);
+    if (list) list.push(i);
+    else cells.set(k, [i]);
+  }
+  return { batch, cellM, cells };
+}
+
+/** Copa más ancha que se espera (m): margen al buscar en la rejilla. */
+const MAX_CROWN_RADIUS_M = 15;
+
+export function createTreeShadeTester(batch: TreeBatch, lng: number, lat: number, radiusM = 60, grid?: TreeGrid): TreeShadeTester {
   const px = (lngToMx(lng) - batch.ox) * batch.mpu;
   const py = (latToMy(lat) - batch.oy) * batch.mpu;
   const crowns: Crown[] = [];
   const inst = batch.instances;
-  for (let i = 0; i < batch.count; i++) {
+  const visit = (i: number) => {
     const o = i * TREE_INSTANCE_STRIDE;
     const dx = inst[o] - px;
     const dy = inst[o + 1] - py;
     const h = inst[o + 2];
     const rh = inst[o + 3];
     const kind = Math.round(inst[o + 4]);
-    if (Math.hypot(dx, dy) - rh > radiusM) continue;
+    if (Math.hypot(dx, dy) - rh > radiusM) return;
     const s = crownShape(kind, h, 2 * rh);
     // Copa entera por debajo de los ojos: no tapa el sol.
-    if (s.hc + s.rv <= EYE_M) continue;
+    if (s.hc + s.rv <= EYE_M) return;
     crowns.push({ x: dx, y: dy, z: s.hc - EYE_M, rh: s.rh, rv: s.rv, kind });
+  };
+  if (grid && grid.batch === batch) {
+    const reach = radiusM + MAX_CROWN_RADIUS_M;
+    const x0 = Math.floor((px - reach) / grid.cellM);
+    const x1 = Math.floor((px + reach) / grid.cellM);
+    const y0 = Math.floor((py - reach) / grid.cellM);
+    const y1 = Math.floor((py + reach) / grid.cellM);
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const cell = grid.cells.get(cellKey(cx, cy));
+        if (cell) for (const i of cell) visit(i);
+      }
+    }
+  } else {
+    for (let i = 0; i < batch.count; i++) visit(i);
   }
 
   return {

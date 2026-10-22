@@ -173,6 +173,8 @@ export interface ShadowEvaluatorArgs {
   /** Árboles cercanos y fecha (hoja de la estación): solo cuentan con `TREES_IN_POINT_SUNLIGHT`. */
   trees?: TreeBatch | null;
   date?: Date;
+  /** Hasta qué distancia (m) se miran edificios que puedan dar sombra (por defecto 420). */
+  radiusM?: number;
 }
 
 /**
@@ -183,7 +185,7 @@ export interface ShadowEvaluatorArgs {
 export function createShadowEvaluator(args: ShadowEvaluatorArgs): ShadowEvaluator {
   const { latitude, longitude, buildings } = args;
   const known = buildings !== null && buildingsCover(buildings, longitude, latitude, 300);
-  const tester = known && buildings ? createShadeTester(buildings, longitude, latitude) : null;
+  const tester = known && buildings ? createShadeTester(buildings, longitude, latitude, args.radiusM) : null;
   const trees: TreeShadeTester | null =
     TREES_IN_POINT_SUNLIGHT && args.trees ? createTreeShadeTester(args.trees, longitude, latitude) : null;
   const leaf = trees ? leafDensities(args.date ?? new Date()) : null;

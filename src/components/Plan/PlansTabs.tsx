@@ -7,11 +7,12 @@ const LABEL: Record<PlansTab, MessageKey> = {
   route: "plans.ruta_del_sol",
   week: "plans.esta_semana",
   later: "navItems.mas_tarde",
+  sport: "plans.correr_y_bici",
   group: "plans.en_grupo",
   alerts: "plans.alertas",
 };
 
-/** Secciones de Planes: Ruta del sol · Esta semana · Más tarde · En grupo · Alertas. */
+/** Secciones de Planes: Ruta del sol · Esta semana · Más tarde · Correr y bici · En grupo · Alertas. */
 export default function PlansTabs({ tab, onTab, groupCount }: { tab: PlansTab; onTab(t: PlansTab): void; groupCount: number }) {
   return (
     <div role="tablist" aria-label={tr("nav.planes")} className="fts-scroll-x flex gap-1.5 overflow-x-auto px-4 pb-0.5">

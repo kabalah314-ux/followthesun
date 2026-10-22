@@ -9,6 +9,7 @@ describe("rutas de los tres destinos", () => {
     expect(matchRoute("planes/", "?vista=semana")).toEqual({ view: "plans", tab: "week", legacy: false });
     expect(matchRoute("planes", "?vista=grupo&g=abc")).toEqual({ view: "plans", tab: "group", legacy: false });
     expect(matchRoute("planes", "?vista=otra")).toEqual({ view: "plans", tab: "route", legacy: false });
+    expect(matchRoute("planes", "?vista=deporte")).toEqual({ view: "plans", tab: "sport", legacy: false });
     expect(matchRoute("mis-sitios", "")).toEqual({ view: "mine", tab: "lists", legacy: false });
     expect(matchRoute("mis-sitios", "?vista=mi-casa")).toEqual({ view: "mine", tab: "home", legacy: false });
     expect(matchRoute("ajustes", "")).toEqual({ view: "settings", tab: null, legacy: false });
