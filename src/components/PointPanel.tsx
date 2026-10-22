@@ -1,5 +1,7 @@
 import { memo, useMemo, useState, type ReactNode } from "react";
 import { useComfort } from "../hooks/useComfort";
+import type { StreetSun } from "../hooks/useStreetSun";
+import { sectorOf } from "../lib/streetSun";
 import { describePoint, type SunAnswer, type SunShadeMode } from "../lib/answer";
 import { feelsLine, uvLine, windLine, type Comfort } from "../lib/comfort";
 import { solarService } from "../services/solarService";
@@ -21,7 +23,47 @@ import type {
 } from "../types";
 import { cn } from "../utils/cn";
 import { CloseIcon, SunGlyph } from "./Icons";
-import { tr } from "../i18n";
+import { intlLocale, tr } from "../i18n";
+
+/**
+ * «Esta calle» (utilidades 20 y 32 de la guía maestra 2): qué acera está al sol a la hora elegida y
+ * los días en que el sol sale o se pone justo al fondo de la calle.
+ */
+function StreetBlock({ s }: { s: StreetSun }) {
+  const lados = tr("calle.lados").split(",");
+  const hacia = tr("calle.hacia").split(",");
+  const [a, b] = s.sides;
+  let sidewalk: string | null = null;
+  if (a && b && a.sunny !== null && b.sunny !== null) {
+    if (a.sunny && b.sunny) sidewalk = tr("calle.ambas_sol");
+    else if (!a.sunny && !b.sunny) sidewalk = tr("calle.ambas_sombra");
+    else {
+      const sun = a.sunny ? a : b;
+      const shade = a.sunny ? b : a;
+      sidewalk = tr("calle.acera_sol", { p0: lados[sun.sector] ?? "", p1: lados[shade.sector] ?? "" });
+    }
+  }
+  const fmtDay = new Intl.DateTimeFormat(intlLocale(), { day: "numeric", month: "long", timeZone: "Europe/Madrid" });
+  const lines = s.alignments.map((al) => {
+    const days = al.days.map((d) => tr("calle.dia_hora", { p0: fmtDay.format(d.time), p1: formatClock(d.time) })).join(tr("calle.y"));
+    return tr(al.kind === "rise" ? "calle.sale_fondo" : "calle.se_pone_fondo", { p0: hacia[sectorOf(al.dirDeg)] ?? "", p1: days });
+  });
+  return (
+    <div className="mt-4 border-t border-line pt-3.5">
+      <p className="fts-caps !text-[12px]">{tr("calle.titulo")}</p>
+      {sidewalk && <p className="mt-2 text-[14px] font-medium leading-snug text-ink">{sidewalk}</p>}
+      {lines.length > 0 ? (
+        lines.map((l, i) => (
+          <p key={i} className="mt-1.5 text-[13px] leading-snug text-ink-soft">
+            {l}
+          </p>
+        ))
+      ) : (
+        <p className="mt-1.5 text-[13px] leading-snug text-ink-faint">{tr("calle.sin_alineacion")}</p>
+      )}
+    </div>
+  );
+}
 
 const CONFIDENCE_LABEL: Record<ConfidenceLevel, string> = {
   high: tr("sunDetails.seguro"),
@@ -272,9 +314,11 @@ interface Props {
   onSetHome?(): void;
   /** Ver la semana de este punto (Planes · Esta semana). */
   onWeek?(): void;
+  /** La calle del punto: aceras al sol y alineaciones con el sol. */
+  street?: StreetSun | null;
 }
 
-function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave, mode, apparentC, headerless, onSetHome, onWeek }: Props) {
+function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave, mode, apparentC, headerless, onSetHome, onWeek, street }: Props) {
   const comfort = useComfort(time);
   const intervalLabel = (state: SunState) =>
     state === "sun"
@@ -396,6 +440,8 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
           </>
         )}
       </div>
+
+      {street && street.pointId === point.id && <StreetBlock s={street} />}
 
       {onToggleSave && (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-3.5">

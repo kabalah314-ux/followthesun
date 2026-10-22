@@ -18,6 +18,7 @@ import LayerControl from "./components/Map/LayerControl";
 import MapControls from "./components/Map/MapControls";
 import MapMarkers from "./components/Map/MapMarkers";
 import ShadowLayer from "./components/Map/ShadowLayer";
+import StreetProbe, { type StreetInfo } from "./components/Map/StreetProbe";
 import TerraceLayer from "./components/Map/TerraceLayer";
 import SolarOverlay from "./components/Map/SolarOverlay";
 import SunStatus from "./components/Map/SunStatus";
@@ -55,6 +56,7 @@ import { useReducedMotion } from "./hooks/useReducedMotion";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSea } from "./hooks/useSea";
 import { useSunSearch } from "./hooks/useSunSearch";
+import { useStreetSun } from "./hooks/useStreetSun";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
 import { useTerraceSun } from "./hooks/useTerraceSun";
 import { useTimeController } from "./hooks/useTimeController";
@@ -339,6 +341,9 @@ export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [stats, setStats] = useState<CityStats | null>(null);
   const [selection, setSelection] = useState<SelectedPoint | null>(null);
+  // La calle del punto elegido (la lee <StreetProbe> del mapa): aceras al sol y alineaciones.
+  const [streetInfo, setStreetInfo] = useState<StreetInfo | null>(null);
+  const streetSun = useStreetSun(selection && streetInfo?.pointId === selection.id ? streetInfo : null, clock.selectedTime);
   const [pointTimeline, setPointTimeline] = useState<PointTimeline | null>(null);
   const [pointSunlight, setPointSunlight] = useState<SunlightResult | null>(null);
   const [card, setCard] = useState<CardState | null>(null);
@@ -1403,6 +1408,7 @@ export default function App() {
           setWeekFocus(createCoordinatePlace(selection.lat, selection.lng, selection.name));
           go("plans", "week");
         }}
+        street={streetSun}
       />
     ) : null;
 
@@ -1544,6 +1550,7 @@ export default function App() {
       </SolarOverlay>
       <MapMarkers selection={selection} userLocation={userLocation} highlights={highlights} activeSpotId={activePin} onPickSpot={handlePickSpot} />
       <TerraceLayer data={terraceSun} />
+      <StreetProbe point={selection} onStreet={setStreetInfo} />
     </BarcelonaMap>
   );
 
