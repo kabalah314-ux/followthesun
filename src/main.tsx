@@ -10,6 +10,15 @@ import { registerOpenMedia } from "./services/media/register";
 registerOpenMedia();
 registerAffiliates();
 
+// Vercel Web Analytics (sin cookies) solo si se ha activado en el panel de Vercel y se ha puesto
+// VITE_VERCEL_ANALYTICS=1: así no hay peticiones fallidas mientras no esté activo.
+if (import.meta.env.VITE_VERCEL_ANALYTICS === "1") {
+  const s = document.createElement("script");
+  s.defer = true;
+  s.src = "/_vercel/insights/script.js";
+  document.head.appendChild(s);
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

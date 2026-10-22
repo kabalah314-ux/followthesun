@@ -23,6 +23,8 @@ interface ImportMetaEnv {
   readonly VITE_AFF_VIATOR_URL?: string;
   readonly VITE_AFF_TIQETS_URL?: string;
   readonly VITE_AFF_BOOKING_URL?: string;
+  /** "1" cuando Vercel Web Analytics esté activado en el panel del proyecto (opcional). */
+  readonly VITE_VERCEL_ANALYTICS?: string;
 }
 
 interface ImportMeta {
