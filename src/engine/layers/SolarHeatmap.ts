@@ -47,7 +47,8 @@ const RAMP: Array<[number, number, number, number, number]> = [
 
 const OUT = new Float64Array(4);
 
-function ramp(t: number): Float64Array {
+/** Color de la escala para una intensidad 0-1: [r, g, b, alfa] (r, g, b en 0-255; alfa 0-1). */
+export function ramp(t: number): Float64Array {
   const x = clamp(t, 0, 1);
   let i = 1;
   while (i < RAMP.length - 1 && x > RAMP[i][0]) i++;
@@ -70,6 +71,54 @@ function ambientAlpha(altDeg: number) {
   if (altDeg >= 4) return 0;
   if (altDeg >= -2) return 0.2 * (1 - smoothstep(-2, 4, altDeg));
   return 0.2 * (1 - smoothstep(-2, -10, altDeg));
+}
+
+/**
+ * Parámetros de la luz según la elevación del sol. Los comparten el canvas 2D (`prepare`) y la capa
+ * WebGL (`SolarGLLayer`): las dos dibujan exactamente la misma escala.
+ */
+export interface LightParams {
+  /** Hay sol (0 de noche → 1 con el sol a 4°). */
+  dayK: number;
+  /** Fuerza de las sombras (desaparecen con el sol en el horizonte). */
+  shadeK: number;
+  /** Fuerza del sol según su elevación (0,5 → 1). */
+  elev: number;
+  /** Velo de ambiente del atardecer. */
+  amb: number;
+  /** 1 de noche, 0 de día (tono del velo de nubes). */
+  nightK: number;
+  /** Tope de la escala: sin datos de nubes el sol no se presenta como «fuerte». */
+  cap: number;
+  /** Opacidad máxima del velo de nubes. */
+  veilMax: number;
+}
+
+export function lightParams(altDeg: number, weatherAvailable: boolean): LightParams {
+  const nightK = 1 - smoothstep(-6, 1, altDeg);
+  const veilDay = smoothstep(-4, 3, altDeg);
+  return {
+    dayK: smoothstep(-0.5, 4, altDeg),
+    shadeK: smoothstep(0, 4, altDeg),
+    elev: elevationStrength(altDeg),
+    amb: ambientAlpha(altDeg),
+    nightK,
+    cap: weatherAvailable ? 1 : 0.62,
+    veilMax: lerp(0.5, 0.24, nightK) * veilDay,
+  };
+}
+
+/** Escala como textura de 1 fila (RGBA sin premultiplicar) para la GPU. */
+export function buildRampLut(size = 256): Uint8Array {
+  const out = new Uint8Array(size * 4);
+  for (let i = 0; i < size; i++) {
+    const c = ramp(i / (size - 1));
+    out[4 * i] = Math.round(c[0]);
+    out[4 * i + 1] = Math.round(c[1]);
+    out[4 * i + 2] = Math.round(c[2]);
+    out[4 * i + 3] = Math.round(c[3] * 255);
+  }
+  return out;
 }
 
 export interface HeatmapOptions {
@@ -107,15 +156,8 @@ export class SolarHeatmap {
       this.cloudData = this.cloudCtx.createImageData(cols, rows);
     }
 
-    const dayK = smoothstep(-0.5, 4, altDeg);
-    const shadeK = smoothstep(0, 4, altDeg);
-    const elev = elevationStrength(altDeg);
-    const amb = ambientAlpha(altDeg);
-    const nightK = 1 - smoothstep(-6, 1, altDeg);
-    const veilDay = smoothstep(-4, 3, altDeg);
-    // Sin datos de nubes no se presenta el sol como «fuerte»: tope en dorado.
-    const cap = opts.weatherAvailable ? 1 : 0.62;
-    const veilMax = lerp(0.5, 0.24, nightK) * veilDay;
+    // Sin datos de nubes no se presenta el sol como «fuerte»: tope en dorado (`cap`).
+    const { dayK, shadeK, elev, amb, nightK, cap, veilMax } = lightParams(altDeg, opts.weatherAvailable);
     const cloudK = opts.cloudK;
 
     const L = this.lightData.data;

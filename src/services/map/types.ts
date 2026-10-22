@@ -35,6 +35,20 @@ export interface MapLike {
   isStyleLoaded(): boolean | void;
   /** Luz de los edificios en 3D (ambas librerías la tienen). */
   setLight?(light: any, options?: any): unknown;
+  /* Opcionales (MapLibre 5 los tiene todos): capa solar en la GPU, calidad y encuadre. */
+  getStyle?(): { layers?: Array<{ id: string; type: string }> } | undefined;
+  removeLayer?(id: string): unknown;
+  moveLayer?(id: string, beforeId?: string): unknown;
+  /** Pide un fotograma nuevo (cuando cambia algo que el mapa no ve: la hora, una capa propia…). */
+  triggerRepaint?(): void;
+  getPixelRatio?(): number;
+  /** `null` vuelve a seguir el devicePixelRatio del dispositivo. */
+  setPixelRatio?(pixelRatio: number | null): unknown;
+  setMaxZoom?(zoom?: number | null): unknown;
+  getMaxZoom?(): number;
+  /** Zonas tapadas por la interfaz: desplazan el punto de fuga y el centro del mapa. */
+  setPadding?(padding: { top: number; right: number; bottom: number; left: number }): unknown;
+  getPadding?(): { top: number; right: number; bottom: number; left: number };
 }
 
 export interface MarkerLike {

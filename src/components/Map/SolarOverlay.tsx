@@ -47,7 +47,7 @@ export interface SolarOverlayProps {
 }
 
 export default function SolarOverlay(props: SolarOverlayProps) {
-  const { map, provider } = useMapContext();
+  const { map, provider, theme } = useMapContext();
   const [engine, setEngine] = useState<SolarOverlayEngine | null>(null);
   const propsRef = useRef(props);
   propsRef.current = props;
@@ -59,6 +59,8 @@ export default function SolarOverlay(props: SolarOverlayProps) {
 
     const created = new SolarOverlayEngine(map, {
       sourceId: provider.sourceId,
+      // La capa solar en la GPU (WebGL2) es una capa propia de MapLibre; con Mapbox, canvas.
+      supportsCustomLayers: provider.id === "maplibre",
       getAreaName: (lng, lat, zoom) => provider.getAreaName(map, lng, lat, zoom),
       onStats: (s) => propsRef.current.onStats(s),
       onPointTimeline: (t) => propsRef.current.onPointTimeline(t),
@@ -104,6 +106,10 @@ export default function SolarOverlay(props: SolarOverlayProps) {
   useEffect(() => {
     engine?.setHighlights(props.highlights);
   }, [engine, props.highlights]);
+
+  useEffect(() => {
+    if (theme) engine?.setTheme(theme);
+  }, [engine, theme]);
 
   const selId = props.selection?.id;
   useEffect(() => {

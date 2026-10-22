@@ -1,4 +1,7 @@
-import { BARCELONA, BUILDINGS_3D, MAP_CONFIG, SOLAR_FIELD } from "../config";
+import { BARCELONA, BUILDINGS_3D, GRAPHICS, MAP_CONFIG, SOLAR_FIELD } from "../config";
+import { SOLAR_GL_LAYER_ID, ROOF_EDGES_LAYER_ID, SolarGLLayer, type SolarGLStats } from "../graphics/gl/SolarGLLayer";
+import { createFpsMonitor, qualityApi, type QualityState } from "../graphics/quality";
+import { ShadowGeometryClient } from "../graphics/shadowGeometryClient";
 import { clamp, myToLat, smoothstep } from "../lib/coordinates";
 import { SUN_UP_RAD } from "../lib/solarCalculations";
 import { SolarGrid, type SolarSample } from "../lib/solarGrid";
@@ -23,9 +26,10 @@ import type {
   PointTimeline,
   SolarPoint,
   SunlightResult,
+  Theme,
   View,
 } from "../types";
-import { SolarHeatmap } from "./layers/SolarHeatmap";
+import { SolarHeatmap, lightParams } from "./layers/SolarHeatmap";
 import { ShadowLayer } from "./layers/ShadowLayer";
 import { SunPositionLayer } from "./layers/SunPosition";
 import { computeView, projectLngLat } from "./view";
@@ -33,39 +37,52 @@ import { computeView, projectLngLat } from "./view";
 /**
  * SolarOverlayEngine — orquesta la capa solar sobre el mapa.
  *
- * Un canvas 2D sincronizado con la cámara compone, de abajo arriba, capas independientes:
- *   1. SolarHeatmap (luz)     calidez del sol directo + sombra neutra del relieve
- *   2. ShadowLayer            sombras de edificios con los tejados iluminados
- *   3. SolarHeatmap (nubes)   velo suave proporcional a lo que las nubes bloquean
- *   4. zonas destacadas (Find the Sun) y SunPosition (trayectoria y sol)
+ * Dos formas de dibujar, según la calidad gráfica (`qualityApi`):
+ *
+ *  · GPU (Alta / Media, WebGL2 + MapLibre): `SolarGLLayer` dibuja la luz y las sombras DENTRO del
+ *    mapa, debajo de los edificios 3D y de las etiquetas: máscara de sombras a resolución de
+ *    pantalla (MSAA en Alta), penumbra física, campo de luz bicúbico y aristas de tejado. La
+ *    geometría se triangula en un Web Worker y el sol es un uniform: mover la hora no recalcula nada.
+ *  · Canvas 2D (Ahorro, o si la GPU falla): un canvas sincronizado con la cámara compone, de abajo
+ *    arriba: luz (SolarHeatmap) → sombras de edificios (ShadowLayer) → nubes.
+ *
+ * En ambos casos, el canvas 2D de encima lleva las zonas destacadas (Find the Sun) y la trayectoria
+ * del sol. Si la GPU falla a mitad de sesión, el motor pasa al canvas sin dejar el mapa vacío.
  *
  * Separación de trabajo (mover el selector de tiempo NO recalcula todo):
  *   · sol          posición astronómica por fotograma (barato)
  *   · nubes        datos en memoria (`cloudService`); la rejilla solo se recalcula si cambia el
  *                  instante o llegan datos nuevos — nunca hay peticiones de red al arrastrar
  *   · edificios    geometría extraída de las teselas al terminar de mover el mapa
- *   · dibujo       canvas; solo se redibuja si cambió la cámara, el tiempo o una capa
+ *   · dibujo       solo si cambió la cámara, el tiempo o una capa
  *   · interfaz     resultados enviados a React con límite de frecuencia
  *
- * Solo depende de la interfaz `MapLike`: funciona igual con Mapbox GL JS y MapLibre GL JS.
+ * Solo depende de la interfaz `MapLike`: funciona igual con Mapbox GL JS y MapLibre GL JS (la capa
+ * en la GPU solo con MapLibre; con Mapbox se usa el canvas).
  */
 
 export interface EngineOptions {
   /** Id de la fuente vectorial del estilo (para refrescar los edificios al cargar teselas). */
   sourceId: string;
+  /** El proveedor admite capas WebGL propias (MapLibre 5). */
+  supportsCustomLayers?: boolean;
   getAreaName(lng: number, lat: number, zoom: number): string;
   onStats(stats: CityStats): void;
   onPointTimeline(timeline: PointTimeline | null): void;
   onPointSunlight(result: SunlightResult | null): void;
 }
 
-/** Opacidad de la sombra de edificios (se refuerza un poco más al acercarse). */
-const SHADOW_ALPHA = 0.46;
+export type EngineRenderer = "gl" | "canvas";
+
+/** Opacidad de la sombra de edificios en el canvas (se refuerza un poco más al acercarse). */
+const SHADOW_ALPHA = GRAPHICS.shadowTone.base;
 const MAX_GROUND_M = 16_000;
 const EXTRUDE_FROM_ZOOM = BUILDINGS_3D.fromZoom;
 const EXTRUDE_FULL_ZOOM = BUILDINGS_3D.fullZoom;
 /** Intervalo mínimo entre resultados enviados a la interfaz mientras se mueve el tiempo. */
 const POINT_EMIT_MS = 90;
+/** Rejilla de las estadísticas de la vista (columnas). */
+const STATS_COLS = 48;
 
 const DIRECTIONS: CityDirection[] = [
   "north",
@@ -88,6 +105,22 @@ interface ExtractInfo {
   bearing: number;
   pitch: number;
   half: number;
+}
+
+/** Máscara de sombras reducida para las estadísticas: cobertura 0-1 por celda (filas de arriba abajo). */
+interface StatsMask {
+  cols: number;
+  rows: number;
+  at(i: number, j: number): number;
+}
+
+function mapHasWebGL2(map: MapLike): boolean {
+  try {
+    if (typeof WebGL2RenderingContext === "undefined") return false;
+    return map.getCanvas().getContext("webgl2") instanceof WebGL2RenderingContext;
+  } catch {
+    return false;
+  }
 }
 
 export class SolarOverlayEngine {
@@ -117,6 +150,8 @@ export class SolarOverlayEngine {
   private weatherAvailable = false;
   private fieldKey = "";
   private fieldVersion = 0;
+  /** Cambia cada vez que la rejilla de luz cambia de contenido (para subirla a la GPU). */
+  private gridVersion = 0;
   private sample: SolarSample = { sunlight: 0, shadow: 0, cloudCoverage: 0 };
   private unsubWeather: () => void;
 
@@ -139,6 +174,30 @@ export class SolarOverlayEngine {
   private selection: LngLat | null = null;
   private pointEvaluator: PointEvaluator | null = null;
   private pointEmitTimer = 0;
+  private theme: Theme = "day";
+
+  /* Calidad y renderizador. */
+  private quality: QualityState;
+  private unsubQuality: () => void;
+  private renderer: EngineRenderer = "canvas";
+  private glLayer: SolarGLLayer | null = null;
+  private geometryClient: ShadowGeometryClient | null = null;
+  /** Edificios cuya geometría de GPU está pedida o aplicada. */
+  private geometrySet: BuildingSet | null = null;
+  private glStateKey = "";
+  private moving = false;
+  private startedAt = performance.now();
+  private fps = createFpsMonitor({
+    minFps: GRAPHICS.fps.min,
+    windowMs: GRAPHICS.fps.windowMs,
+    onLow: () => {
+      qualityApi.reportLowFps();
+    },
+  });
+  private statsRequested = false;
+  /** Momento en que se pidió mostrar la capa (0 = aún no): la luz aparece en ~1,8 s. */
+  private revealAt = 0;
+  private revealK = 0;
 
   private dirty = true;
   private statsDirty = true;
@@ -172,12 +231,18 @@ export class SolarOverlayEngine {
 
     map.on("render", this.onRender);
     map.on("resize", this.markDirty);
+    map.on("movestart", this.onMoveStart);
     map.on("moveend", this.onMoveEnd);
     map.on("idle", this.onIdle);
     map.on("sourcedata", this.onSourceData);
+    map.on("styledata", this.onStyleData);
 
     // Cuando llegan o se refrescan los datos meteorológicos, se rehace la capa y el punto.
     this.unsubWeather = lightFusionService.subscribe(this.onWeatherChange);
+
+    this.quality = qualityApi.get();
+    this.unsubQuality = qualityApi.subscribe(this.onQuality);
+    this.applyRenderer();
 
     this.raf = requestAnimationFrame(this.loop);
   }
@@ -205,6 +270,7 @@ export class SolarOverlayEngine {
   setSolarPoints(points: SolarPoint[] | null) {
     if (points && points.length > 0) {
       this.grid.setPoints(points);
+      this.gridVersion++;
       this.externalPoints = true;
     } else {
       this.externalPoints = false;
@@ -226,6 +292,13 @@ export class SolarOverlayEngine {
   setBuildings3D(v: boolean) {
     this.buildings3D = v;
     this.lightKey = "";
+    this.dirty = true;
+  }
+
+  /** Paleta del mapa (día / noche): tono de las aristas de tejado. */
+  setTheme(theme: Theme) {
+    if (theme === this.theme) return;
+    this.theme = theme;
     this.dirty = true;
   }
 
@@ -263,6 +336,7 @@ export class SolarOverlayEngine {
 
   reveal() {
     this.canvas.style.opacity = "1";
+    if (!this.revealAt) this.revealAt = performance.now();
     this.scheduleRefresh(80);
   }
 
@@ -274,6 +348,16 @@ export class SolarOverlayEngine {
     return this.dayStart;
   }
 
+  /** Canvas 2D de encima del mapa (trayectoria, zonas destacadas…): para grabar vídeo. */
+  getOverlayCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
+  /** Cómo se está dibujando ahora la capa solar. */
+  getRenderer(): EngineRenderer {
+    return this.renderer;
+  }
+
   destroy() {
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
@@ -281,11 +365,15 @@ export class SolarOverlayEngine {
     window.clearTimeout(this.timelineTimer);
     window.clearTimeout(this.pointEmitTimer);
     this.unsubWeather();
+    this.unsubQuality();
     this.map.off("render", this.onRender);
     this.map.off("resize", this.markDirty);
+    this.map.off("movestart", this.onMoveStart);
     this.map.off("moveend", this.onMoveEnd);
     this.map.off("idle", this.onIdle);
     this.map.off("sourcedata", this.onSourceData);
+    this.map.off("styledata", this.onStyleData);
+    this.disableGL();
     this.canvas.remove();
   }
 
@@ -299,6 +387,99 @@ export class SolarOverlayEngine {
     this.invalidateField();
     this.recomputeTimeline();
   };
+
+  /* ------------------------------ calidad y renderizador ------------------------------ */
+
+  private onQuality = (s: QualityState) => {
+    if (this.destroyed) return;
+    this.quality = s;
+    this.applyRenderer();
+    this.dirty = true;
+  };
+
+  private applyRenderer() {
+    const s = this.quality.settings;
+    const gpu = s.webgl && this.opts.supportsCustomLayers === true && mapHasWebGL2(this.map);
+    if (gpu) this.enableGL();
+    else this.disableGL();
+  }
+
+  private enableGL() {
+    const s = this.quality.settings;
+    if (this.glLayer) {
+      this.glLayer.setSettings(s);
+      return;
+    }
+    this.glLayer = new SolarGLLayer({
+      settings: s,
+      // Se avisa fuera del dibujo del mapa: quitar capas en mitad de un fotograma no es seguro.
+      onError: (e) => window.setTimeout(() => qualityApi.reportGlFailure(e), 0),
+    });
+    this.geometryClient ??= new ShadowGeometryClient();
+    this.renderer = "gl";
+    this.glStateKey = "";
+    this.geometrySet = null;
+    this.ensureGLLayers();
+    if (this.buildings) this.requestGeometry(this.buildings);
+    this.dirty = true;
+  }
+
+  private disableGL() {
+    const layer = this.glLayer;
+    this.renderer = "canvas";
+    if (!layer) return;
+    this.glLayer = null;
+    for (const id of [ROOF_EDGES_LAYER_ID, SOLAR_GL_LAYER_ID]) {
+      try {
+        if (this.map.getLayer(id)) this.map.removeLayer?.(id);
+      } catch {
+        /* estilo en transición */
+      }
+    }
+    this.geometryClient?.destroy();
+    this.geometryClient = null;
+    this.geometrySet = null;
+    this.statsRequested = false;
+    this.dirty = true;
+    this.map.triggerRepaint?.();
+  }
+
+  /** Inserta (o reinserta tras un cambio de estilo) las capas de la GPU en su sitio. */
+  private ensureGLLayers() {
+    const layer = this.glLayer;
+    if (!layer || this.destroyed) return;
+    try {
+      if (this.map.getLayer(SOLAR_GL_LAYER_ID) && this.map.getLayer(ROOF_EDGES_LAYER_ID)) return;
+      const layers = this.map.getStyle?.()?.layers ?? [];
+      const firstSymbol = layers.find((l) => l.type === "symbol")?.id;
+      const below3D = this.map.getLayer("buildings-3d") ? "buildings-3d" : firstSymbol;
+      if (!this.map.getLayer(SOLAR_GL_LAYER_ID)) this.map.addLayer(layer, below3D);
+      if (!this.map.getLayer(ROOF_EDGES_LAYER_ID)) this.map.addLayer(layer.roofLayer, firstSymbol);
+    } catch {
+      /* el estilo aún no está listo: se reintenta con el siguiente `styledata` */
+    }
+  }
+
+  private onStyleData = () => {
+    if (this.glLayer) this.ensureGLLayers();
+  };
+
+  private requestGeometry(set: BuildingSet) {
+    const client = this.geometryClient;
+    if (!client || !this.glLayer || set === this.geometrySet) return;
+    this.geometrySet = set;
+    client.build(set).then(
+      (g) => {
+        // Solo vale si sigue siendo el conjunto vigente.
+        if (this.destroyed || set !== this.geometrySet || !this.glLayer) return;
+        this.glLayer.setGeometry(g);
+        this.dirty = true;
+      },
+      () => {
+        if (set === this.geometrySet) this.geometrySet = null;
+      }
+    );
+  }
 
   /* ------------------------------ eventos del mapa ------------------------------ */
 
@@ -327,7 +508,15 @@ export class SolarOverlayEngine {
     if (this.dirty) this.draw();
   };
 
-  private onMoveEnd = () => this.scheduleRefresh(140);
+  private onMoveStart = () => {
+    this.moving = true;
+  };
+
+  private onMoveEnd = () => {
+    this.moving = false;
+    this.scheduleRefresh(140);
+  };
+
   private onIdle = () => this.scheduleRefresh(60);
 
   private onSourceData = (e: any) => {
@@ -382,6 +571,7 @@ export class SolarOverlayEngine {
       this.sourceDirty = false;
       this.buildings = set;
       this.dirty = true;
+      if (this.glLayer) this.requestGeometry(set);
       if (this.selection) {
         window.clearTimeout(this.timelineTimer);
         this.timelineTimer = window.setTimeout(() => this.recomputeTimeline(), 280);
@@ -437,7 +627,8 @@ export class SolarOverlayEngine {
     this.lastTs = ts;
 
     const diff = this.targetTime - this.displayTime;
-    if (diff !== 0) {
+    const timeAnimating = diff !== 0;
+    if (timeAnimating) {
       if (Math.abs(diff) < 20_000) this.displayTime = this.targetTime;
       else this.displayTime += diff * (1 - Math.exp(-dt / 0.16));
       this.dirty = true;
@@ -463,20 +654,34 @@ export class SolarOverlayEngine {
       this.highlightFade = approach(this.highlightFade, hT, dt / 0.6);
       this.dirty = true;
     }
+    // Aparición de la luz en la GPU (el canvas lo hace con una transición CSS de 1,8 s).
+    if (this.revealAt && this.revealK < 1) {
+      this.revealK = smoothstep(0, 1800, performance.now() - this.revealAt);
+      this.dirty = true;
+    }
 
     if (this.dirty) this.draw();
+
+    // Fluidez: solo cuenta mientras el mapa se mueve o se anima la hora (no al estar quieto).
+    if ((this.moving || timeAnimating) && performance.now() - this.startedAt > GRAPHICS.fps.warmupMs) {
+      this.fps.frame(ts);
+    } else {
+      this.fps.pause();
+    }
+
+    if (this.renderer === "gl") this.collectGLStats();
 
     if (this.statsDirty && ts - this.lastStatsAt > 240) {
       this.statsDirty = false;
       this.lastStatsAt = ts;
-      this.computeStats();
+      this.requestStats();
     }
   };
 
   /* ------------------------------ dibujo ------------------------------ */
 
   private ensureSize(v: View) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.quality.settings.maxPixelRatio);
     if (v.w === this.width && v.h === this.height && dpr === this.dpr) return;
     this.width = v.w;
     this.height = v.h;
@@ -529,6 +734,7 @@ export class SolarOverlayEngine {
     if (key === this.fieldKey) return;
     this.fieldKey = key;
     this.weatherAvailable = this.source.compute(time, this.grid, this.lightMode).weatherAvailable;
+    this.gridVersion++;
   }
 
   private draw() {
@@ -553,8 +759,65 @@ export class SolarOverlayEngine {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
 
-    // 1 · Luz: calidez del sol directo efectivo + relieve + ambiente.
     this.updateField(time);
+    this.updateMapLight(pos);
+
+    if (this.renderer === "gl" && this.glLayer) {
+      // 1-3 · Luz, sombras y nubes: en la GPU, dentro del mapa.
+      this.drawGL(pos);
+    } else {
+      this.drawCanvasSolar(v, pos, shadeK);
+    }
+
+    // 4 · Zonas destacadas y trayectoria (siempre en el canvas de encima).
+    if (this.highlightFade > 0.01) this.drawHighlights(v, this.highlightFade);
+    if (this.pathFade > 0.01) {
+      let anchor: [number, number] = [v.w / 2, v.h / 2];
+      if (this.selection) {
+        anchor = projectLngLat(v, this.selection.lng, this.selection.lat) ?? anchor;
+      }
+      this.sunPath.draw(ctx, v, {
+        pos,
+        time,
+        dayStart: this.dayStart,
+        fade: this.pathFade,
+        night,
+        anchor,
+      });
+    }
+
+    this.statsDirty = true;
+  }
+
+  /** Entrega a la capa de la GPU el estado del sol y de las capas; pide fotograma si cambió. */
+  private drawGL(pos: SunPosition) {
+    const layer = this.glLayer!;
+    const light = lightParams(pos.altitudeDeg, this.weatherAvailable);
+    layer.setField(this.grid, this.gridVersion);
+    layer.setFrame({
+      azimuth: pos.azimuth,
+      altitude: pos.altitude,
+      light,
+      cloudK: this.cloudsFade,
+      shadowsK: this.shadowsFade * light.shadeK,
+      buildings3D: this.buildings3D,
+      theme: this.theme,
+      opacity: this.revealK,
+    });
+    // Solo lo que el mapa no ve por sí mismo (la cámara ya provoca su propio fotograma).
+    const stateKey = `${pos.azimuth.toFixed(5)}|${pos.altitude.toFixed(5)}|${this.gridVersion}|${this.weatherAvailable}|${this.shadowsFade.toFixed(3)}|${this.cloudsFade.toFixed(3)}|${this.buildings3D}|${this.theme}|${this.revealK.toFixed(3)}`;
+    if (stateKey !== this.glStateKey) {
+      this.glStateKey = stateKey;
+      this.map.triggerRepaint?.();
+    }
+  }
+
+  /** Motor de canvas 2D (calidad Ahorro o sin WebGL2). */
+  private drawCanvasSolar(v: View, pos: SunPosition, shadeK: number) {
+    const ctx = this.ctx;
+    const altDeg = pos.altitudeDeg;
+
+    // 1 · Luz: calidez del sol directo efectivo + relieve + ambiente.
     this.heatmap.prepare(v, this.grid, altDeg, {
       cloudK: this.cloudsFade,
       weatherAvailable: this.weatherAvailable,
@@ -569,7 +832,6 @@ export class SolarOverlayEngine {
     const extrudeK = this.buildings3D ? clamp((v.zoom - EXTRUDE_FROM_ZOOM) / (EXTRUDE_FULL_ZOOM - EXTRUDE_FROM_ZOOM), 0, 1) : 0;
     this.lastBFade = bFade;
     this.maskActive = false;
-    this.updateMapLight(pos);
 
     const wantShadows = bFade > 0.01;
     if (this.buildings && (wantShadows || extrudeK > 0.01)) {
@@ -594,7 +856,7 @@ export class SolarOverlayEngine {
       if (wantShadows) {
         // Tono de la sombra, más marcado al acercarse (donde se lee calle a calle).
         ctx.globalCompositeOperation = "source-over";
-        ctx.globalAlpha = (SHADOW_ALPHA + 0.12 * smoothstep(14, 16, v.zoom)) * bFade;
+        ctx.globalAlpha = (SHADOW_ALPHA + GRAPHICS.shadowTone.calle * smoothstep(14, 16, v.zoom)) * bFade;
         ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
       }
       ctx.globalCompositeOperation = "source-over";
@@ -603,25 +865,6 @@ export class SolarOverlayEngine {
 
     // 3 · Nubes.
     if (this.cloudsFade > 0.01) this.heatmap.drawClouds(ctx);
-
-    // 4 · Zonas destacadas y trayectoria.
-    if (this.highlightFade > 0.01) this.drawHighlights(v, this.highlightFade);
-    if (this.pathFade > 0.01) {
-      let anchor: [number, number] = [v.w / 2, v.h / 2];
-      if (this.selection) {
-        anchor = projectLngLat(v, this.selection.lng, this.selection.lat) ?? anchor;
-      }
-      this.sunPath.draw(ctx, v, {
-        pos,
-        time,
-        dayStart: this.dayStart,
-        fade: this.pathFade,
-        night,
-        anchor,
-      });
-    }
-
-    this.statsDirty = true;
   }
 
   private drawHighlights(v: View, fade: number) {
@@ -661,31 +904,66 @@ export class SolarOverlayEngine {
 
   /* ------------------------------ estadísticas ------------------------------ */
 
-  private computeStats() {
-    const v = this.lastView;
-    const pos = this.lastSun;
-    if (!v || !pos || this.destroyed) return;
+  private statsRows(v: View) {
+    return Math.max(16, Math.round((STATS_COLS * v.h) / v.w));
+  }
 
-    const gc = 48;
-    const gr = Math.max(16, Math.round((gc * v.h) / v.w));
+  /** Estadísticas de la vista: en canvas, al momento; en GPU, cuando llega la reducción de la máscara. */
+  private requestStats() {
+    const v = this.lastView;
+    if (!v || this.destroyed) return;
+    const layer = this.glLayer;
+    if (this.renderer === "gl" && layer) {
+      if (layer.shadowMaskActive) {
+        layer.requestStats(STATS_COLS, this.statsRows(v));
+        this.statsRequested = true;
+        this.map.triggerRepaint?.();
+        return;
+      }
+      this.computeStats(null, 0);
+      return;
+    }
+    this.computeStats(this.canvasStatsMask(v), this.lastBFade);
+  }
+
+  private collectGLStats() {
+    const layer = this.glLayer;
+    if (!this.statsRequested || !layer) return;
+    const s: SolarGLStats | null = layer.takeStats();
+    if (!s) return;
+    this.statsRequested = false;
+    this.computeStats(
+      { cols: s.cols, rows: s.rows, at: (i, j) => s.data[j * s.cols + i] / 255 },
+      layer.shadowFade
+    );
+  }
+
+  private canvasStatsMask(v: View): StatsMask | null {
+    if (!this.maskActive) return null;
+    const gc = STATS_COLS;
+    const gr = this.statsRows(v);
     if (this.statCv.width !== gc || this.statCv.height !== gr) {
       this.statCv.width = gc;
       this.statCv.height = gr;
     }
+    const sctx = this.statCtx;
+    sctx.clearRect(0, 0, gc, gr);
+    sctx.imageSmoothingEnabled = true;
+    sctx.imageSmoothingQuality = "high";
+    const mask = this.shadows.canvas;
+    sctx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, gc, gr);
+    const px = sctx.getImageData(0, 0, gc, gr).data;
+    return { cols: gc, rows: gr, at: (i, j) => px[(j * gc + i) * 4 + 3] / 255 };
+  }
 
-    let maskPx: Uint8ClampedArray | null = null;
-    if (this.maskActive) {
-      const sctx = this.statCtx;
-      sctx.clearRect(0, 0, gc, gr);
-      sctx.imageSmoothingEnabled = true;
-      sctx.imageSmoothingQuality = "high";
-      const mask = this.shadows.canvas;
-      sctx.drawImage(mask, 0, 0, mask.width, mask.height, 0, 0, gc, gr);
-      maskPx = sctx.getImageData(0, 0, gc, gr).data;
-    }
+  private computeStats(mask: StatsMask | null, bScale: number) {
+    const v = this.lastView;
+    const pos = this.lastSun;
+    if (!v || !pos || this.destroyed) return;
 
+    const gc = mask?.cols ?? STATS_COLS;
+    const gr = mask?.rows ?? this.statsRows(v);
     const up = pos.altitude >= SUN_UP_RAD;
-    const bScale = this.lastBFade;
     const Hi = v.Hi;
     const maxD2 = MAX_GROUND_M * v.ppm * (MAX_GROUND_M * v.ppm);
     const half = Math.max(v.w, v.h) / 2;
@@ -710,7 +988,7 @@ export class SolarOverlayEngine {
         const lng = (v.cx + u / v.ws) * 360 - 180;
         const lat = myToLat(v.cy + vv / v.ws);
         this.grid.sample(lng, lat, s);
-        const m = maskPx ? (maskPx[(j * gc + i) * 4 + 3] / 255) * bScale : 0;
+        const m = mask ? mask.at(i, j) * bScale : 0;
         const lit = (1 - m) * Math.min(s.sunlight, 1 - s.shadow);
         // Luz efectiva: geometría × (1 − lo que bloquean las nubes). Independiente de qué capas se vean.
         const sun = up ? lit * (1 - s.cloudCoverage) : 0;
