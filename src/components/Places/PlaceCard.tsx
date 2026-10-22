@@ -17,6 +17,7 @@ import { cn } from "../../utils/cn";
 import { CloseIcon, SunGlyph } from "../Icons";
 import WindowStrip from "../FindSun/WindowStrip";
 import AffiliateSlot from "./AffiliateSlot";
+import CompareBlock from "./CompareBlock";
 import HowWeKnow from "./HowWeKnow";
 import PhotoLightBlock from "./PhotoLightBlock";
 import TerraceBlock from "./TerraceBlock";
@@ -173,6 +174,10 @@ export interface PlaceCardBodyProps {
   onShowTime?(t: number): void;
   /** La terraza dibujada con su % al sol a la hora elegida. */
   terrace?: TerraceSun | null;
+  /** Sitio apartado para comparar (utilidad «Comparar dos sitios»). */
+  compare?: SunPlace | null;
+  onCompare?(): void;
+  onClearCompare?(): void;
 }
 
 export function PlaceCardBody(p: PlaceCardBodyProps) {
@@ -295,7 +300,29 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
             <WindowStrip windows={result.windows} start={request.startTime} end={request.endTime} highlight={result.searchWindow} />
           </div>
           <p className="mt-2 text-[12.5px] leading-snug text-ink-faint">{tr("sunDetails.el_contorno_marca_la_mejor", { p0: fmtMin(D) })}</p>
+          {p.onCompare && (!p.compare || p.compare.id === place.id) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-3">
+              {p.compare?.id === place.id ? (
+                <>
+                  <span className="text-[12.5px] text-ink-soft">{tr("compare.elige_otro")}</span>
+                  {p.onClearCompare && (
+                    <button type="button" onClick={p.onClearCompare} className="min-h-[44px] text-[12.5px] font-semibold text-ink-soft underline-offset-4 hover:underline">
+                      {tr("compare.cancelar")}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <button type="button" onClick={p.onCompare} className="min-h-[44px] text-[13px] font-semibold text-sun-deep underline-offset-4 hover:underline">
+                  {tr("compare.con_otro")}
+                </button>
+              )}
+            </div>
+          )}
         </div>
+      )}
+
+      {result && request && p.compare && p.compare.id !== place.id && (
+        <CompareBlock other={p.compare} result={result} request={request} mode={p.mode} onClear={() => p.onClearCompare?.()} />
       )}
 
       {(comfort || sea) && (

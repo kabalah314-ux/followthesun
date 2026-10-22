@@ -347,6 +347,8 @@ export default function App() {
   const [pointTimeline, setPointTimeline] = useState<PointTimeline | null>(null);
   const [pointSunlight, setPointSunlight] = useState<SunlightResult | null>(null);
   const [card, setCard] = useState<CardState | null>(null);
+  // «Comparar dos sitios»: el sitio apartado para compararlo con el de la siguiente ficha.
+  const [comparePlace, setComparePlace] = useState<SunPlace | null>(null);
   // La terraza de la ficha dibujada en el mapa con su % al sol a la hora elegida (B10).
   const terraceSun = useTerraceSun(card ? card.data.place : null, selectedTime);
   const [userLocation, setUserLocation] = useState<LngLat | null>(null);
@@ -1353,6 +1355,12 @@ export default function App() {
       onRetry={() => void openPlace(card.data.place)}
       onShowTime={showTimeAt}
       terrace={terraceSun}
+      compare={comparePlace}
+      onCompare={() => {
+        setComparePlace(card.data.place);
+        setToast(tr("compare.elige_otro"));
+      }}
+      onClearCompare={() => setComparePlace(null)}
     />
   ) : null;
 

@@ -79,3 +79,10 @@ export function sunMinutesOf(windows: readonly SunWindow[]): number {
   }
   return Math.round(ms / 60_000);
 }
+
+/** Minutos de luz de día que no son sol (sombra de edificios, nubes o dudoso); la noche no cuenta. */
+export function shadeMinutesOf(windows: readonly SunWindow[]): number {
+  let ms = 0;
+  for (const w of windows) if (w.kind !== "night") ms += w.end - w.start;
+  return Math.max(0, Math.round(ms / 60_000) - sunMinutesOf(windows));
+}
