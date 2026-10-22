@@ -63,6 +63,15 @@ describe("niveles", () => {
     expect(QUALITY_SETTINGS.alta.penumbra).toBe("full");
     expect(QUALITY_SETTINGS.ahorro.maxPixelRatio).toBe(1);
   });
+
+  it("3D realista: Alta árboles 3D + fachadas + relieve; Media solo la sombra de los árboles; Ahorro nada", () => {
+    const { alta, media, ahorro } = QUALITY_SETTINGS;
+    expect([alta.treeShadows, alta.trees3d, alta.facadeShadows, alta.hillshade]).toEqual([true, true, true, true]);
+    expect(alta.shadowMapSize).toBe(2048);
+    expect([media.treeShadows, media.trees3d, media.facadeShadows, media.hillshade]).toEqual([true, false, false, false]);
+    expect([ahorro.treeShadows, ahorro.trees3d, ahorro.facadeShadows, ahorro.hillshade]).toEqual([false, false, false, false]);
+    expect(alta.maxTrees > media.maxTrees && ahorro.maxTrees === 0).toBe(true);
+  });
 });
 
 describe("createFpsMonitor", () => {

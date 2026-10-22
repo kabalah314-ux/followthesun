@@ -46,6 +46,12 @@ export interface ShadowGeometry {
   mpu: number;
   /** Por vértice: x, y (m), altura (m), k (0 base · 1 extremo de la sombra). */
   vertices: Float32Array;
+  /**
+   * Por vértice: altura con la que el mapa dibuja el edificio en 3D (m; 0 si no lo levanta).
+   * Con k = 1 como «arriba», los mismos índices de sombra son el prisma 3D (tejado + fachadas):
+   * así se proyectan y reciben las sombras sobre tejados y fachadas (calidad Alta).
+   */
+  renderZ: Float32Array;
   indices: Uint32Array;
   /** Por clase de altura: inicio y número de índices de sombra; inicio y número de recorte. */
   ranges: Int32Array;
@@ -117,6 +123,7 @@ export function buildShadowGeometry(src: ShadowSource, origin?: { ox: number; oy
   }
 
   const vertices = new Float32Array(vertexCount * SHADOW_VERTEX_STRIDE);
+  const renderZ = new Float32Array(vertexCount);
   const edges = new Float32Array(edgeCount * ROOF_EDGE_STRIDE);
   const base = new Int32Array(count).fill(-1);
 
@@ -129,8 +136,10 @@ export function buildShadowGeometry(src: ShadowSource, origin?: { ox: number; oy
     const n = offsets[i + 1] - o;
     const h = heights[i];
     base[i] = v / SHADOW_VERTEX_STRIDE;
+    const rz = hide3d && hide3d[i] ? 0 : renderHeights[i] > 0 ? renderHeights[i] : h;
     for (let k = 0; k < 2; k++) {
       for (let p = 0; p < n; p++) {
+        renderZ[v / SHADOW_VERTEX_STRIDE] = rz;
         vertices[v++] = (coords[2 * (o + p)] - ox) * mpu;
         vertices[v++] = (coords[2 * (o + p) + 1] - oy) * mpu;
         vertices[v++] = h;
@@ -200,6 +209,7 @@ export function buildShadowGeometry(src: ShadowSource, origin?: { ox: number; oy
     oy,
     mpu,
     vertices,
+    renderZ,
     indices: w === indices.length ? indices : indices.slice(0, w),
     ranges,
     edges,
@@ -211,5 +221,5 @@ export function buildShadowGeometry(src: ShadowSource, origin?: { ox: number; oy
 
 /** Búferes que se pueden transferir (sin copia) entre el worker y la página. */
 export function shadowGeometryTransferables(g: ShadowGeometry): ArrayBuffer[] {
-  return [g.vertices.buffer, g.indices.buffer, g.ranges.buffer, g.edges.buffer] as ArrayBuffer[];
+  return [g.vertices.buffer, g.renderZ.buffer, g.indices.buffer, g.ranges.buffer, g.edges.buffer] as ArrayBuffer[];
 }

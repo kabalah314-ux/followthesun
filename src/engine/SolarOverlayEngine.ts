@@ -1,7 +1,18 @@
 import { BARCELONA, BUILDINGS_3D, GRAPHICS, MAP_CONFIG, SOLAR_FIELD } from "../config";
-import { SOLAR_GL_LAYER_ID, ROOF_EDGES_LAYER_ID, SolarGLLayer, type SolarGLStats } from "../graphics/gl/SolarGLLayer";
+import {
+  FACADE_SHADOWS_LAYER_ID,
+  PHASE_C,
+  ROOF_EDGES_LAYER_ID,
+  SOLAR_GL_LAYER_ID,
+  SolarGLLayer,
+  TREES_3D_LAYER_ID,
+  type SolarGLStats,
+} from "../graphics/gl/SolarGLLayer";
 import { createFpsMonitor, qualityApi, type QualityState } from "../graphics/quality";
 import { ShadowGeometryClient } from "../graphics/shadowGeometryClient";
+import { shadowToneAlpha } from "../graphics/shadowTone";
+import { treeStore, type TreeBounds } from "../graphics/trees/treeStore";
+import { leafDensities } from "../graphics/trees/treeTiles";
 import { clamp, myToLat, smoothstep } from "../lib/coordinates";
 import { SUN_UP_RAD } from "../lib/solarCalculations";
 import { SolarGrid, type SolarSample } from "../lib/solarGrid";
@@ -12,6 +23,7 @@ import {
   type BuildingSet,
 } from "../services/buildingService";
 import { lightFusionService } from "../services/lightFusionService";
+import { HILLSHADE_LAYER_ID, ReliefLayer } from "../services/map/relief";
 import type { MapLike } from "../services/map/types";
 import { createWeatherSolarSource, type SolarFieldSource } from "../services/solarFieldService";
 import { solarService, type SunPosition } from "../services/solarService";
@@ -74,8 +86,6 @@ export interface EngineOptions {
 
 export type EngineRenderer = "gl" | "canvas";
 
-/** Opacidad de la sombra de edificios en el canvas (se refuerza un poco más al acercarse). */
-const SHADOW_ALPHA = GRAPHICS.shadowTone.base;
 const MAX_GROUND_M = 16_000;
 const EXTRUDE_FROM_ZOOM = BUILDINGS_3D.fromZoom;
 const EXTRUDE_FULL_ZOOM = BUILDINGS_3D.fullZoom;
@@ -195,6 +205,11 @@ export class SolarOverlayEngine {
     },
   });
   private statsRequested = false;
+  /* Fase C: árboles del inventario (Media y Alta) y relieve sombreado (Alta). */
+  private treeKey = "";
+  private treeReq = 0;
+  private relief: ReliefLayer;
+  private reliefKey = "";
   /** Momento en que se pidió mostrar la capa (0 = aún no): la luz aparece en ~1,8 s. */
   private revealAt = 0;
   private revealK = 0;
@@ -228,6 +243,7 @@ export class SolarOverlayEngine {
     this.statCtx = this.statCv.getContext("2d", { willReadFrequently: true })!;
 
     this.dayStart = startOfZoneDay(Date.now());
+    this.relief = new ReliefLayer(map);
 
     map.on("render", this.onRender);
     map.on("resize", this.markDirty);
@@ -374,6 +390,7 @@ export class SolarOverlayEngine {
     this.map.off("sourcedata", this.onSourceData);
     this.map.off("styledata", this.onStyleData);
     this.disableGL();
+    this.relief.update(false, { azimuthDeg: 0, altitudeDeg: 0 }, this.theme);
     this.canvas.remove();
   }
 
@@ -394,6 +411,8 @@ export class SolarOverlayEngine {
     if (this.destroyed) return;
     this.quality = s;
     this.applyRenderer();
+    this.treeKey = "";
+    this.refreshTrees();
     this.dirty = true;
   };
 
@@ -429,7 +448,9 @@ export class SolarOverlayEngine {
     this.renderer = "canvas";
     if (!layer) return;
     this.glLayer = null;
-    for (const id of [ROOF_EDGES_LAYER_ID, SOLAR_GL_LAYER_ID]) {
+    this.treeKey = "";
+    this.treeReq++;
+    for (const id of [ROOF_EDGES_LAYER_ID, TREES_3D_LAYER_ID, FACADE_SHADOWS_LAYER_ID, SOLAR_GL_LAYER_ID]) {
       try {
         if (this.map.getLayer(id)) this.map.removeLayer?.(id);
       } catch {
@@ -449,12 +470,17 @@ export class SolarOverlayEngine {
     const layer = this.glLayer;
     if (!layer || this.destroyed) return;
     try {
-      if (this.map.getLayer(SOLAR_GL_LAYER_ID) && this.map.getLayer(ROOF_EDGES_LAYER_ID)) return;
+      const ids = [SOLAR_GL_LAYER_ID, FACADE_SHADOWS_LAYER_ID, TREES_3D_LAYER_ID, ROOF_EDGES_LAYER_ID];
+      if (ids.every((id) => this.map.getLayer(id))) return;
       const layers = this.map.getStyle?.()?.layers ?? [];
       const firstSymbol = layers.find((l) => l.type === "symbol")?.id;
       const below3D = this.map.getLayer("buildings-3d") ? "buildings-3d" : firstSymbol;
+      // Suelo (luz y sombras) bajo los edificios 3D; encima de ellos y bajo los rótulos: sombra en
+      // fachadas y tejados → árboles 3D → aristas de tejado.
       if (!this.map.getLayer(SOLAR_GL_LAYER_ID)) this.map.addLayer(layer, below3D);
       if (!this.map.getLayer(ROOF_EDGES_LAYER_ID)) this.map.addLayer(layer.roofLayer, firstSymbol);
+      if (!this.map.getLayer(FACADE_SHADOWS_LAYER_ID)) this.map.addLayer(layer.facadeLayer, ROOF_EDGES_LAYER_ID);
+      if (!this.map.getLayer(TREES_3D_LAYER_ID)) this.map.addLayer(layer.treesLayer, ROOF_EDGES_LAYER_ID);
     } catch {
       /* el estilo aún no está listo: se reintenta con el siguiente `styledata` */
     }
@@ -532,7 +558,108 @@ export class SolarOverlayEngine {
     this.refreshTimer = window.setTimeout(() => {
       this.refreshPending = false;
       this.refreshBuildings();
+      this.refreshTrees();
     }, delay);
+  }
+
+  /** Árboles del inventario alrededor de la vista (Fase C): desde «calle», en Media y Alta. */
+  private refreshTrees() {
+    const layer = this.glLayer;
+    if (!layer || this.destroyed) return;
+    const s = this.quality.settings;
+    const zoom = this.map.getZoom();
+    const on = (s.treeShadows || s.trees3d) && s.maxTrees > 0;
+    if (!on || zoom < PHASE_C.treesLoadZoom) {
+      // Se sueltan al alejarse (con margen, para no recargar al oscilar junto al umbral).
+      if (this.treeKey && (!on || zoom < PHASE_C.treesLoadZoom - 0.4)) {
+        this.treeKey = "";
+        this.treeReq++;
+        layer.setTrees(null);
+        this.dirty = true;
+        this.map.triggerRepaint?.();
+      }
+      return;
+    }
+    const b = this.treeBounds();
+    if (!b) return;
+    const q = 0.0025; // ~250 m: moverse un poco no recarga
+    const key = `${Math.floor(b.west / q)}|${Math.floor(b.south / q)}|${Math.ceil(b.east / q)}|${Math.ceil(b.north / q)}|${s.maxTrees}`;
+    if (key === this.treeKey) return;
+    this.treeKey = key;
+    const req = ++this.treeReq;
+    treeStore.batchFor(b, this.map.getCenter(), s.maxTrees).then(
+      (batch) => {
+        if (this.destroyed || req !== this.treeReq || !this.glLayer) return;
+        this.glLayer.setTrees(batch && batch.count > 0 ? batch : null);
+        // Sin datos de arbolado publicados todavía: se vuelve a mirar en la próxima vista.
+        if (!batch) this.treeKey = "";
+        this.dirty = true;
+        this.map.triggerRepaint?.();
+      },
+      () => {
+        if (req === this.treeReq) this.treeKey = "";
+      }
+    );
+  }
+
+  /** Caja de la vista con margen, acotada a 1,6 km del centro (inclinado, el horizonte queda lejos). */
+  private treeBounds(): TreeBounds | null {
+    const el = this.map.getContainer();
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    if (w < 2 || h < 2) return null;
+    let west = Infinity;
+    let east = -Infinity;
+    let south = Infinity;
+    let north = -Infinity;
+    const pts: Array<[number, number]> = [
+      [0, 0],
+      [w / 2, 0],
+      [w, 0],
+      [0, h / 2],
+      [w, h / 2],
+      [0, h],
+      [w, h],
+    ];
+    for (const pt of pts) {
+      const p = this.map.unproject(pt);
+      if (!Number.isFinite(p.lng) || !Number.isFinite(p.lat)) continue;
+      west = Math.min(west, p.lng);
+      east = Math.max(east, p.lng);
+      south = Math.min(south, p.lat);
+      north = Math.max(north, p.lat);
+    }
+    if (!Number.isFinite(west)) return null;
+    const c = this.map.getCenter();
+    const mx = (east - west) * 0.35;
+    const my = (north - south) * 0.35;
+    const dLat = 1600 / 111_320;
+    const dLng = dLat / Math.max(0.2, Math.cos((c.lat * Math.PI) / 180));
+    return {
+      west: Math.max(west - mx, c.lng - dLng),
+      east: Math.min(east + mx, c.lng + dLng),
+      south: Math.max(south - my, c.lat - dLat),
+      north: Math.min(north + my, c.lat + dLat),
+    };
+  }
+
+  /** Relieve sombreado (Alta) con la luz del sol de la hora elegida; fuera en satélite. */
+  private updateRelief(pos: SunPosition) {
+    const enabled = this.quality.settings.hillshade;
+    let present = false;
+    let satellite = false;
+    try {
+      present = !!this.map.getLayer(HILLSHADE_LAYER_ID);
+      satellite = !!this.map.getLayer("satellite-base");
+    } catch {
+      return;
+    }
+    const az = Math.round((((pos.azimuthDeg % 360) + 360) % 360) / 2) * 2;
+    const alt = Math.round(pos.altitudeDeg / 2) * 2;
+    const key = `${enabled}|${present}|${satellite}|${az}|${alt}|${this.theme}`;
+    if (key === this.reliefKey) return;
+    this.reliefKey = key;
+    this.relief.update(enabled, { azimuthDeg: az, altitudeDeg: alt }, this.theme);
   }
 
   private refreshBuildings() {
@@ -761,6 +888,7 @@ export class SolarOverlayEngine {
 
     this.updateField(time);
     this.updateMapLight(pos);
+    this.updateRelief(pos);
 
     if (this.renderer === "gl" && this.glLayer) {
       // 1-3 · Luz, sombras y nubes: en la GPU, dentro del mapa.
@@ -793,6 +921,8 @@ export class SolarOverlayEngine {
   private drawGL(pos: SunPosition) {
     const layer = this.glLayer!;
     const light = lightParams(pos.altitudeDeg, this.weatherAvailable);
+    // Hoja de los árboles según la fecha mostrada (caducifolios casi desnudos en invierno).
+    const leaf = leafDensities(new Date(this.displayTime));
     layer.setField(this.grid, this.gridVersion);
     layer.setFrame({
       azimuth: pos.azimuth,
@@ -803,9 +933,10 @@ export class SolarOverlayEngine {
       buildings3D: this.buildings3D,
       theme: this.theme,
       opacity: this.revealK,
+      leaf,
     });
     // Solo lo que el mapa no ve por sí mismo (la cámara ya provoca su propio fotograma).
-    const stateKey = `${pos.azimuth.toFixed(5)}|${pos.altitude.toFixed(5)}|${this.gridVersion}|${this.weatherAvailable}|${this.shadowsFade.toFixed(3)}|${this.cloudsFade.toFixed(3)}|${this.buildings3D}|${this.theme}|${this.revealK.toFixed(3)}`;
+    const stateKey = `${pos.azimuth.toFixed(5)}|${pos.altitude.toFixed(5)}|${this.gridVersion}|${this.weatherAvailable}|${this.shadowsFade.toFixed(3)}|${this.cloudsFade.toFixed(3)}|${this.buildings3D}|${this.theme}|${this.revealK.toFixed(3)}|${leaf[1].toFixed(2)}`;
     if (stateKey !== this.glStateKey) {
       this.glStateKey = stateKey;
       this.map.triggerRepaint?.();
@@ -854,9 +985,9 @@ export class SolarOverlayEngine {
         ctx.drawImage(this.shadows.silhouettes, 0, 0, v.w, v.h);
       }
       if (wantShadows) {
-        // Tono de la sombra, más marcado al acercarse (donde se lee calle a calle).
+        // Tono de la sombra: suave en ciudad y barrio, más marcado al acercarse (calle a calle).
         ctx.globalCompositeOperation = "source-over";
-        ctx.globalAlpha = (SHADOW_ALPHA + GRAPHICS.shadowTone.calle * smoothstep(14, 16, v.zoom)) * bFade;
+        ctx.globalAlpha = shadowToneAlpha(v.zoom) * bFade;
         ctx.drawImage(this.shadows.canvas, 0, 0, v.w, v.h);
       }
       ctx.globalCompositeOperation = "source-over";
