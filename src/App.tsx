@@ -42,6 +42,7 @@ import VideoReady from "./components/Map/VideoReady";
 import { canRecordVideo, useDayAnimation, videoFileExtension } from "./graphics";
 import { BARCELONA, CITY_BOUNDS, DEBUG, FEATURES } from "./config";
 import { useAppNavigation, type AppView, type ViewTab } from "./hooks/useAppNavigation";
+import { useComfort } from "./hooks/useComfort";
 import { useDeepLink } from "./hooks/useDeepLink";
 import { useExplore, type ExploreState } from "./hooks/useExplore";
 import { useLightSource } from "./hooks/useLightSource";
@@ -51,6 +52,7 @@ import { usePlaceInventory } from "./hooks/usePlaceInventory";
 import { usePreferences } from "./hooks/usePreferences";
 import { useReducedMotion } from "./hooks/useReducedMotion";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
+import { useSea } from "./hooks/useSea";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
 import { useTimeController } from "./hooks/useTimeController";
@@ -60,6 +62,7 @@ import { describeCity, describePoint, type SunShadeMode } from "./lib/answer";
 import { distanceMeters } from "./lib/coordinates";
 import { placeSlug, type PlaceLinkRef } from "./lib/deepLinks";
 import { addAlert, downloadAlert } from "./services/alertsService";
+import { seaLine } from "./services/seaService";
 import {
   activeFilterCount,
   chipSpec,
@@ -1048,8 +1051,13 @@ export default function App() {
   const extraFor = useCallback(
     (r: SunSearchResult) => {
       if (!kidsSearch) return null;
+      // Parque para niños: la fuente y el lavabo más cercanos (utilidad 5 de la guía maestra 2).
+      const meters = (m: number) => Math.max(10, Math.round(m / 10) * 10);
+      const water = nearestOfType(inventoryPlaces, "fountain", r.spot.latitude, r.spot.longitude, 250);
       const wc = nearestOfType(inventoryPlaces, "toilet", r.spot.latitude, r.spot.longitude, 350);
-      return wc ? tr("forYou.lavabo_a", { p0: Math.max(10, Math.round(wc.meters / 10) * 10) }) : null;
+      const bits = [water ? tr("forYou.fuente_a", { p0: meters(water.meters) }) : null, wc ? tr("forYou.lavabo_a", { p0: meters(wc.meters) }) : null];
+      const s = bits.filter(Boolean).join(" · ");
+      return s || null;
     },
     [kidsSearch, inventoryPlaces]
   );
@@ -1057,6 +1065,12 @@ export default function App() {
     () => (explore.mode === "shade" ? nearestOfType(inventoryPlaces, "climate_shelter", explore.origin.lat, explore.origin.lng, 3000) : null),
     [explore.mode, explore.origin, inventoryPlaces]
   );
+  // Con perro: aviso de suelo caliente (utilidad 14). En la playa: el agua y las olas (utilidad 6).
+  const dogSearch = spec.chip === "dog";
+  const beachSearch = !!spec.types?.includes("beach");
+  const exploreComfort = useComfort(dogSearch ? explore.window.start : null);
+  const exploreSea = useSea(explore.window.start, beachSearch);
+  const hotGroundC = dogSearch && exploreComfort && exploreComfort.tempC >= 25 ? Math.round(exploreComfort.tempC) : null;
 
   const filtersNode = filtersOpen ? (
     <FiltersPanel
@@ -1102,17 +1116,29 @@ export default function App() {
         failed={explore.state.failed}
         onRetry={explore.retry}
         footer={
-          shelter ? (
-            <button
-              type="button"
-              onClick={() => void openPlace(shelter.place)}
-              className="flex min-h-[56px] w-full items-center gap-3 rounded-[18px] bg-shade/[0.08] px-3.5 py-2.5 text-left outline-none hover:bg-shade/[0.12] focus-visible:ring-2 focus-visible:ring-sun/60"
-            >
-              <SunGlyph state="shade" size={22} className="shrink-0" />
-              <span className="min-w-0 text-[13.5px] leading-snug text-ink">
-                {tr("forYou.refugio_mas_cercano", { p0: shelter.place.name, p1: Math.max(1, Math.round(minutesForStraightMeters(shelter.meters))) })}
-              </span>
-            </button>
+          shelter || hotGroundC !== null || exploreSea ? (
+            <div className="space-y-2">
+              {hotGroundC !== null && (
+                <p className="rounded-[18px] border border-sun/40 bg-sun-soft px-3.5 py-3 text-[13.5px] leading-snug text-ink">
+                  {tr("forYou.suelo_caliente", { p0: hotGroundC })}
+                </p>
+              )}
+              {exploreSea && (
+                <p className="rounded-[18px] bg-shade/[0.08] px-3.5 py-3 text-[13.5px] leading-snug text-ink">{seaLine(exploreSea)}</p>
+              )}
+              {shelter && (
+                <button
+                  type="button"
+                  onClick={() => void openPlace(shelter.place)}
+                  className="flex min-h-[56px] w-full items-center gap-3 rounded-[18px] bg-shade/[0.08] px-3.5 py-2.5 text-left outline-none hover:bg-shade/[0.12] focus-visible:ring-2 focus-visible:ring-sun/60"
+                >
+                  <SunGlyph state="shade" size={22} className="shrink-0" />
+                  <span className="min-w-0 text-[13.5px] leading-snug text-ink">
+                    {tr("forYou.refugio_mas_cercano", { p0: shelter.place.name, p1: Math.max(1, Math.round(minutesForStraightMeters(shelter.meters))) })}
+                  </span>
+                </button>
+              )}
+            </div>
           ) : null
         }
       />
@@ -1316,6 +1342,7 @@ export default function App() {
       }}
       onTerraceFeedback={(hasTerrace) => setToast(hasTerrace ? tr("app.gracias_esta_terraza_queda_confirmada") : tr("app.gracias_lo_tendremos_en_cuenta"))}
       onRetry={() => void openPlace(card.data.place)}
+      onShowTime={showTimeAt}
     />
   ) : null;
 

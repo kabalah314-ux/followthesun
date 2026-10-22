@@ -148,9 +148,12 @@ export function uvLine(c: Comfort): string | null {
   return c.uv !== null && c.uv >= 2.5 && c.consejo ? tr("comfort.uv", { p0: Math.round(c.uv), p1: c.consejo }) : null;
 }
 
-/** «19 °C al sol · 15 °C a la sombra · brisa suave de 12 km/h · UV 6: protección alta: …». */
-export function comfortSentence(c: Comfort): string {
-  const s = [feelsLine(c), windLine(c), uvLine(c)].filter(Boolean).join(" · ");
+/**
+ * «19 °C al sol · 15 °C a la sombra · brisa suave de 12 km/h · UV 6: protección alta: …».
+ * Con `withUv = false` se queda en sensación y viento (para quien pinta el UV en su propia línea).
+ */
+export function comfortSentence(c: Comfort, withUv = true): string {
+  const s = [feelsLine(c), windLine(c), withUv ? uvLine(c) : null].filter(Boolean).join(" · ");
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 

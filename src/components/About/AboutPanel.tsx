@@ -41,6 +41,7 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
           </p>
           <p>{tr("aboutPanel.prevision_meteo_france_arome_y")}</p>
           <p>{tr("aboutPanel.observacion_radiacion_solar_por_satelite")}</p>
+          <p>{tr("aboutPanel.mar_open_meteo")}</p>
         </Block>
 
         <Block title={tr("aboutPanel.precision")}>

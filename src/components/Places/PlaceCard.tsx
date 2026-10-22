@@ -1,5 +1,6 @@
 import { useState, type ReactNode, type RefObject } from "react";
 import { useComfort } from "../../hooks/useComfort";
+import { useSea } from "../../hooks/useSea";
 import type { SunShadeMode } from "../../lib/answer";
 import { comfortSentence, uvLine } from "../../lib/comfort";
 import { placeFlags } from "../../lib/explore";
@@ -8,12 +9,15 @@ import { openStateAt } from "../../lib/openingHours";
 import { describeResult } from "../../lib/placeAnswer";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { hhmm } from "../../lib/planningTime";
+import { seaLine } from "../../services/seaService";
+import { startOfZoneDay } from "../../services/timeService";
 import type { NormalizedSunRequest, SunPlace, SunSearchResult } from "../../types";
 import { cn } from "../../utils/cn";
 import { CloseIcon, SunGlyph } from "../Icons";
 import WindowStrip from "../FindSun/WindowStrip";
 import AffiliateSlot from "./AffiliateSlot";
 import HowWeKnow from "./HowWeKnow";
+import PhotoLightBlock from "./PhotoLightBlock";
 import TerraceBlock from "./TerraceBlock";
 import { tr, trPlural } from "../../i18n";
 
@@ -25,10 +29,10 @@ import { tr, trPlural } from "../../i18n";
  *   datos      abierto ahora, minutos a pie, mesas autorizadas, wifi, perros, accesible
  *   acciones   Cómo llegar (principal) · Guardar · Compartir · Al plan · Avisarme
  *   barra      la luz del sitio en la franja, con la mejor ventana marcada
- *   confort    sensación al sol y a la sombra, viento y UV con consejo
+ *   confort    sensación al sol y a la sombra, viento y UV con consejo (y el mar en las playas)
  *   terraza    licencia municipal y confirmaciones
- *   afiliación hueco marcado (vacío sin programas)
- *   «Cómo lo sabemos», plegado
+ *   afiliación hueco marcado (vacío sin programas); protección solar solo con UV ≥ 8 o calor
+ *   «Luz para fotos» y «Cómo lo sabemos», plegados
  */
 
 export interface CardData {
@@ -164,6 +168,8 @@ export interface PlaceCardBodyProps {
   onAlerts(): void;
   onTerraceFeedback?(hasTerrace: boolean): void;
   onRetry?(): void;
+  /** Lleva el mapa a una hora (las horas de «Luz para fotos»). */
+  onShowTime?(t: number): void;
 }
 
 export function PlaceCardBody(p: PlaceCardBodyProps) {
@@ -171,7 +177,11 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
   const [openedAt] = useState(() => Date.now());
   const ref = p.now ?? openedAt;
   const inWindow = result ? ref >= result.searchWindow.start && ref < result.searchWindow.end : false;
-  const comfort = useComfort(result ? (inWindow ? ref : (result.bestWindow ?? result.searchWindow).start) : null);
+  const comfortTime = result ? (inWindow ? ref : (result.bestWindow ?? result.searchWindow).start) : null;
+  const comfort = useComfort(comfortTime);
+  const sea = useSea(comfortTime, place.type === "beach");
+  // Protección solar (hueco de afiliación «uv»): solo con UV muy alto o mucho calor al sol.
+  const strongSun = !!comfort && ((comfort.uv ?? 0) >= 8 || (comfort.alSolC ?? -99) >= 33);
   const fl = placeFlags(place);
   const open = openStateAt(fl.hours, ref);
   const lat = result?.spot.latitude ?? place.latitude;
@@ -285,17 +295,28 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
         </div>
       )}
 
-      {comfort && (
+      {(comfort || sea) && (
         <div className="mt-4 rounded-[18px] bg-ink/[0.035] px-3.5 py-3">
           <p className="fts-caps !text-[11.5px]">{tr("placeCard.confort")}</p>
-          <p className="mt-1.5 text-[14px] leading-snug text-ink">{comfortSentence(comfort)}</p>
-          {uvLine(comfort) && <p className="mt-1 text-[13px] leading-snug text-ink-soft">{uvLine(comfort)}</p>}
+          {comfort && <p className="mt-1.5 text-[14px] leading-snug text-ink">{comfortSentence(comfort, false)}</p>}
+          {comfort && uvLine(comfort) && <p className="mt-1 text-[13px] leading-snug text-ink-soft">{uvLine(comfort)}</p>}
+          {sea && <p className="mt-1 text-[13px] leading-snug text-ink-soft">{seaLine(sea)}</p>}
         </div>
       )}
+      {strongSun && <AffiliateSlot place={null} context="uv" />}
 
       {result && <TerraceBlock result={result} onFeedback={p.onTerraceFeedback} />}
 
       <AffiliateSlot place={place} context="card" />
+
+      <PhotoLightBlock
+        place={place}
+        latitude={lat}
+        longitude={lng}
+        dayStart={startOfZoneDay(request?.startTime ?? ref)}
+        now={p.now}
+        onShowTime={p.onShowTime}
+      />
 
       {result && <HowWeKnow result={result} />}
     </div>
