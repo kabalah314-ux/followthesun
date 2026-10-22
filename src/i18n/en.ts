@@ -3,7 +3,7 @@ import type { MessageKey } from "./es";
 
 export const en: Record<MessageKey, string> = {
   "aboutPanel.acerca_de": "About",
-  "aboutPanel.arbolado": "Trees: municipal tree inventory from Open Data BCN (CC BY 4.0).",
+  "aboutPanel.arbolado": "Trees: municipal tree inventory from Open Data BCN (CC BY 4.0) and, for street trees, trees from OpenStreetMap (ODbL).",
   "aboutPanel.catastro": "Heights of buildings missing them in OpenStreetMap: Spanish Directorate General for Cadastre (INSPIRE).",
   "aboutPanel.como_ordenamos": "How we rank",
   "aboutPanel.como_ordenamos_parametros": "Places are ranked by the minutes of sun (or shade) they have left given the forecast clouds, comfort (feels-like temperature, wind and UV), walking distance, how well they match what you're looking for and how reliable the data is. What you save adjusts the order by at most 10 %, and only on your device.",
@@ -22,6 +22,7 @@ export const en: Record<MessageKey, string> = {
   "aboutPanel.precision": "Accuracy",
   "aboutPanel.prevision_meteo_france_arome_y": "Forecast: Météo-France AROME and ARPEGE via Open-Meteo.",
   "aboutPanel.relieve_mapterhorn": "Terrain: Mapterhorn, built from open elevation models.",
+  "aboutPanel.rutas_osrm": "Walking and cycling routes: OSRM on the FOSSGIS server, with OpenStreetMap data.",
   "aboutPanel.sol_calculo_astronomico_posicion_orto": "Sun: astronomical calculation (position, sunrise and sunset).",
   "aboutPanel.terrazas_con_licencia_areas_de": "Licensed terraces, playgrounds, climate shelters, fountains, toilets and viewpoints: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0). Venue names are matched with OpenStreetMap.",
   "aboutPanel.un_mapa_solar_de_barcelona": "A sun map of Barcelona. Made to understand where the sunlight is — and where to go to find it.",

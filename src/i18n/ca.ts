@@ -3,7 +3,7 @@ import type { MessageKey } from "./es";
 
 export const ca: Record<MessageKey, string> = {
   "aboutPanel.acerca_de": "Quant a",
-  "aboutPanel.arbolado": "Arbres: arbrat municipal d'Open Data BCN (CC BY 4.0).",
+  "aboutPanel.arbolado": "Arbres: arbrat municipal d'Open Data BCN (CC BY 4.0) i, per al de carrer, arbres d'OpenStreetMap (ODbL).",
   "aboutPanel.catastro": "Alçades dels edificis que no la tenen a OpenStreetMap: Direcció General del Cadastre (INSPIRE).",
   "aboutPanel.como_ordenamos": "Com ordenem",
   "aboutPanel.como_ordenamos_parametros": "Els llocs s'ordenen pels minuts de sol (o d'ombra) que els queden amb els núvols previstos, el confort (sensació tèrmica, vent i UV), la distància a peu, com encaixen amb el que busques i la fiabilitat de la dada. El que deses ajusta l'ordre com a molt un 10 %, i només al teu dispositiu.",
@@ -22,6 +22,7 @@ export const ca: Record<MessageKey, string> = {
   "aboutPanel.precision": "Precisió",
   "aboutPanel.prevision_meteo_france_arome_y": "Previsió: Météo-France AROME i ARPEGE via Open-Meteo.",
   "aboutPanel.relieve_mapterhorn": "Relleu: Mapterhorn, amb models d'elevació oberts.",
+  "aboutPanel.rutas_osrm": "Rutes a peu i en bici: OSRM del servidor de FOSSGIS, amb dades d'OpenStreetMap.",
   "aboutPanel.sol_calculo_astronomico_posicion_orto": "Sol: càlcul astronòmic (posició, sortida i posta).",
   "aboutPanel.terrazas_con_licencia_areas_de": "Terrasses amb llicència, àrees de joc, refugis climàtics, fonts, lavabos i miradors: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0). Els noms dels locals es creuen amb OpenStreetMap.",
   "aboutPanel.un_mapa_solar_de_barcelona": "Un mapa solar de Barcelona. Fet per entendre on és la llum del sol — i on anar per trobar-la.",
