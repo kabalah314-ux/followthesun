@@ -1315,6 +1315,7 @@ export default function App() {
           onCancel={sportRoute.clear}
           onSelectSlot={sportRoute.selectSlot}
           onNextRoute={sportRoute.nextRoute}
+          onModeChange={sportRoute.setMode}
           onShowTime={showTimeAt}
         />
       )}

@@ -94,6 +94,21 @@ export function sportPicks(s: Pick<SportState, "morning" | "evening" | "slots" |
   };
 }
 
+/** Vueltas: primero la que da más de lo que se busca de media en las horas comparadas. */
+function sortRoutes(routes: SportRoute[], mode: SunShadeMode): SportRoute[] {
+  const mean = (r: SportRoute) => (r.shadePct.length ? r.shadePct.reduce((a, p) => a + wantedPct(p, mode), 0) / r.shadePct.length : 0);
+  return [...routes].sort((a, b) => mean(b) - mean(a));
+}
+
+/** Hora elegida de entrada: la próxima recomendada (la de primera o la de última hora). */
+function defaultSlot(s: SportState): number {
+  const r = s.routes[s.route];
+  if (!r) return 0;
+  const picks = sportPicks(s, r);
+  const next = [picks.morning, picks.evening].filter((p): p is NonNullable<typeof p> => p !== null).sort((a, b) => a.slot - b.slot)[0];
+  return next ? Math.max(0, s.slots.indexOf(next.slot)) : 0;
+}
+
 export function useSportRoute() {
   const [state, setState] = useState<SportState>(IDLE);
   const run = useRef(0);
@@ -105,6 +120,17 @@ export function useSportRoute() {
 
   const selectSlot = useCallback((slot: number) => setState((s) => (s.status === "ready" && slot >= 0 && slot < s.slots.length ? { ...s, slot } : s)), []);
   const nextRoute = useCallback(() => setState((s) => (s.status === "ready" && s.routes.length > 1 ? { ...s, route: (s.route + 1) % s.routes.length } : s)), []);
+  /** Sombra o sol con el recorrido ya calculado: se reinterpreta sin volver a calcular. */
+  const setMode = useCallback(
+    (mode: SunShadeMode) =>
+      setState((s) => {
+        if (s.status !== "ready" || s.mode === mode) return s;
+        const next: SportState = { ...s, mode, routes: sortRoutes(s.routes, mode), route: 0 };
+        next.slot = defaultSlot(next);
+        return next;
+      }),
+    []
+  );
 
   const compute = useCallback(async (target: SportTarget, sport: Sport, dayStart: number, now: number, mode: SunShadeMode) => {
     const id = ++run.current;
@@ -189,10 +215,6 @@ export function useSportRoute() {
         });
       }
 
-      // Vueltas: primero la que da más de lo que se busca de media en las horas comparadas.
-      const mean = (r: SportRoute) => (r.shadePct.length ? r.shadePct.reduce((a, p) => a + wantedPct(p, mode), 0) / r.shadePct.length : 0);
-      routes.sort((a, b) => mean(b) - mean(a));
-
       const ready: SportState = {
         ...IDLE,
         ...base,
@@ -201,19 +223,16 @@ export function useSportRoute() {
         morning: m,
         evening: e,
         slots,
-        routes,
+        routes: sortRoutes(routes, mode),
         trees: !!grid,
         progress: 1,
       };
-      // Hora elegida de entrada: la próxima recomendada (la de primera o la de última hora).
-      const picks = sportPicks(ready, routes[0]);
-      const next = [picks.morning, picks.evening].filter((p): p is NonNullable<typeof p> => p !== null).sort((a, b) => a.slot - b.slot)[0];
-      ready.slot = next ? slots.indexOf(next.slot) : 0;
+      ready.slot = defaultSlot(ready);
       setState(ready);
     } catch {
       if (id === run.current) setState({ ...IDLE, ...base, status: "error" });
     }
   }, []);
 
-  return { state, compute, clear, selectSlot, nextRoute };
+  return { state, compute, clear, selectSlot, nextRoute, setMode };
 }

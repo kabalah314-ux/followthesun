@@ -59,6 +59,7 @@ export default function SportPanel({
   onCancel,
   onSelectSlot,
   onNextRoute,
+  onModeChange,
   onShowTime,
 }: {
   now: number;
@@ -71,6 +72,8 @@ export default function SportPanel({
   onCancel(): void;
   onSelectSlot(index: number): void;
   onNextRoute(): void;
+  /** Sombra o sol con un recorrido ya calculado (se reinterpreta sin recalcular). */
+  onModeChange(mode: SunShadeMode): void;
   /** Lleva el mapa (y su sombra) a esa hora. */
   onShowTime(t: number): void;
 }) {
@@ -85,6 +88,10 @@ export default function SportPanel({
   );
 
   const circuits = circuitsFor(sport);
+  const pickMode = (m: SunShadeMode) => {
+    setMode(m);
+    if (state.status === "ready") onModeChange(m);
+  };
   const pickSport = (s: Sport) => {
     setSport(s);
     if (choice && choice !== "loop" && !circuitsFor(s).some((c) => c.id === choice)) setChoice(null);
@@ -130,10 +137,10 @@ export default function SportPanel({
         <div>
           <Caps>{tr("sport.prefiero")}</Caps>
           <div className="mt-2 flex gap-1.5">
-            <button type="button" aria-pressed={mode === "shade"} onClick={() => setMode("shade")} className={chip(mode === "shade")}>
+            <button type="button" aria-pressed={mode === "shade"} onClick={() => pickMode("shade")} className={chip(mode === "shade")}>
               {tr("findSunPanel.sombra")}
             </button>
-            <button type="button" aria-pressed={mode === "sun"} onClick={() => setMode("sun")} className={chip(mode === "sun")}>
+            <button type="button" aria-pressed={mode === "sun"} onClick={() => pickMode("sun")} className={chip(mode === "sun")}>
               {tr("pointPanel.sol")}
             </button>
           </div>
