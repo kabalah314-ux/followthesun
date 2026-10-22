@@ -11,6 +11,11 @@
  * categoría y edad: ver src/graphics/trees/species.ts). Si las fuentes fallan o devuelven
  * demasiado pocos árboles, se conservan los ficheros anteriores.
  *
+ * Respaldo: si un conjunto no se puede descargar (el portal da 403 a los servidores de GitHub con
+ * el arbolado de calle), se completa con los árboles de OpenStreetMap (`natural=tree`, ODbL) del
+ * extracto de Geofabrik que deja el flujo en TREES_GEOJSONSEQ, sin repetir los que ya están. Y si
+ * aún no hay ningún arbolado publicado, se publica lo que haya llegado (marcado como parcial).
+ *
  * Uso:  npx vite-node scripts/etl/build-trees.ts      (lo lanza .github/workflows/datos.yml)
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
@@ -19,14 +24,18 @@ import { PLACES_CONFIG } from "../../src/config";
 import { fetchWithTimeout, isRetryable } from "../../src/lib/net";
 import { configureCkan, datastoreSearchOnce, fetchText, packageResources, type CkanResource } from "../../src/services/openData/ckan";
 import { parseCsv, toNumber } from "../../src/services/openData/csv";
+import { mergeTrees, osmTreeRecord } from "../../src/graphics/trees/osmTrees";
 import { treeDims } from "../../src/graphics/trees/species";
 import { TREE_TILE_ZOOM, encodeTreeTiles, type TreeIndexFile, type TreeRecord } from "../../src/graphics/trees/treeTiles";
+import { venuesFromGeojsonSeq } from "./osmiumVenues";
 
 const OUT_DIR = resolve(process.cwd(), "public/data/trees");
 const UA = "IFollowTheSun-ETL/1.0 (+https://github.com/kabalah314-ux/followthesun)";
 const DATASETS = ["arbrat-viari", "arbrat-zona", "arbrat-parcs"] as const;
 /** Por debajo, el inventario está incompleto y no sustituye al anterior. */
 const MIN_TREES = 100_000;
+/** Mínimo para publicar un arbolado parcial cuando todavía no hay ninguno. */
+const MIN_PARTIAL = 20_000;
 
 configureCkan({
   headers: { "User-Agent": UA },
@@ -102,6 +111,17 @@ async function loadDataset(slug: string, now: Date): Promise<{ trees: Map<string
   return { trees, rows: rows.length };
 }
 
+/** Árboles de OpenStreetMap del extracto (vacío si el flujo no lo dejó). */
+async function osmTreeList(now: Date): Promise<TreeRecord[]> {
+  const path = process.env.TREES_GEOJSONSEQ;
+  if (!path || !existsSync(path)) return [];
+  const b = PLACES_CONFIG.bbox;
+  const nodes = await venuesFromGeojsonSeq(path, { west: b.west - 0.02, south: b.south - 0.02, east: b.east + 0.02, north: b.north + 0.02 });
+  return nodes
+    .filter((n) => n.type === "node" && n.lat !== undefined && n.lon !== undefined)
+    .map((n) => osmTreeRecord(n.lon as number, n.lat as number, n.tags ?? {}, now));
+}
+
 async function main() {
   // Si el portal no responde, se conservan las teselas anteriores sin gastar media hora en reintentos.
   try {
@@ -134,17 +154,40 @@ async function main() {
     }
   }
 
-  const list = [...all.values()];
+  let list = [...all.values()];
+  // Un conjunto no llegó: se completa con OpenStreetMap sin repetir árboles.
+  let osmAdded = 0;
+  if (failed > 0) {
+    const t0 = Date.now();
+    try {
+      const osm = await osmTreeList(now);
+      if (osm.length > 0) {
+        const merged = mergeTrees(list, osm);
+        list = merged.trees;
+        osmAdded = merged.added;
+        summary.push(`| OpenStreetMap (respaldo) | ok | ${merged.added} añadidos de ${osm.length} | ${Math.round((Date.now() - t0) / 1000)} s |`);
+        console.log(`✓ OpenStreetMap: ${merged.added} árboles añadidos (de ${osm.length})`);
+      } else {
+        summary.push("| OpenStreetMap (respaldo) | sin extracto | — | — |");
+      }
+    } catch (e) {
+      summary.push("| OpenStreetMap (respaldo) | falló | — | — |");
+      console.log(`::warning::Arbolado · OpenStreetMap: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const table = ["| Conjunto | Estado | Árboles | Tiempo |", "| --- | --- | --- | --- |", ...summary].join("\n");
   console.log(`\n${table}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `## Arbolado (${now.toISOString()})\n\n${table}\n\nTotal: ${list.length} árboles\n`);
   }
 
-  if (failed > 0 || list.length < MIN_TREES) {
+  const complete = (failed === 0 || osmAdded > 0) && list.length >= MIN_TREES;
+  const previous = existsSync(resolve(OUT_DIR, "index.json"));
+  if (!complete && (previous || list.length < MIN_PARTIAL)) {
     console.log(`::warning::Arbolado incompleto (${list.length} árboles, ${failed} conjunto(s) con fallo): se conservan los ficheros anteriores`);
     return;
   }
+  if (!complete) console.log(`::warning::Arbolado parcial (${list.length} árboles): se publica porque aún no había ninguno`);
 
   const tiles = encodeTreeTiles(list, TREE_TILE_ZOOM);
   // Se rehace la carpeta entera: una tesela que se queda sin árboles no debe sobrevivir.
@@ -166,12 +209,14 @@ async function main() {
     z: TREE_TILE_ZOOM,
     tiles: [...tiles.keys()],
     count: list.length,
+    ...(complete ? {} : { partial: true }),
     sources: [
       {
         name: "Ajuntament de Barcelona · Open Data BCN (arbrat viari, zona i parcs)",
         license: "CC BY 4.0",
         url: "https://opendata-ajuntament.barcelona.cat/",
       },
+      ...(osmAdded > 0 ? [{ name: "© OpenStreetMap contributors (natural=tree)", license: "ODbL 1.0", url: "https://www.openstreetmap.org/copyright" }] : []),
     ],
   };
   mkdirSync(OUT_DIR, { recursive: true });

@@ -51,6 +51,13 @@ jobs:
           osmium export "$RUNNER_TEMP/benches.osm.pbf" -f geojsonseq -a type,id -o "$RUNNER_TEMP/benches.geojsonseq" --overwrite
           wc -l "$RUNNER_TEMP/benches.geojsonseq"
           echo "BENCHES_GEOJSONSEQ=$RUNNER_TEMP/benches.geojsonseq" >> "$GITHUB_ENV"
+          # Árboles de OpenStreetMap del área de Barcelona: respaldo del arbolado de calle si el
+          # portal de Open Data no deja descargarlo desde GitHub.
+          osmium extract -b 2.03,41.30,2.25,41.49 "$RUNNER_TEMP/cataluna.osm.pbf" -o "$RUNNER_TEMP/bcn.osm.pbf" --overwrite
+          osmium tags-filter "$RUNNER_TEMP/bcn.osm.pbf" n/natural=tree -o "$RUNNER_TEMP/trees.osm.pbf" --overwrite
+          osmium export "$RUNNER_TEMP/trees.osm.pbf" -f geojsonseq -a type,id -o "$RUNNER_TEMP/trees.geojsonseq" --overwrite
+          wc -l "$RUNNER_TEMP/trees.geojsonseq"
+          echo "TREES_GEOJSONSEQ=$RUNNER_TEMP/trees.geojsonseq" >> "$GITHUB_ENV"
       - name: Generar inventario
         timeout-minutes: 25
         run: npx vite-node scripts/etl/build-inventory.ts

@@ -34,6 +34,8 @@ export interface TreeIndexFile {
   /** «x/y» de cada tesela con árboles. */
   tiles: string[];
   count: number;
+  /** Falta parte del inventario municipal (se publicó lo que llegó porque no había nada antes). */
+  partial?: boolean;
   sources: Array<{ name: string; license: string; url: string }>;
 }
 
