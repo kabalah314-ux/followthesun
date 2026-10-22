@@ -306,6 +306,7 @@ export const es = {
   "forYou.algo_ha_fallado": "Algo ha fallado al calcularlo. Vuelve a intentarlo.",
   "forYou.busqueda_avanzada": "Búsqueda avanzada",
   "forYou.cerca_de_mi": "Cerca de mí",
+  "forYou.correr_a_la_sombra": "Correr o bici a la sombra",
   "forYou.fuente_a": "fuente a {p0} m",
   "forYou.hoy_ya_no_queda_sol": "hoy ya no queda sol",
   "forYou.lavabo_a": "lavabo a {p0} m",

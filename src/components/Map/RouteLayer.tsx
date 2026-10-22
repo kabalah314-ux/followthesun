@@ -13,7 +13,15 @@ export interface RouteDrawing {
   routes: Array<{ coords: LngLatPair[]; segments: Array<{ coords: LngLatPair[]; shaded: boolean }> }>;
   /** La que se dibuja entera con sus tramos (las demás, como alternativas). */
   best: number;
+  /** Ida y vuelta por el mismo camino: cada sentido se dibuja a un lado para que se vean los dos. */
+  twoWay?: boolean;
 }
+
+const LINE_WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 3.5, 18, 8];
+const LINE_WIDTH_TWO_WAY = ["interpolate", ["linear"], ["zoom"], 13, 2.6, 18, 6];
+const LINE_OFFSET_TWO_WAY = ["interpolate", ["linear"], ["zoom"], 13, 1.5, 18, 3.6];
+const CASING_WIDTH = ["interpolate", ["linear"], ["zoom"], 13, 6, 18, 12];
+const CASING_WIDTH_TWO_WAY = ["interpolate", ["linear"], ["zoom"], 13, 7.5, 18, 16];
 
 /** La ruta por la sombra hasta un sitio, lista para dibujar. */
 export const drawingOfShadeRoute = (s: ShadeRouteState | null): RouteDrawing | null => (s && s.status === "ready" ? { routes: s.routes, best: s.best } : null);
@@ -71,13 +79,31 @@ export default function RouteLayer({ state }: { state: RouteDrawing | null }) {
         }
         if (!map.getLayer(CASING)) {
           map.addLayer(
-            { id: CASING, type: "line", source: SOURCE, filter: ["==", ["get", "k"], "casing"], layout: round, paint: { "line-color": c.casing, "line-opacity": 0.9, "line-width": ["interpolate", ["linear"], ["zoom"], 13, 6, 18, 12] } },
+            {
+              id: CASING,
+              type: "line",
+              source: SOURCE,
+              filter: ["==", ["get", "k"], "casing"],
+              layout: round,
+              paint: { "line-color": c.casing, "line-opacity": 0.9, "line-width": stateRef.current?.twoWay ? CASING_WIDTH_TWO_WAY : CASING_WIDTH },
+            },
             before
           );
         }
         if (!map.getLayer(LINE)) {
           map.addLayer(
-            { id: LINE, type: "line", source: SOURCE, filter: ["==", ["get", "k"], "seg"], layout: round, paint: { "line-color": ["match", ["get", "s"], 1, c.shade, c.sun], "line-width": ["interpolate", ["linear"], ["zoom"], 13, 3.5, 18, 8] } },
+            {
+              id: LINE,
+              type: "line",
+              source: SOURCE,
+              filter: ["==", ["get", "k"], "seg"],
+              layout: round,
+              paint: {
+                "line-color": ["match", ["get", "s"], 1, c.shade, c.sun],
+                "line-width": stateRef.current?.twoWay ? LINE_WIDTH_TWO_WAY : LINE_WIDTH,
+                "line-offset": stateRef.current?.twoWay ? LINE_OFFSET_TWO_WAY : 0,
+              },
+            },
             before
           );
         }
@@ -102,6 +128,16 @@ export default function RouteLayer({ state }: { state: RouteDrawing | null }) {
     if (!map) return;
     const src = map.getSource(SOURCE) as { setData?(d: unknown): void } | undefined;
     src?.setData?.(toGeoJSON(state));
+    const two = !!state?.twoWay;
+    try {
+      if (map.getLayer(LINE)) {
+        map.setPaintProperty(LINE, "line-offset", two ? LINE_OFFSET_TWO_WAY : 0);
+        map.setPaintProperty(LINE, "line-width", two ? LINE_WIDTH_TWO_WAY : LINE_WIDTH);
+      }
+      if (map.getLayer(CASING)) map.setPaintProperty(CASING, "line-width", two ? CASING_WIDTH_TWO_WAY : CASING_WIDTH);
+    } catch {
+      /* estilo cargando */
+    }
   }, [map, state]);
 
   useEffect(() => {

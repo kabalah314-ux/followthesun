@@ -308,6 +308,7 @@ export const en: Record<MessageKey, string> = {
   "forYou.algo_ha_fallado": "Something went wrong. Please try again.",
   "forYou.busqueda_avanzada": "Advanced search",
   "forYou.cerca_de_mi": "Near me",
+  "forYou.correr_a_la_sombra": "Run or ride in the shade",
   "forYou.fuente_a": "fountain {p0} m away",
   "forYou.hoy_ya_no_queda_sol": "no sun left today",
   "forYou.lavabo_a": "toilet {p0} m away",

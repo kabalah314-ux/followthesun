@@ -308,6 +308,7 @@ export const ca: Record<MessageKey, string> = {
   "forYou.algo_ha_fallado": "Alguna cosa ha fallat en calcular-ho. Torna-ho a provar.",
   "forYou.busqueda_avanzada": "Cerca avançada",
   "forYou.cerca_de_mi": "A prop meu",
+  "forYou.correr_a_la_sombra": "Córrer o bici a l'ombra",
   "forYou.fuente_a": "font a {p0} m",
   "forYou.hoy_ya_no_queda_sol": "avui ja no queda sol",
   "forYou.lavabo_a": "lavabo a {p0} m",

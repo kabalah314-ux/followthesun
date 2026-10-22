@@ -918,6 +918,7 @@ export default function App() {
     if (view !== "plans" || plansTab !== "sport" || s.status !== "ready") return null;
     return {
       best: s.route,
+      twoWay: s.target?.kind === "circuit" && s.target.circuit.outAndBack,
       routes: s.routes.map((r, i) => {
         if (i !== s.route) return { coords: r.coords, segments: [] };
         const shaded = r.shaded[s.slot];
@@ -1230,6 +1231,9 @@ export default function App() {
       <div className="mt-6 flex flex-wrap gap-x-5 gap-y-1 border-t border-line pt-3">
         <button type="button" onClick={() => go("plans", "route")} className="min-h-[44px] text-[14px] font-semibold text-ink underline-offset-4 hover:underline">
           {tr("forYou.ruta_del_sol")} →
+        </button>
+        <button type="button" onClick={() => go("plans", "sport")} className="min-h-[44px] text-[14px] font-semibold text-ink underline-offset-4 hover:underline">
+          {tr("forYou.correr_a_la_sombra")} →
         </button>
         <button type="button" onClick={() => go("plans", "later")} className="min-h-[44px] text-[14px] font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline">
           {tr("forYou.busqueda_avanzada")}
