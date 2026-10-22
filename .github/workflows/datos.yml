@@ -35,6 +35,10 @@ jobs:
       - run: npm ci
       - name: Generar inventario
         run: npx vite-node scripts/etl/build-inventory.ts
+      - name: Generar arbolado (árboles 3D y sus sombras)
+        # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
+        continue-on-error: true
+        run: npx vite-node scripts/etl/build-trees.ts
       - name: Guardar los datos si han cambiado
         env:
           BRANCH: ${{ github.ref_name }}
