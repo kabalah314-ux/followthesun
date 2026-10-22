@@ -169,7 +169,9 @@ function initialPlan(now: number): PlannerState {
 /** Por qué una búsqueda de Explorar sale vacía, en palabras (las nubes, la noche o los edificios). */
 function exploreEmptyText(e: ExploreState): string {
   if (e.filteredOut) return tr("forYou.ninguno_cumple_los_filtros");
-  const when = e.window.movedToTomorrow ? tr("app.manana_a_primera_hora") : tr("app.en_la_proxima_hora");
+  const when = e.window.movedToTomorrow
+    ? tr("app.manana_a_primera_hora")
+    : tr("app.entre_las_y_las", { p0: formatClock(e.window.start), p1: formatClock(e.window.end) });
   switch (e.outcome?.noSunReason) {
     case "clouds":
       return tr("app.las_nubes_taparan_el_sol", { p0: when });
