@@ -38,10 +38,7 @@ async function verdictFor(place: SunPlace, lat: number, lng: number, r: TimeRang
       { places: [spot], now: Date.now(), signal, maxSamplePoints: 1 }
     );
     const res = out.results[0] ?? out.bestAvailable[0] ?? null;
-    if (res) return spotVerdict(res.windows, r);
-    if (out.noSunReason === "clouds") return { kind: "cloud" };
-    if (out.noSunReason === "shade") return { kind: "shadow" };
-    return { kind: "unknown" };
+    return res ? spotVerdict(res.windows, r) : null;
   } catch {
     return null;
   }
@@ -49,14 +46,21 @@ async function verdictFor(place: SunPlace, lat: number, lng: number, r: TimeRang
 
 function VerdictLine({ v, loading }: { v: SpotVerdict | null; loading: boolean }) {
   if (loading) return <p className="mt-1 text-[12.5px] text-ink-faint">{tr("photo.calculando")}</p>;
-  if (!v || v.kind === "unknown") return null;
-  const text =
-    v.kind === "lit"
-      ? tr("photo.aqui_sol", { p0: v.ranges.map(span).join(", ") })
-      : v.kind === "shadow"
-        ? tr("photo.aqui_edificios")
-        : tr("photo.aqui_nubes");
-  return <p className={cn("mt-1 text-[13px] leading-snug", v.kind === "lit" ? "font-medium text-ink" : "text-ink-soft")}>{text}</p>;
+  if (!v) return null;
+  let text: string | null = null;
+  if (v.blocked) text = tr("photo.aqui_edificios");
+  else if (v.clear.length > 0) {
+    const ranges = v.clear.map(span).join(", ");
+    text =
+      v.weather === "sun"
+        ? tr("photo.aqui_sol", { p0: ranges })
+        : v.weather === "cloud"
+          ? tr("photo.aqui_despejado_nubes", { p0: ranges })
+          : tr("photo.aqui_despejado", { p0: ranges });
+  }
+  if (!text) return null;
+  const strong = !v.blocked && v.clear.length > 0 && v.weather !== "cloud";
+  return <p className={cn("mt-1 text-[13px] leading-snug", strong ? "font-medium text-ink" : "text-ink-soft")}>{text}</p>;
 }
 
 export default function PhotoLightBlock({ place, latitude, longitude, dayStart, now, onShowTime }: Props) {

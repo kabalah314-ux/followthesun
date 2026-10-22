@@ -18,6 +18,7 @@ import LayerControl from "./components/Map/LayerControl";
 import MapControls from "./components/Map/MapControls";
 import MapMarkers from "./components/Map/MapMarkers";
 import ShadowLayer from "./components/Map/ShadowLayer";
+import TerraceLayer from "./components/Map/TerraceLayer";
 import SolarOverlay from "./components/Map/SolarOverlay";
 import SunStatus from "./components/Map/SunStatus";
 import TimeSlider, { TimePill, useAutoHide, type DayPlayer } from "./components/Map/TimeSlider";
@@ -55,6 +56,7 @@ import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSea } from "./hooks/useSea";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
+import { useTerraceSun } from "./hooks/useTerraceSun";
 import { useTimeController } from "./hooks/useTimeController";
 import { useUniversalSearch, type SearchSuggestion } from "./hooks/useUniversalSearch";
 import { useViewport } from "./hooks/useViewport";
@@ -340,6 +342,8 @@ export default function App() {
   const [pointTimeline, setPointTimeline] = useState<PointTimeline | null>(null);
   const [pointSunlight, setPointSunlight] = useState<SunlightResult | null>(null);
   const [card, setCard] = useState<CardState | null>(null);
+  // La terraza de la ficha dibujada en el mapa con su % al sol a la hora elegida (B10).
+  const terraceSun = useTerraceSun(card ? card.data.place : null, selectedTime);
   const [userLocation, setUserLocation] = useState<LngLat | null>(null);
   const [camera, setCamera] = useState<CameraState>({ bearing: 0, pitch: 0 });
   const [layersOpen, setLayersOpen] = useState(false);
@@ -1343,6 +1347,7 @@ export default function App() {
       onTerraceFeedback={(hasTerrace) => setToast(hasTerrace ? tr("app.gracias_esta_terraza_queda_confirmada") : tr("app.gracias_lo_tendremos_en_cuenta"))}
       onRetry={() => void openPlace(card.data.place)}
       onShowTime={showTimeAt}
+      terrace={terraceSun}
     />
   ) : null;
 
@@ -1538,6 +1543,7 @@ export default function App() {
         <CloudLayer visible={prefs.showClouds} source={debugSource} />
       </SolarOverlay>
       <MapMarkers selection={selection} userLocation={userLocation} highlights={highlights} activeSpotId={activePin} onPickSpot={handlePickSpot} />
+      <TerraceLayer data={terraceSun} />
     </BarcelonaMap>
   );
 

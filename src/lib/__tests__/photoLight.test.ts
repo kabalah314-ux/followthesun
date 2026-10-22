@@ -69,23 +69,29 @@ describe("photoLight", () => {
 });
 
 describe("spotVerdict", () => {
-  const w = (kind: SunWindow["kind"], a: number, b: number): SunWindow => ({ kind, start: a * MIN, end: b * MIN });
+  const w = (kind: SunWindow["kind"], a: number, b: number, unverified?: boolean): SunWindow => ({ kind, start: a * MIN, end: b * MIN, unverified });
   const R = [0, 40 * MIN] as const;
 
-  it("junta los tramos con sol y descarta los de menos de 3 min", () => {
+  it("separa los edificios de las nubes y junta los tramos despejados de al menos 3 min", () => {
     const v = spotVerdict([w("shadow", 0, 10), w("sun", 10, 20), w("partial", 20, 25), w("shadow", 25, 38), w("sun", 38, 40)], R);
-    expect(v).toEqual({ kind: "lit", ranges: [[10 * MIN, 25 * MIN]] });
+    expect(v).toEqual({ clear: [[10 * MIN, 25 * MIN]], blocked: false, weather: "sun" });
   });
 
-  it("dice si lo tapan los edificios o las nubes", () => {
-    expect(spotVerdict([w("shadow", 0, 30), w("cloud", 30, 40)], R)).toEqual({ kind: "shadow" });
-    expect(spotVerdict([w("cloud", 0, 30), w("shadow", 30, 40)], R)).toEqual({ kind: "cloud" });
-    expect(spotVerdict([w("night", 0, 40)], R)).toEqual({ kind: "unknown" });
-    expect(spotVerdict([], R)).toEqual({ kind: "unknown" });
+  it("un rato de sombra con el sol muy bajo no tapa el resto (nubes o dudas aparte)", () => {
+    const v = spotVerdict([w("shadow", 0, 8), w("uncertain", 8, 30), w("cloud", 30, 40)], R);
+    expect(v).toEqual({ clear: [[8 * MIN, 40 * MIN]], blocked: false, weather: "uncertain" });
+    expect(spotVerdict([w("cloud", 0, 40)], R).weather).toBe("cloud");
+    expect(spotVerdict([w("sun", 0, 40, true)], R).weather).toBe("unknown");
+  });
+
+  it("dice cuándo lo tapan los edificios todo el rato y cuándo no hay datos", () => {
+    expect(spotVerdict([w("shadow", 0, 40)], R)).toEqual({ clear: [], blocked: true, weather: "unknown" });
+    expect(spotVerdict([w("night", 0, 40)], R)).toEqual({ clear: [], blocked: false, weather: "unknown" });
+    expect(spotVerdict([], R)).toEqual({ clear: [], blocked: false, weather: "unknown" });
   });
 
   it("recorta las ventanas a la franja", () => {
     const v = spotVerdict([w("sun", -30, 15)], R);
-    expect(v).toEqual({ kind: "lit", ranges: [[0, 15 * MIN]] });
+    expect(v).toEqual({ clear: [[0, 15 * MIN]], blocked: false, weather: "sun" });
   });
 });

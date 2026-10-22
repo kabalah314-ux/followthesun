@@ -99,39 +99,46 @@ export function lightAt(t: number, lat: number, lng: number): { azimuthDeg: numb
 export const midpoint = (r: TimeRange): number => Math.round((r[0] + r[1]) / 2);
 
 /**
- * Qué pasa en un sitio durante una franja, con las ventanas del motor:
- *  · lit     tramos con sol directo (o casi) de al menos 3 min
- *  · shadow  sin sol: lo tapan los edificios
- *  · cloud   sin sol: nubes previstas
- *  · unknown sin datos suficientes
+ * Qué pasa en un sitio durante una franja, separando la geometría de la meteorología (para una
+ * foto importa primero si hay edificios delante del sol y luego si habrá nubes):
+ *  · clear    tramos de al menos 3 min sin edificios ni relieve delante del sol
+ *  · blocked  hay datos y los edificios o el relieve lo tapan todo el rato
+ *  · weather  lo que dice la meteorología en los tramos despejados: sol, nubes, dudoso o sin
+ *             previsión (más allá de la previsión el motor solo sabe la geometría)
  */
-export type SpotVerdict = { kind: "lit"; ranges: TimeRange[] } | { kind: "shadow" } | { kind: "cloud" } | { kind: "unknown" };
+export interface SpotVerdict {
+  clear: TimeRange[];
+  blocked: boolean;
+  weather: "sun" | "cloud" | "uncertain" | "unknown";
+}
 
 export function spotVerdict(windows: readonly SunWindow[], r: TimeRange): SpotVerdict {
   const [a, b] = r;
-  const lit: Array<[number, number]> = [];
+  const clear: Array<[number, number]> = [];
+  const tally = { sun: 0, cloud: 0, uncertain: 0, unknown: 0 };
   let shadow = 0;
-  let cloud = 0;
-  let total = 0;
   for (const w of windows) {
     const s = Math.max(a, w.start);
     const e = Math.min(b, w.end);
-    if (e <= s) continue;
-    total += e - s;
-    if (w.kind === "sun" || w.kind === "partial") {
-      const last = lit[lit.length - 1];
-      if (last && s - last[1] <= MIN) last[1] = Math.max(last[1], e);
-      else lit.push([s, e]);
-    } else if (w.kind === "shadow") {
+    if (e <= s || w.kind === "night") continue;
+    if (w.kind === "shadow") {
       shadow += e - s;
-    } else if (w.kind === "cloud") {
-      cloud += e - s;
+      continue;
+    }
+    const last = clear[clear.length - 1];
+    if (last && s - last[1] <= MIN) last[1] = Math.max(last[1], e);
+    else clear.push([s, e]);
+    const k = w.kind === "cloud" ? "cloud" : w.kind === "uncertain" ? "uncertain" : w.unverified ? "unknown" : "sun";
+    tally[k] += e - s;
+  }
+  const useful = clear.filter(([s, e]) => e - s >= 3 * MIN).map(([s, e]) => [s, e] as const);
+  let weather: SpotVerdict["weather"] = "unknown";
+  let best = 0;
+  for (const k of ["sun", "cloud", "uncertain", "unknown"] as const) {
+    if (tally[k] > best) {
+      best = tally[k];
+      weather = k;
     }
   }
-  const useful = lit.filter(([s, e]) => e - s >= 3 * MIN).map(([s, e]) => [s, e] as const);
-  if (useful.length > 0) return { kind: "lit", ranges: useful };
-  if (total === 0) return { kind: "unknown" };
-  if (shadow > 0 && shadow >= cloud) return { kind: "shadow" };
-  if (cloud > 0) return { kind: "cloud" };
-  return { kind: "unknown" };
+  return { clear: useful, blocked: useful.length === 0 && shadow > 0, weather };
 }

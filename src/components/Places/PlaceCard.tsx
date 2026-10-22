@@ -11,6 +11,7 @@ import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { hhmm } from "../../lib/planningTime";
 import { seaLine } from "../../services/seaService";
 import { startOfZoneDay } from "../../services/timeService";
+import type { TerraceSun } from "../../hooks/useTerraceSun";
 import type { NormalizedSunRequest, SunPlace, SunSearchResult } from "../../types";
 import { cn } from "../../utils/cn";
 import { CloseIcon, SunGlyph } from "../Icons";
@@ -170,6 +171,8 @@ export interface PlaceCardBodyProps {
   onRetry?(): void;
   /** Lleva el mapa a una hora (las horas de «Luz para fotos»). */
   onShowTime?(t: number): void;
+  /** La terraza dibujada con su % al sol a la hora elegida. */
+  terrace?: TerraceSun | null;
 }
 
 export function PlaceCardBody(p: PlaceCardBodyProps) {
@@ -305,7 +308,7 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
       )}
       {strongSun && <AffiliateSlot place={null} context="uv" />}
 
-      {result && <TerraceBlock result={result} onFeedback={p.onTerraceFeedback} />}
+      {result && <TerraceBlock result={result} terrace={p.terrace} onFeedback={p.onTerraceFeedback} />}
 
       <AffiliateSlot place={place} context="card" />
 
