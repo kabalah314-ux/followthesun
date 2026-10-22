@@ -35,6 +35,9 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
           <p>{tr("aboutPanel.sol_calculo_astronomico_posicion_orto")}</p>
           <p>{tr("aboutPanel.edificios_lugares_y_mapa_openstreetmap")}</p>
           <p>{tr("aboutPanel.vista_real_icgc")}</p>
+          <p>{tr("aboutPanel.arbolado")}</p>
+          <p>{tr("aboutPanel.catastro")}</p>
+          <p>{tr("aboutPanel.relieve_mapterhorn")}</p>
           <p>{tr("aboutPanel.fotos_abiertas")}</p>
           <p>
             {tr("aboutPanel.terrazas_con_licencia_areas_de")}

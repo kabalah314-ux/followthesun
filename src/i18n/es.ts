@@ -1,6 +1,8 @@
 /** Castellano: idioma fuente. Sus claves definen el tipo de los demás idiomas (una clave que falte allí es un error de TypeScript). */
 export const es = {
   "aboutPanel.acerca_de": "Acerca de",
+  "aboutPanel.arbolado": "Árboles: arbolado municipal de Open Data BCN (CC BY 4.0).",
+  "aboutPanel.catastro": "Alturas de los edificios que no la tienen en OpenStreetMap: Dirección General del Catastro (INSPIRE).",
   "aboutPanel.como_ordenamos": "Cómo ordenamos",
   "aboutPanel.como_ordenamos_parametros": "Los sitios se ordenan por los minutos de sol (o de sombra) que les quedan con las nubes previstas, el confort (sensación térmica, viento y UV), la distancia a pie, lo que encaja con lo que buscas y lo fiable que es el dato. Lo que guardas ajusta el orden como mucho un 10 %, y solo en tu dispositivo.",
   "aboutPanel.como_ordenamos_sin_pago": "Nadie paga por salir antes. Los enlaces de afiliado van aparte, marcados y con el nombre de quien paga.",
@@ -17,6 +19,7 @@ export const es = {
   "aboutPanel.observacion_radiacion_solar_por_satelite": "Observación: radiación solar por satélite EUMETSAT MTG (DWD) vía Open-Meteo.",
   "aboutPanel.precision": "Precisión",
   "aboutPanel.prevision_meteo_france_arome_y": "Previsión: Météo-France AROME y ARPEGE vía Open-Meteo.",
+  "aboutPanel.relieve_mapterhorn": "Relieve: Mapterhorn, con modelos de elevación abiertos.",
   "aboutPanel.sol_calculo_astronomico_posicion_orto": "Sol: cálculo astronómico (posición, orto y ocaso).",
   "aboutPanel.terrazas_con_licencia_areas_de": "Terrazas con licencia, áreas de juego, refugios climáticos, fuentes, lavabos y miradores: Ajuntament de Barcelona · Open Data BCN (CC BY 4.0). Los nombres de los locales se cruzan con OpenStreetMap.",
   "aboutPanel.un_mapa_solar_de_barcelona": "Un mapa solar de Barcelona. Hecho para entender dónde está la luz del sol — y adónde ir para encontrarla.",
