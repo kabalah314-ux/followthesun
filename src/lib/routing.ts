@@ -221,15 +221,6 @@ export function urlWith(target: { view: AppView; tab?: ViewTab | null } | { slug
   return `${r.base}${seg}${q}`;
 }
 
-/**
- * Compatibilidad con la navegación anterior (pestañas de Buscar). Solo la usan componentes que
- * ya no se montan; se puede borrar con ellos.
- * @deprecated
- */
-export type SearchView = "find" | "plan" | "places" | "recommended";
-/** @deprecated */
-export const SEARCH_VIEWS: readonly SearchView[] = ["find", "plan", "places", "recommended"];
-
 /** Dirección absoluta de la app con una vista y una query (enlaces para compartir). */
 export function absoluteUrl(target: { view: AppView; tab?: ViewTab | null }, search: string): string {
   return `${window.location.origin}${urlWith(target, search)}`;
