@@ -1,6 +1,7 @@
 import type { ShadeRouteState } from "../../hooks/useShadeRoute";
 import type { SunShadeMode } from "../../lib/answer";
-import { formatClock } from "../../services/timeService";
+import { dayChoiceLabel } from "../../lib/planningTime";
+import { formatClock, startOfZoneDay } from "../../services/timeService";
 import { WALK_ROUTE_ATTRIBUTION } from "../../services/walkRouteService";
 import { cn } from "../../utils/cn";
 import { tr } from "../../i18n";
@@ -56,7 +57,10 @@ export default function RouteBlock({
     <section aria-label={title} aria-busy={mine.status === "loading"} className="mt-2 rounded-[18px] border border-line px-3.5 py-3">
       <div className="flex items-center justify-between gap-2">
         <p className="fts-caps !text-[11.5px]">
-          {title} · {tr("route.sale_a_las", { p0: formatClock(mine.departure) })}
+          {title} ·{" "}
+          {startOfZoneDay(mine.departure) === startOfZoneDay(Date.now())
+            ? tr("route.sale_a_las", { p0: formatClock(mine.departure) })
+            : tr("route.sale_dia", { p0: dayChoiceLabel(startOfZoneDay(mine.departure), Date.now()).toLowerCase(), p1: formatClock(mine.departure) })}
         </p>
         <button
           type="button"

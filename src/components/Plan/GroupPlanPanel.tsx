@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useLocalStore } from "../../hooks/useLocalStore";
 import { decodeGroupPlan, encodeGroupPlan, GROUP_MAX, GROUP_MIN, optionToPlace, type GroupOption, type GroupPlan } from "../../lib/groupPlan";
+import { addVote, encodeVote, groupVotesStore, planKey, tally, voterNameStore } from "../../lib/groupVotes";
 import { PLACE_TYPE_LABEL } from "../../lib/placeTypes";
 import { dayChoiceLabel } from "../../lib/planningTime";
 import { absoluteUrl } from "../../lib/routing";
@@ -29,12 +31,15 @@ function OptionRow({
   now,
   onOpen,
   action,
+  votes,
 }: {
   o: GroupOption;
   index: number;
   now: number;
   onOpen(o: GroupOption): void;
   action?: ReactNode;
+  /** Votos recibidos para esta opción (solo en un plan compartido). */
+  votes?: number;
 }) {
   const [sum, setSum] = useState<PlaceSunSummary | "loading" | "error">("loading");
   useEffect(() => {
@@ -62,6 +67,11 @@ function OptionRow({
             {o.time ? ` · ${dayChoiceLabel(startOfZoneDay(o.time), now)} ${formatClock(o.time)}` : ""}
           </span>
           <span className="mt-0.5 block text-[13px] font-medium text-ink">{sunLine(sum, now)}</span>
+          {votes !== undefined && votes > 0 && (
+            <span className="mt-1 inline-block rounded-full bg-sun-soft px-2 py-0.5 text-[12px] font-semibold text-sun-deep">
+              {votes === 1 ? tr("group.un_voto") : tr("group.n_votos", { p0: votes })}
+            </span>
+          )}
         </span>
       </button>
       {action}
@@ -104,6 +114,8 @@ export default function GroupPlanPanel({
   onToast(text: string): void;
 }) {
   const shared = sharedCode ? decodeGroupPlan(sharedCode) : null;
+  const book = useLocalStore(groupVotesStore);
+  const voterName = useLocalStore(voterNameStore);
 
   const shareText = async (text: string, url: string) => {
     try {
@@ -138,11 +150,31 @@ export default function GroupPlanPanel({
       );
     }
     const url = groupPlanLink(shared);
+    const key = planKey(shared);
+    const votes = book[key] ?? [];
+    const counts = tally(votes, shared.options.length);
+    const vote = (i: number) => {
+      const v = { voter: voterName, option: i };
+      groupVotesStore.set((b) => addVote(b, key, v));
+      // El voto va dentro del enlace: quien lo abra lo suma a su recuento.
+      void shareText(tr("group.voto_por", { p0: shared.options[i].name, p1: shared.title || tr("group.plan_en_grupo") }), `${url}&v=${encodeVote(v)}`);
+    };
     return (
       <div>
         <Caps>{tr("group.te_han_invitado")}</Caps>
         <p className="mt-1.5 font-serif text-[22px] leading-tight text-ink">{shared.title || tr("group.plan_sin_titulo")}</p>
         <p className="mt-1 text-[13.5px] leading-snug text-ink-soft">{tr("group.elige_y_vota")}</p>
+        <label className="mt-3 block">
+          <span className="text-[12.5px] font-semibold text-ink-soft">{tr("group.tu_nombre")}</span>
+          <input
+            type="text"
+            value={voterName}
+            maxLength={30}
+            onChange={(e) => voterNameStore.set(e.target.value)}
+            placeholder={tr("group.tu_nombre_placeholder")}
+            className="mt-1 h-11 w-full rounded-full border border-line bg-paper/70 px-4 text-[14.5px] text-ink outline-none placeholder:text-ink-faint focus:border-sun"
+          />
+        </label>
         <ul className="mt-3 space-y-2">
           {shared.options.map((o, i) => (
             <OptionRow
@@ -151,10 +183,11 @@ export default function GroupPlanPanel({
               index={i}
               now={now}
               onOpen={onOpen}
+              votes={counts[i]}
               action={
                 <button
                   type="button"
-                  onClick={() => void shareText(tr("group.voto_por", { p0: o.name, p1: shared.title || tr("group.plan_en_grupo") }), url)}
+                  onClick={() => vote(i)}
                   className="h-11 shrink-0 rounded-full bg-sun px-3.5 text-[13px] font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-sun-deep/60"
                 >
                   {tr("group.votar")}
@@ -163,6 +196,13 @@ export default function GroupPlanPanel({
             />
           ))}
         </ul>
+        {votes.length > 0 && (
+          <p className="mt-3 text-[12.5px] leading-snug text-ink-soft">
+            {tr("group.votos_recibidos")}{" "}
+            {votes.map((v) => `${v.voter || tr("group.anonimo")} → ${v.option + 1}`).join(" · ")}
+          </p>
+        )}
+        <p className="mt-1.5 text-[12px] leading-snug text-ink-faint">{tr("group.como_cuentan")}</p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
             type="button"

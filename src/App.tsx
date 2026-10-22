@@ -83,6 +83,7 @@ import {
   type ExploreSpec,
 } from "./lib/explore";
 import { decodeGroupPlan, GROUP_MAX, optionToPlace } from "./lib/groupPlan";
+import { addVote, decodeVote, groupVotesStore, planKey } from "./lib/groupVotes";
 import { onIdle } from "./lib/idle";
 import { readLocal, writeLocal } from "./lib/localStore";
 import { searchPlaces, buildNameIndex } from "./lib/placeSearch";
@@ -448,6 +449,27 @@ export default function App() {
   const [planPlanner, setPlanPlanner] = useState<PlannerState>(() => initialPlan(Date.now()));
   const [route, setRoute] = useState<PlannedRoute | null>(null);
   const sharedPlan = useMemo(() => (sharedCode ? decodeGroupPlan(sharedCode) : null), [sharedCode]);
+  // Un voto que llega en el enlace (`&v=`) se suma al recuento de este móvil y se quita del enlace.
+  useEffect(() => {
+    if (!sharedPlan) return;
+    let code: string | null = null;
+    try {
+      code = new URLSearchParams(window.location.search).get("v");
+    } catch {
+      code = null;
+    }
+    const vote = decodeVote(code, sharedPlan.options.length);
+    if (!vote) return;
+    groupVotesStore.set((b) => addVote(b, planKey(sharedPlan), vote));
+    try {
+      const q = new URLSearchParams(window.location.search);
+      q.delete("v");
+      const s = q.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${s ? `?${s}` : ""}`);
+    } catch {
+      /* sin History API */
+    }
+  }, [sharedPlan]);
 
   const handleCamera = useCallback((c: CameraState) => {
     const bearing = Math.round(c.bearing * 2) / 2;
