@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { TimeMode, TimeRange } from "../../hooks/useTimeController";
 import { clamp } from "../../lib/coordinates";
 import { dayChoiceLabel, dayStartFor } from "../../lib/planningTime";
@@ -29,6 +29,19 @@ interface Props {
   compact?: boolean;
   /** Horas del sol del día enseñado; `nextDay` = de noche se enseña el de mañana. */
   day?: { sun: TimelineSun; nextDay: boolean };
+  /** «El día en movimiento» (Fase A): el botón aparece si se le pasa el reproductor. */
+  dayPlayer?: DayPlayer | null;
+}
+
+/**
+ * Reproductor de «el día en movimiento» (del amanecer a la puesta en unos segundos). Lo aporta el
+ * motor gráfico (`useDayAnimation`); aquí solo está su hueco.
+ */
+export interface DayPlayer {
+  playing: boolean;
+  /** Avance 0–1. */
+  progress: number;
+  toggle(): void;
 }
 
 const chip = (active: boolean) =>
@@ -131,7 +144,6 @@ export default function TimeSlider(p: Props) {
   return (
     <div
       className={cn("fts-glass fts-rise w-full rounded-[24px]", p.compact ? "px-3.5 pb-3 pt-2.5" : "px-5 pb-3.5 pt-3")}
-      style={{ animationDelay: "600ms" }}
     >
       <div className="flex items-center justify-between gap-2">
         <div role="group" aria-label={tr("timeSlider.dia")} className="flex min-w-0 items-center gap-0.5">
@@ -161,6 +173,7 @@ export default function TimeSlider(p: Props) {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {p.dayPlayer && <DayPlayButton player={p.dayPlayer} />}
           {!isNow && (
             <button
               type="button"
@@ -344,6 +357,163 @@ export default function TimeSlider(p: Props) {
       </div>
     </div>
   );
+}
+
+function DayPlayButton({ player }: { player: DayPlayer }) {
+  return (
+    <button
+      type="button"
+      onClick={player.toggle}
+      aria-pressed={player.playing}
+      aria-label={player.playing ? tr("timePill.parar_el_dia") : tr("timePill.ver_el_dia_en_movimiento")}
+      title={player.playing ? tr("timePill.parar_el_dia") : tr("timePill.ver_el_dia_en_movimiento")}
+      className="relative flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+    >
+      <HitArea />
+      {player.playing ? (
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+          <rect x="2" y="1.5" width="3" height="9" rx="1" fill="currentColor" />
+          <rect x="7" y="1.5" width="3" height="9" rx="1" fill="currentColor" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden>
+          <path d="M3 1.8v8.4L10 6z" fill="currentColor" />
+        </svg>
+      )}
+      <span>{tr("timePill.el_dia")}</span>
+      {player.playing && (
+        <span aria-hidden className="absolute inset-x-2 bottom-0.5 h-[2px] overflow-hidden rounded-full bg-ink/10">
+          <i className="block h-full bg-sun" style={{ width: `${Math.round(player.progress * 100)}%` }} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * La hora como píldora «Hoy 17:30 ▾» sobre la hoja (guía maestra 2): al tocarla aparece la línea
+ * de tiempo sobre el mapa, que se recoge sola. Junto a ella, «Ahora» (si se mira otra hora) y el
+ * hueco de «el día en movimiento».
+ */
+export function TimePill({
+  selectedTime,
+  dayLabel,
+  isNow,
+  open,
+  onToggle,
+  onNow,
+  dayPlayer,
+}: {
+  selectedTime: number;
+  dayLabel: string;
+  isNow: boolean;
+  open: boolean;
+  onToggle(): void;
+  onNow(): void;
+  dayPlayer?: DayPlayer | null;
+}) {
+  const text = `${dayLabel} ${formatClock(selectedTime)}`;
+  return (
+    <div className="pointer-events-auto flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={tr("timePill.cambiar_la_hora", { p0: text })}
+        className="fts-glass flex h-11 items-center gap-2 rounded-full pl-3.5 pr-3 text-[14px] font-semibold text-ink outline-none transition-transform active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-sun/60"
+      >
+        {isNow ? (
+          <span aria-hidden className="fts-live-dot relative block h-2 w-2 rounded-full bg-sun" />
+        ) : (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden className="text-ink-soft">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 7.5V12l3 2" />
+          </svg>
+        )}
+        <span className="tabular-nums">{text}</span>
+        <span aria-hidden className="text-[12px] text-ink-soft">
+          {open ? "▴" : "▾"}
+        </span>
+      </button>
+      {!isNow && (
+        <button
+          type="button"
+          onClick={onNow}
+          className="fts-fade-in flex h-11 items-center gap-1.5 rounded-full bg-sun px-3.5 text-[13.5px] font-semibold text-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-sun-deep/60"
+        >
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-ink" />
+          {tr("findSunPanel.ahora")}
+        </button>
+      )}
+      {dayPlayer && (
+        <button
+          type="button"
+          onClick={dayPlayer.toggle}
+          aria-pressed={dayPlayer.playing}
+          aria-label={dayPlayer.playing ? tr("timePill.parar_el_dia") : tr("timePill.ver_el_dia_en_movimiento")}
+          className="fts-glass flex h-11 w-11 items-center justify-center rounded-full text-ink outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
+        >
+          {dayPlayer.playing ? (
+            <svg width="13" height="13" viewBox="0 0 12 12" aria-hidden>
+              <rect x="2" y="1.5" width="3" height="9" rx="1" fill="currentColor" />
+              <rect x="7" y="1.5" width="3" height="9" rx="1" fill="currentColor" />
+            </svg>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 12 12" aria-hidden>
+              <path d="M3 1.8v8.4L10 6z" fill="currentColor" />
+            </svg>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La línea de tiempo desplegada se recoge sola tras `ms` sin tocarla (mientras se arrastra, no).
+ * Devuelve los manejadores para el contenedor y `bump` para reiniciar la espera.
+ */
+export function useAutoHide(open: boolean, onHide: () => void, ms: number, activity: unknown) {
+  const holding = useRef(false);
+  const last = useRef(0);
+  const cb = useRef(onHide);
+  cb.current = onHide;
+  useEffect(() => {
+    last.current = Date.now();
+  }, [activity, open]);
+  useEffect(() => {
+    if (!open) return;
+    let t = 0;
+    const check = () => {
+      const idle = Date.now() - last.current;
+      if (!holding.current && idle >= ms) cb.current();
+      else t = window.setTimeout(check, Math.max(250, ms - idle));
+    };
+    t = window.setTimeout(check, ms);
+    return () => window.clearTimeout(t);
+  }, [open, ms]);
+  const bump = useCallback(() => {
+    last.current = Date.now();
+  }, []);
+  return {
+    bump,
+    handlers: {
+      onPointerDown: () => {
+        holding.current = true;
+        bump();
+      },
+      onPointerUp: () => {
+        holding.current = false;
+        bump();
+      },
+      onPointerCancel: () => {
+        holding.current = false;
+        bump();
+      },
+      onKeyDown: bump,
+      onMouseMove: bump,
+    },
+  };
 }
 
 /** Versión compacta de la línea de tiempo: la hora elegida y el día, con un toque para desplegarla. */

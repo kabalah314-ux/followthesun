@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { placeSlug, readDeepLink, withTimeQuery, type PlaceLinkRef } from "../lib/deepLinks";
-import { urlWith, type AppView } from "../lib/routing";
+import { urlWith, type AppView, type ViewTab } from "../lib/routing";
 import type { SunPlace } from "../types";
 import { tr } from "../i18n";
 
@@ -8,6 +8,8 @@ interface Options {
   /** El mapa está listo: antes no se puede volar ni abrir una ficha. */
   ready: boolean;
   view: AppView;
+  /** Sección de Planes o Mis sitios (va en la URL como `?vista=`). */
+  tab?: ViewTab | null;
   /** Instante elegido en la línea de tiempo; null = «ahora». */
   chosenTime: number | null;
   /** Lugar con la ficha abierta. */
@@ -56,11 +58,12 @@ export function useDeepLink(o: Options) {
 
   const slug = o.place ? placeSlug(o.place) : null;
   const { view, chosenTime } = o;
+  const tab = o.tab ?? null;
   useEffect(() => {
     if (!consumed.current || restoring.current) return;
     const timer = window.setTimeout(() => {
       const search = withTimeQuery(window.location.search, chosenTime);
-      const next = slug ? urlWith({ slug }, search) : urlWith({ view }, search);
+      const next = slug ? urlWith({ slug }, search) : urlWith({ view, tab }, search);
       const current = window.location.pathname + window.location.search + window.location.hash;
       if (next === current) return;
       try {
@@ -70,5 +73,5 @@ export function useDeepLink(o: Options) {
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [slug, view, chosenTime]);
+  }, [slug, view, tab, chosenTime]);
 }
