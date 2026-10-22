@@ -1,7 +1,9 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { SUN_RAMP_CSS } from "../../engine/layers/SolarHeatmap";
-import type { Preferences } from "../../lib/preferences";
-import { Caps, Switch } from "../FindSun/ui";
+import type { QualityLevel, QualityState } from "../../graphics/quality";
+import { useQuality } from "../../graphics/useQuality";
+import type { GraphicsQualityPreference, Preferences } from "../../lib/preferences";
+import { Caps, Segmented, Switch } from "../FindSun/ui";
 import { tr } from "../../i18n";
 
 type LayerKey =
@@ -33,9 +35,10 @@ const CubeIcon = () => (
 
 const LAYERS: Array<{ key: LayerKey; label: string; hint: string; swatch: ReactNode }> = [
   {
+    // Ortofoto del ICGC (hasta zoom 20, CC BY 4.0).
     key: "satelliteView",
-    label: tr("layerControl.vista_satelite"),
-    hint: tr("layerControl.imagen_real_de_barcelona_con"),
+    label: tr("layerControl.vista_real"),
+    hint: tr("layerControl.ortofoto_del_icgc_con"),
     swatch: <SatelliteIcon />,
   },
   { key: "showBuildings", label: tr("searchProgress.edificios"), hint: tr("layerControl.huellas_de_los_edificios"), swatch: dot("border border-ink/30 bg-ink/10") },
@@ -67,6 +70,50 @@ export function SunLegend() {
         <span className="flex items-center gap-1.5">{dot("", { background: "#c9ced6" })}{tr("sunDetails.nubes")}</span>
         <span className="flex items-center gap-1.5">{dot("", { background: "#24345e" })}{tr("findSunPanel.sombra")}</span>
       </div>
+    </div>
+  );
+}
+
+const QUALITY_LABEL: Record<QualityLevel, string> = {
+  alta: tr("layerControl.calidad_alta"),
+  media: tr("layerControl.calidad_media"),
+  ahorro: tr("layerControl.calidad_ahorro"),
+};
+
+const QUALITY_HINT: Record<QualityLevel, string> = {
+  alta: tr("layerControl.calidad_hint_alta"),
+  media: tr("layerControl.calidad_hint_media"),
+  ahorro: tr("layerControl.calidad_hint_ahorro"),
+};
+
+/** Una línea que explica el nivel en uso (y por qué, si bajó solo). */
+function qualityHint(q: QualityState): string {
+  if (q.reason === "gl-error") return tr("layerControl.calidad_sin_gpu");
+  if (q.reason === "fps") return tr("layerControl.calidad_reducida_por_fluidez");
+  if (q.preference === "auto") {
+    return `${tr("layerControl.calidad_automatica_ahora", { p0: QUALITY_LABEL[q.level].toLowerCase() })} · ${QUALITY_HINT[q.level]}`;
+  }
+  return QUALITY_HINT[q.level];
+}
+
+/** Calidad gráfica: Auto (según el dispositivo), Alta, Media o Ahorro. */
+function QualityPicker({ value, onChange }: { value: GraphicsQualityPreference; onChange(v: GraphicsQualityPreference): void }) {
+  const q = useQuality();
+  return (
+    <div className="mx-2 mt-2 border-t border-line pt-2.5">
+      <Caps className="mb-2">{tr("layerControl.calidad_grafica")}</Caps>
+      <Segmented<GraphicsQualityPreference>
+        value={value}
+        label={tr("layerControl.calidad_grafica")}
+        onChange={onChange}
+        options={[
+          { id: "auto", label: tr("layerControl.calidad_auto") },
+          { id: "alta", label: QUALITY_LABEL.alta },
+          { id: "media", label: QUALITY_LABEL.media },
+          { id: "ahorro", label: QUALITY_LABEL.ahorro },
+        ]}
+      />
+      <p className="mt-1.5 text-[12px] leading-snug text-ink-faint">{qualityHint(q)}</p>
     </div>
   );
 }
@@ -116,6 +163,7 @@ export default function LayerControl({ prefs, onChange, onClose }: Props) {
           </div>
         );
       })}
+      <QualityPicker value={prefs.graphicsQuality ?? "auto"} onChange={(v) => onChange({ graphicsQuality: v })} />
       <div className="mx-2 mt-2 border-t border-line pt-2.5">
         <Caps className="mb-2">{tr("layerControl.luz_del_sol")}</Caps>
         <SunLegend />

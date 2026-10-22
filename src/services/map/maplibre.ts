@@ -2,6 +2,7 @@ import { AttributionControl, Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MAP_CONFIG } from "../../config";
+import { qualityApi } from "../../graphics/quality";
 import type { Theme } from "../../types";
 import * as styles from "./styles";
 import { openMapTilesAreaName, openMapTilesPlaceName } from "./names";
@@ -17,20 +18,24 @@ export const maplibreProvider: MapProvider = {
   label: "MapLibre GL · OpenFreeMap",
   sourceId: styles.OPENMAPTILES_SOURCE,
 
-  // Sin token no hay imagen de Mapbox: se usa Esri World Imagery, que no requiere clave.
+  // «Vista real»: ortofoto del ICGC (CC BY 4.0, sin clave, hasta zoom 20).
   createStyle(theme: Theme, satellite: boolean) {
     const base = styles.createOpenMapTilesStyle(theme);
-    return satellite ? styles.createSatelliteStyle(base, theme, "esri") : base;
+    return satellite ? styles.createSatelliteStyle(base, theme, "icgc") : base;
   },
 
   async create({ container, theme, satellite }) {
+    // Calidad gráfica: en Alta, antialias del propio mapa (bordes 3D nítidos); en Media/Ahorro se
+    // limita la resolución (pixel ratio) para ir fluido. Medirlo aquí cuesta ~10-50 ms una vez.
+    const q = qualityApi.get().settings;
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const map = new MapLibreMap({
       container,
       style: this.createStyle(theme, !!satellite) as unknown as StyleSpecification,
       center: MAP_CONFIG.center,
       zoom: MAP_CONFIG.introZoom,
       minZoom: MAP_CONFIG.minZoom,
-      maxZoom: MAP_CONFIG.maxZoom,
+      maxZoom: Math.min(MAP_CONFIG.maxZoom, q.maxZoom),
       maxBounds: MAP_CONFIG.maxBounds,
       maxPitch: MAP_CONFIG.maxPitch,
       pitch: 0,
@@ -40,6 +45,8 @@ export const maplibreProvider: MapProvider = {
       pitchWithRotate: true,
       attributionControl: false,
       fadeDuration: 200,
+      ...(dpr > q.maxPixelRatio ? { pixelRatio: q.maxPixelRatio } : {}),
+      canvasContextAttributes: { antialias: q.level === "alta" },
     });
     map.addControl(new AttributionControl({ compact: true }), "bottom-right");
     return map as unknown as MapLike;
