@@ -1,9 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import DebugPanel from "./components/DebugPanel";
 import { shownResults } from "./components/Find/SearchResults";
-import ContextPanel, { AppShell } from "./components/Layout/ContextPanel";
+import ChipsBar from "./components/Find/ChipsBar";
+import FiltersPanel from "./components/Find/FiltersPanel";
+import { specTitle } from "./components/Find/specLabel";
+import { CloseIcon, SunGlyph } from "./components/Icons";
+import BottomSheet, { type WindowRect } from "./components/Layout/BottomSheet";
+import { AppShell, PanelChrome } from "./components/Layout/ContextPanel";
+import SidePanel from "./components/Layout/SidePanel";
 import { LAYOUT, useDevice } from "./components/Layout/layout";
-import BarcelonaMap, { type MapController } from "./components/Map/BarcelonaMap";
+import { Layers, LocateFixed } from "./components/LineIcons";
+import { LogoMark, Wordmark } from "./components/Logo";
+import BarcelonaMap, { type MapController, type MapInsets } from "./components/Map/BarcelonaMap";
 import BuildingLayer from "./components/Map/BuildingLayer";
 import CloudLayer from "./components/Map/CloudLayer";
 import LayerControl from "./components/Map/LayerControl";
@@ -12,32 +20,113 @@ import MapMarkers from "./components/Map/MapMarkers";
 import ShadowLayer from "./components/Map/ShadowLayer";
 import SolarOverlay from "./components/Map/SolarOverlay";
 import SunStatus from "./components/Map/SunStatus";
-import TimeSlider, { TimelineCollapsed } from "./components/Map/TimeSlider";
-import MobileHeader from "./components/Navigation/MobileHeader";
+import TimeSlider, { TimePill, useAutoHide, type DayPlayer } from "./components/Map/TimeSlider";
+import DestinationTabs from "./components/Navigation/DestinationTabs";
 import MobileNavigation from "./components/Navigation/MobileNavigation";
-import { NAV_ITEMS } from "./components/Navigation/navItems";
-import Sidebar from "./components/Navigation/Sidebar";
+import ForYou from "./components/Now/ForYou";
+import SheetAnswer from "./components/Now/SheetAnswer";
+import AffiliateSlot from "./components/Places/AffiliateSlot";
+import { PlaceCardBody, PlaceCardHeader, type CardData } from "./components/Places/PlaceCard";
+import PlaceMedia, { type MediaTab } from "./components/Places/PlaceMedia";
+import PlansTabs from "./components/Plan/PlansTabs";
+import type { WeekCandidate } from "./components/Plan/WeekPanel";
 import PointPanel from "./components/PointPanel";
+import Collections from "./components/Recommended/Collections";
+import MineTabs from "./components/Saved/MineTabs";
+import ProfileMenu from "./components/Search/ProfileMenu";
+import UniversalSearch from "./components/Search/UniversalSearch";
 import { PROVENANCE_WORD } from "./components/SourceStatusLine";
 import Splash from "./components/Splash";
-import NowPanel from "./components/Now/NowPanel";
-import NearbyStrip from "./components/Now/NearbyStrip";
-import SearchHub from "./components/Search/SearchHub";
 import Toast from "./components/Toast";
-import AnswerCard from "./components/Now/AnswerCard";
+import { BARCELONA, CITY_BOUNDS, DEBUG, FEATURES } from "./config";
+import { useAppNavigation, type AppView, type ViewTab } from "./hooks/useAppNavigation";
+import { useDeepLink } from "./hooks/useDeepLink";
+import { useExplore, type ExploreState } from "./hooks/useExplore";
+import { useLightSource } from "./hooks/useLightSource";
+import { useLocalStore } from "./hooks/useLocalStore";
+import { useNow } from "./hooks/useNow";
+import { usePlaceInventory } from "./hooks/usePlaceInventory";
+import { usePreferences } from "./hooks/usePreferences";
+import { useReducedMotion } from "./hooks/useReducedMotion";
+import { useSavedPlaces } from "./hooks/useSavedPlaces";
+import { useSunSearch } from "./hooks/useSunSearch";
+import { useSunShadeMode } from "./hooks/useSunShadeMode";
+import { useTimeController } from "./hooks/useTimeController";
+import { useUniversalSearch, type SearchSuggestion } from "./hooks/useUniversalSearch";
+import { useViewport } from "./hooks/useViewport";
+import { describeCity, describePoint, type SunShadeMode } from "./lib/answer";
+import { distanceMeters } from "./lib/coordinates";
+import type { PlaceLinkRef } from "./lib/deepLinks";
+import {
+  activeFilterCount,
+  chipSpec,
+  collectionSpec,
+  collectionsFor,
+  homeSpec,
+  nearestOfType,
+  NO_FILTERS,
+  sanitizeFilters,
+  type ChipId,
+  type ExploreFilters,
+  type ExploreSpec,
+} from "./lib/explore";
+import { decodeGroupPlan, GROUP_MAX, optionToPlace } from "./lib/groupPlan";
+import { onIdle } from "./lib/idle";
+import { readLocal, writeLocal } from "./lib/localStore";
+import { searchPlaces, buildNameIndex } from "./lib/placeSearch";
+import { DEFAULT_PLANNER, buildSearchRequest, type PlannerState } from "./lib/planning";
+import { dayChoiceLabel, dayStartFor, minutesOfDay, zonedMs } from "./lib/planningTime";
+import { MINE_TABS, PLANS_TABS, urlWith, type MineTab, type PlansTab } from "./lib/routing";
+import { isSheetLevel, sheetHeights, type SheetLevel } from "./lib/sheet";
+import { presentOnDay, timelineRange } from "./lib/timelineRange";
+import { cloudService } from "./services/cloudService";
+import { addToGroupDraft, groupDraftStore, removeFromGroupDraft, setGroupDraftTitle } from "./services/groupDraftService";
+import { historyStore, historyToPlace, recordVisit } from "./services/historyService";
+import { homeStore, homeToPlace } from "./services/homeService";
+import { forgetPlace, listsStore } from "./services/listsService";
+import { locateUser } from "./services/mapService";
+import { resolvePlaceRef } from "./services/placeLinkService";
+import { createCoordinatePlace, placeService } from "./services/placeService";
+import { getPlaceSunSummaryCached, savedToPlace, type PlaceSunSummary } from "./services/placeSunService";
+import { createShareablePlan, shareOrCopy } from "./services/planShareService";
+import { minutesForStraightMeters } from "./services/routeService";
+import { satelliteService } from "./services/satelliteService";
+import { SUN_UP_RAD, solarService } from "./services/solarService";
+import type { PlannedRoute } from "./services/sunRouteService";
+import { learnTaste, tasteStore } from "./services/tasteService";
+import { formatClock, formatDayLabel, getZoneParts, startOfZoneDay, zoneDayKey } from "./services/timeService";
+import type {
+  CameraState,
+  CityStats,
+  Highlight,
+  LightSourceMode,
+  LngLat,
+  NormalizedSunRequest,
+  PointTimeline,
+  SavedPlace,
+  SelectedPoint,
+  SunPlace,
+  SunSearchResult,
+  SunlightResult,
+  Theme,
+} from "./types";
+import { cn } from "./utils/cn";
+import { tr } from "./i18n";
 
 /**
- * Los paneles de cada sección se descargan al abrirlas: la carga inicial solo trae el mapa, el sol
- * y la línea de tiempo. «Recomendados» y el detalle de un resultado también.
+ * Los paneles de Planes, Mis sitios, Ajustes y «Cómo lo sabemos» se descargan al abrirlos: la
+ * carga inicial solo trae el mapa, Explorar y la línea de tiempo.
  */
-const FindSunPanel = lazy(() => import("./components/Find/FindSunPanel"));
 const SunPlanner = lazy(() => import("./components/Plan/SunPlanner"));
-const PlacesExplorer = lazy(() => import("./components/Places/PlacesExplorer"));
-const Recommended = lazy(() => import("./components/Recommended/Recommended"));
-const SavedPlaces = lazy(() => import("./components/Saved/SavedPlaces"));
+const SunRoutePanel = lazy(() => import("./components/Plan/SunRoutePanel"));
+const WeekPanel = lazy(() => import("./components/Plan/WeekPanel"));
+const GroupPlanPanel = lazy(() => import("./components/Plan/GroupPlanPanel"));
+const AlertsPanel = lazy(() => import("./components/Plan/AlertsPanel"));
+const ListsPanel = lazy(() => import("./components/Saved/ListsPanel"));
+const HomePanel = lazy(() => import("./components/Saved/HomePanel"));
+const HistoryPanel = lazy(() => import("./components/Saved/HistoryPanel"));
 const SettingsPanel = lazy(() => import("./components/Settings/SettingsPanel"));
 const AboutPanel = lazy(() => import("./components/About/AboutPanel"));
-const SunDetails = lazy(() => import("./components/FindSun/SunDetails"));
 
 /** Mientras se descarga un panel: un punto de luz, sin parpadeos ni esqueletos. */
 function PanelFallback() {
@@ -47,87 +136,19 @@ function PanelFallback() {
     </div>
   );
 }
-import { BARCELONA, CITY_BOUNDS, DEBUG, FEATURES } from "./config";
-import { PANEL_VIEWS, useAppNavigation, type AppView } from "./hooks/useAppNavigation";
-import { useLightSource } from "./hooks/useLightSource";
-import { useMediaQuery } from "./hooks/useMediaQuery";
-import { useNow } from "./hooks/useNow";
-import { usePlaceInventory } from "./hooks/usePlaceInventory";
-import { usePreferences } from "./hooks/usePreferences";
-import { useSavedPlaces } from "./hooks/useSavedPlaces";
-import { useSunSearch } from "./hooks/useSunSearch";
-import { useTimeController } from "./hooks/useTimeController";
-import { useDeepLink } from "./hooks/useDeepLink";
-import type { PlaceLinkRef } from "./lib/deepLinks";
-import { resolvePlaceRef } from "./services/placeLinkService";
-import { getPlaceSunSummaryCached } from "./services/placeSunService";
-import { useSunShadeMode } from "./hooks/useSunShadeMode";
-import { describeCity, type SunShadeMode } from "./lib/answer";
-import { SUN_INTENTS } from "./lib/placeTypes";
-import { isSearchView } from "./lib/routing";
-import { distanceMeters } from "./lib/coordinates";
-import { onIdle } from "./lib/idle";
-import { DEFAULT_PLANNER, buildSearchRequest, oneHourOfSun, type PlannerState } from "./lib/planning";
-import { dayChoiceLabel, dayStartFor, minutesOfDay, zonedMs } from "./lib/planningTime";
-import { presentOnDay, timelineRange } from "./lib/timelineRange";
-import { cloudService } from "./services/cloudService";
-import { PLACES_CONFIG } from "./config";
-import { locateUser } from "./services/mapService";
-import { createCoordinatePlace } from "./services/placeService";
-import type { PlaceSunSummary } from "./services/placeSunService";
-import { createShareablePlan, shareOrCopy } from "./services/planShareService";
-import { satelliteService } from "./services/satelliteService";
-import { SUN_UP_RAD, solarService } from "./services/solarService";
-import { venueToSunPlace, venueService } from "./services/venueService";
-import { formatClock, startOfZoneDay, zoneDayKey } from "./services/timeService";
-import type {
-  CameraState,
-  CityStats,
-  Highlight,
-  LightSourceMode,
-  LngLat,
-  LocationTypeFilter,
-  NormalizedSunRequest,
-  PointTimeline,
-  SavedPlace,
-  SelectedPoint,
-  SunPlace,
-  SunSearchOutcome,
-  SunSearchResult,
-  SunlightResult,
-  Theme,
-} from "./types";
-import { cn } from "./utils/cn";
-import { tr } from "./i18n";
 
 const EMPTY_HIGHLIGHTS: Highlight[] = [];
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
-const MIN = 60_000;
+const SHEET_KEY = "fts:sheet:v1";
+const FILTERS_KEY = "fts:filters:v1";
 
 const themeFor = (altDeg: number, prev?: Theme): Theme => {
   if (!prev) return altDeg < -2 ? "night" : "day";
   return prev === "day" ? (altDeg < -3 ? "night" : "day") : altDeg > -1 ? "day" : "night";
 };
 
-/** Por qué «Cerca de ti ahora» está vacío, en palabras (las nubes, la noche o los edificios, no «no hay sitios»). */
-function nearbyEmptyText(outcome: SunSearchOutcome | null | undefined, tomorrow: boolean, shade: boolean): string {
-  const when = tomorrow ? tr("app.manana_a_primera_hora") : tr("app.en_la_proxima_hora");
-  switch (outcome?.noSunReason) {
-    case "clouds":
-      return tr("app.las_nubes_taparan_el_sol", { p0: when });
-    case "shade":
-      return tr("app.los_edificios_dan_sombra_a", { p0: when });
-    case "night":
-      return tr("app.ya_no_queda_sol_hoy");
-    case "no_places":
-      return tr("app.no_hemos_podido_cargar_los");
-    default:
-      return tr(shade ? "app.no_encontramos_sitios_con_sombra_seguida" : "app.no_encontramos_sitios_con_sol_seguido", { p0: when });
-  }
-}
-
-/** Plan por defecto: hoy a partir de las 17:00 (o de ahora), mañana si ya es tarde. */
+/** Plan por defecto de «Más tarde»: hoy a partir de las 17:00 (o de ahora), mañana si ya es tarde. */
 function initialPlan(now: number): PlannerState {
   const m = minutesOfDay(now);
   const late = m > 19 * 60;
@@ -142,10 +163,23 @@ function initialPlan(now: number): PlannerState {
   };
 }
 
-interface ActiveResult {
-  result: SunSearchResult;
-  request: NormalizedSunRequest;
-  peers: SunSearchResult[];
+/** Por qué una búsqueda de Explorar sale vacía, en palabras (las nubes, la noche o los edificios). */
+function exploreEmptyText(e: ExploreState): string {
+  if (e.filteredOut) return tr("forYou.ninguno_cumple_los_filtros");
+  const when = e.window.movedToTomorrow ? tr("app.manana_a_primera_hora") : tr("app.en_la_proxima_hora");
+  switch (e.outcome?.noSunReason) {
+    case "clouds":
+      return tr("app.las_nubes_taparan_el_sol", { p0: when });
+    case "shade":
+      return tr("app.los_edificios_dan_sombra_a", { p0: when });
+    case "night":
+      return tr("app.ya_no_queda_sol_hoy");
+    case "no_places":
+      return e.filters.maxWalk !== null ? tr("forYou.nada_tan_cerca") : tr("forYou.sin_sitios_de_ese_tipo");
+    default:
+      if (e.state.failed) return tr("forYou.algo_ha_fallado");
+      return tr(e.mode === "shade" ? "app.no_encontramos_sitios_con_sombra_seguida" : "app.no_encontramos_sitios_con_sol_seguido", { p0: when });
+  }
 }
 
 interface SavedTime {
@@ -154,14 +188,51 @@ interface SavedTime {
   dayOffset: number;
 }
 
+interface CardState {
+  data: CardData;
+  peers: SunSearchResult[];
+}
+
+/** El controlador del mapa con lo que añade el motor gráfico (Fase A), si ya está. */
+type MapControllerPlus = MapController & {
+  flyToCinematic?(lng: number, lat: number, opts: { sunAzimuthDeg: number; zoom?: number; pitch?: number }): void;
+  setPadding?(insets: MapInsets, opts?: { animate?: boolean }): void;
+};
+
+/** Cabecera de una vista en la hoja o el panel: título, subtítulo y «atrás». */
+function ViewHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack?(): void }) {
+  return (
+    <div className="flex items-center gap-1">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={tr("contextPanel.atras")}
+          className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      )}
+      <div className="min-w-0">
+        <h2 className="truncate font-serif text-[23px] leading-tight text-ink">{title}</h2>
+        {subtitle && <p className="mt-0.5 truncate text-[13px] text-ink-soft">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const now = useNow(15_000);
   const device = useDevice();
   const isMobile = device === "mobile";
-  /** Caben a la vez el panel de la vista y el de detalle. */
-  const wide = useMediaQuery("(min-width: 1320px)");
+  const vp = useViewport();
+  const reduced = useReducedMotion();
   const [prefs, setPrefs] = usePreferences();
-  const { view, navigate } = useAppNavigation();
+  const { view, tab, navigate } = useAppNavigation();
+  const plansTab: PlansTab = view === "plans" && tab && (PLANS_TABS as readonly string[]).includes(tab) ? (tab as PlansTab) : "route";
+  const mineTab: MineTab = view === "mine" && tab && (MINE_TABS as readonly string[]).includes(tab) ? (tab as MineTab) : "lists";
 
   /* ------------------------------ día y hora (contexto que se conserva entre vistas) ------------------------------ */
   const [dayOffset, setDayOffset] = useState(0);
@@ -173,14 +244,10 @@ export default function App() {
   const present = presentOnDay(now, dayOffset);
   /** Día solar completo que enseña la línea de tiempo (de noche, el de mañana). */
   const timelineDay = useMemo(() => {
-    const next =
-      dayOffset === 0 ? solarService.getSunTimes(dayStartFor(now, 1), BARCELONA.lat, BARCELONA.lng) : undefined;
+    const next = dayOffset === 0 ? solarService.getSunTimes(dayStartFor(now, 1), BARCELONA.lat, BARCELONA.lng) : undefined;
     return timelineRange(present, sunTimes, next);
   }, [now, dayOffset, present, sunTimes]);
-  const range = useMemo(
-    () => ({ start: timelineDay.start, end: timelineDay.end }),
-    [timelineDay.start, timelineDay.end]
-  );
+  const range = useMemo(() => ({ start: timelineDay.start, end: timelineDay.end }), [timelineDay.start, timelineDay.end]);
 
   const clock = useTimeController(now, range);
   const scrub = clock.scrub;
@@ -219,14 +286,11 @@ export default function App() {
   );
 
   /** Otro día conservando la hora del día (17:30 hoy → 17:30 mañana). */
-  const selectDay = useCallback(
-    (offset: number) => {
-      if (offset === dayOffsetRef.current) return;
-      pendingDayTime.current = zonedMs(dayStartFor(Date.now(), offset), minutesOfDay(timeRef.current));
-      setDayOffset(offset);
-    },
-    []
-  );
+  const selectDay = useCallback((offset: number) => {
+    if (offset === dayOffsetRef.current) return;
+    pendingDayTime.current = zonedMs(dayStartFor(Date.now(), offset), minutesOfDay(timeRef.current));
+    setDayOffset(offset);
+  }, []);
 
   const goNow = useCallback(() => {
     pendingDayTime.current = null;
@@ -235,9 +299,7 @@ export default function App() {
   }, [clockGoNow]);
 
   /* ------------------------------ tema ------------------------------ */
-  const [autoTheme, setAutoTheme] = useState<Theme>(() =>
-    themeFor(solarService.getPosition(Date.now(), BARCELONA.lat, BARCELONA.lng).altitudeDeg)
-  );
+  const [autoTheme, setAutoTheme] = useState<Theme>(() => themeFor(solarService.getPosition(Date.now(), BARCELONA.lat, BARCELONA.lng).altitudeDeg));
   useEffect(() => setAutoTheme((prev) => themeFor(sunPos.altitudeDeg, prev)), [sunPos.altitudeDeg]);
   const theme: Theme = prefs.mapTheme === "auto" ? autoTheme : prefs.mapTheme === "dark" ? "night" : "day";
   useEffect(() => {
@@ -246,8 +308,7 @@ export default function App() {
   }, [theme]);
 
   /* ------------------------------ fuentes de luz ------------------------------ */
-  // La meteorología se inicializa en tiempo ocioso, después del primer render: no estorba a la
-  // carga del mapa ni a la interacción.
+  // La meteorología se inicializa en tiempo ocioso, después del primer render.
   useEffect(() => {
     const cancel = onIdle(() => {
       cloudService.start();
@@ -267,29 +328,87 @@ export default function App() {
   const [selection, setSelection] = useState<SelectedPoint | null>(null);
   const [pointTimeline, setPointTimeline] = useState<PointTimeline | null>(null);
   const [pointSunlight, setPointSunlight] = useState<SunlightResult | null>(null);
-  const [activeResult, setActiveResult] = useState<ActiveResult | null>(null);
+  const [card, setCard] = useState<CardState | null>(null);
   const [userLocation, setUserLocation] = useState<LngLat | null>(null);
   const [camera, setCamera] = useState<CameraState>({ bearing: 0, pitch: 0 });
   const [layersOpen, setLayersOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [debugSource, setDebugSource] = useState<LightSourceMode>("fused");
+  const [locating, setLocating] = useState(false);
   const mapController = useRef<MapController | null>(null);
   const selCounter = useRef(1_000_000);
   const savedTime = useRef<SavedTime | null>(null);
+  const cardSeq = useRef(0);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
 
-  const findSearch = useSunSearch();
-  const planSearch = useSunSearch();
-  const placesSearch = useSunSearch();
-  const recommendedSearch = useSunSearch();
-  /** «Cerca de ti ahora» (Ahora): los tres mejores sitios para la próxima hora. */
-  const nowSearch = useSunSearch();
-  const [findPlanner, setFindPlanner] = useState<PlannerState>(DEFAULT_PLANNER);
-  const [planPlanner, setPlanPlanner] = useState<PlannerState>(() => initialPlan(Date.now()));
-  const [placesCategory, setPlacesCategory] = useState<LocationTypeFilter>("any");
-  const inventory = usePlaceInventory(
-    view === "now" || view === "find" || view === "plan" || view === "places" || view === "recommended"
-  );
+  // Hoja inferior (móvil): recuerda su altura entre visitas.
+  const [sheetLevel, setSheetLevelRaw] = useState<SheetLevel>(() => readLocal<SheetLevel>(SHEET_KEY, "half", (v) => (isSheetLevel(v) ? v : null)));
+  const sheetLevelRef = useRef(sheetLevel);
+  sheetLevelRef.current = sheetLevel;
+  const setSheetLevel = useCallback((l: SheetLevel) => {
+    setSheetLevelRaw(l);
+    writeLocal(SHEET_KEY, l);
+  }, []);
+  const [windowRect, setWindowRect] = useState<WindowRect | null>(null);
+  const [mediaTab, setMediaTab] = useState<MediaTab>("3d");
+  const [timelineOpen, setTimelineOpen] = useState(false);
+
+  const sunShade = useSunShadeMode(now);
+  const inventory = usePlaceInventory(true);
   const { saved, toggle } = useSavedPlaces();
+  const lists = useLocalStore(listsStore);
+  const home = useLocalStore(homeStore);
+  const history = useLocalStore(historyStore);
+  const taste = useLocalStore(tasteStore);
+  const groupDraft = useLocalStore(groupDraftStore);
+  const [sharedCode, setSharedCode] = useState<string | null>(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("g");
+    } catch {
+      return null;
+    }
+  });
+  const [weekFocus, setWeekFocus] = useState<SunPlace | null>(null);
+
+  /* ------------------------------ Explorar ------------------------------ */
+  const [query, setQuery] = useState("");
+  const [spec, setSpec] = useState<ExploreSpec>(() => homeSpec());
+  const [filters, setFiltersRaw] = useState<ExploreFilters>(() => readLocal(FILTERS_KEY, NO_FILTERS, (v) => sanitizeFilters(v)));
+  const setFilters = useCallback(
+    (patch: Partial<ExploreFilters>) =>
+      setFiltersRaw((f) => {
+        const n = { ...f, ...patch };
+        writeLocal(FILTERS_KEY, n);
+        return n;
+      }),
+    []
+  );
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+
+  const explore = useExplore({
+    enabled: loaded && view === "explore" && !card && !selection,
+    spec,
+    appMode: sunShade.mode,
+    now,
+    selected: clock.mode === "ahead" ? selectedTime : null,
+    userLocation,
+    filters,
+  });
+  const universal = useUniversalSearch(query, sunShade.mode, now);
+  const hourSlot = Math.floor(now / HOUR);
+  const hot = sunShade.auto === "shade";
+  const collections = useMemo(() => {
+    const p = getZoneParts(Date.now());
+    return collectionsFor({ month: p.month, hour: p.hour, hot });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hourSlot, hot]);
+
+  /* ------------------------------ Planes ------------------------------ */
+  const planSearch = useSunSearch();
+  const [planPlanner, setPlanPlanner] = useState<PlannerState>(() => initialPlan(Date.now()));
+  const [route, setRoute] = useState<PlannedRoute | null>(null);
+  const sharedPlan = useMemo(() => (sharedCode ? decodeGroupPlan(sharedCode) : null), [sharedCode]);
 
   const handleCamera = useCallback((c: CameraState) => {
     const bearing = Math.round(c.bearing * 2) / 2;
@@ -302,8 +421,75 @@ export default function App() {
   const clearToast = useCallback(() => setToast(null), []);
   const handleLoaded = useCallback(() => setLoaded(true), []);
 
-  /* ------------------------------ tiempo al abrir resultados ------------------------------ */
-  /** Al abrir un resultado se muestra su mejor momento; al cerrarlo se vuelve exactamente a donde estaba. */
+  /* ------------------------------ geometría: hoja, panel y relleno de la cámara ------------------------------ */
+  const navH = LAYOUT.mobileNav + vp.safeBottom;
+  const topReserve = vp.safeTop + 64;
+  const heights = useMemo(() => sheetHeights(vp.height, navH, topReserve), [vp.height, navH, topReserve]);
+  const panelW = device === "tablet" ? 360 : 400;
+  const mapLeft = isMobile ? 0 : LAYOUT.gap + panelW + LAYOUT.gap;
+  const chipsShown = isMobile && view === "explore" && !card && !selection && sheetLevel !== "full";
+  const mobileTop = vp.safeTop + 8 + 48 + (chipsShown ? 8 + 44 : 0) + 8;
+  const windowMode = isMobile && !!card && sheetLevel === "full" && mediaTab === "3d";
+  const windowHeight = isMobile && card && mediaTab === "3d" ? Math.round((Math.min(vp.width, 640) * 9) / 16) : undefined;
+
+  const insetsFor = useCallback(
+    (level: SheetLevel, win: WindowRect | null): MapInsets => {
+      if (!isMobile) {
+        return { top: 72, left: mapLeft, right: LAYOUT.controlsWidth, bottom: (timelineOpen ? LAYOUT.timelineHeight + 8 : 56) + LAYOUT.gap * 2 };
+      }
+      if (win) return { top: Math.round(win.top), bottom: Math.max(0, Math.round(vp.height - win.bottom)), left: 0, right: 0 };
+      return { top: mobileTop, left: 0, right: 56, bottom: navH + heights[level] + (level === "full" ? 0 : 60) };
+    },
+    [isMobile, mapLeft, timelineOpen, vp.height, mobileTop, navH, heights]
+  );
+
+  const applyInsets = useCallback(
+    (i: MapInsets, animate = true) => {
+      const c = mapController.current as MapControllerPlus | null;
+      if (!c) return;
+      if (c.setPadding) c.setPadding(i, { animate: animate && !reduced });
+      else c.setInsets(i);
+    },
+    [reduced]
+  );
+
+  /** Vuelo a un sitio: de cine (inclinado y de espaldas al sol) si el motor gráfico lo ofrece. */
+  const flyToPlace = useCallback((lng: number, lat: number) => {
+    const c = mapController.current as MapControllerPlus | null;
+    if (!c) return;
+    if (c.flyToCinematic) c.flyToCinematic(lng, lat, { sunAzimuthDeg: solarService.getPosition(timeRef.current, lat, lng).azimuthDeg });
+    else c.flyToPoint(lng, lat, 17);
+  }, []);
+
+  const effectiveWindow = windowMode ? windowRect : null;
+  useEffect(() => {
+    applyInsets(insetsFor(sheetLevel, effectiveWindow));
+  }, [applyInsets, insetsFor, sheetLevel, effectiveWindow, loaded]);
+
+  // Lo elegido (ficha o punto): la cámara lo mantiene en la parte visible.
+  const focus: LngLat | null = card
+    ? { lng: card.data.result?.spot.longitude ?? card.data.place.longitude, lat: card.data.result?.spot.latitude ?? card.data.place.latitude }
+    : selection;
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const prevLevel = useRef(sheetLevel);
+  useEffect(() => {
+    if (prevLevel.current === sheetLevel) return;
+    prevLevel.current = sheetLevel;
+    const c = mapController.current as MapControllerPlus | null;
+    const f = focusRef.current;
+    // Con `setPadding` el mapa se recoloca solo; sin él, se vuelve a centrar.
+    if (!c || !f || c.setPadding) return;
+    c.flyToPoint(f.lng, f.lat);
+  }, [sheetLevel]);
+  useEffect(() => {
+    if (!effectiveWindow) return;
+    const f = focusRef.current;
+    if (f) flyToPlace(f.lng, f.lat);
+  }, [effectiveWindow, flyToPlace]);
+
+  /* ------------------------------ tiempo al abrir una ficha ------------------------------ */
+  /** Al abrir una ficha se muestra su mejor momento; al cerrarla se vuelve exactamente a donde estaba. */
   const previewTime = useCallback(
     (t: number) => {
       if (!savedTime.current) {
@@ -324,233 +510,133 @@ export default function App() {
     } else scrub(s.time);
   }, [goNow, scrub]);
 
-  /* ------------------------------ detalle ------------------------------ */
+  /* ------------------------------ ficha y punto ------------------------------ */
   const clearDetail = useCallback(() => {
-    setActiveResult(null);
+    cardSeq.current++;
+    setCard(null);
     setSelection(null);
     setPointTimeline(null);
     setPointSunlight(null);
+    setWindowRect(null);
   }, []);
   const closeDetail = useCallback(() => {
     clearDetail();
     restoreTime();
   }, [clearDetail, restoreTime]);
 
-  const handleSelect = useCallback((p: SelectedPoint) => {
-    setLayersOpen(false);
-    setActiveResult(null);
-    setPointTimeline(null);
-    setPointSunlight(null);
-    setSelection(p);
-  }, []);
+  /** La hoja sube a media para enseñar la ficha (el sitio queda en el mapa, encima). */
+  const sheetForDetail = useCallback(() => {
+    if (!isMobile) return;
+    if (sheetLevelRef.current !== "half") setSheetLevel("half");
+    applyInsets(insetsFor("half", null), false);
+  }, [isMobile, setSheetLevel, applyInsets, insetsFor]);
+
+  const handleSelect = useCallback(
+    (p: SelectedPoint) => {
+      cardSeq.current++;
+      setLayersOpen(false);
+      setCard(null);
+      setPointTimeline(null);
+      setPointSunlight(null);
+      setSelection(p);
+      if (isMobile && sheetLevelRef.current === "peek") setSheetLevel("half");
+    },
+    [isMobile, setSheetLevel]
+  );
+
+  const selectPoint = useCallback(
+    (lat: number, lng: number, name: string) => {
+      handleSelect({ id: ++selCounter.current, lng, lat, name });
+      sheetForDetail();
+      mapController.current?.flyToPoint(lng, lat, 16.5);
+    },
+    [handleSelect, sheetForDetail]
+  );
 
   const openResult = useCallback(
     (r: SunSearchResult, request: NormalizedSunRequest, peers: SunSearchResult[]) => {
-      setActiveResult({ result: r, request, peers });
+      cardSeq.current++;
+      setLayersOpen(false);
       setPointTimeline(null);
       setPointSunlight(null);
+      setHoverId(null);
+      setFiltersOpen(false);
+      setCard({ data: { place: r.place, result: r, request, status: "ready" }, peers });
       setSelection({ id: ++selCounter.current, lng: r.spot.longitude, lat: r.spot.latitude, name: r.place.name });
-      mapController.current?.flyToPoint(r.spot.longitude, r.spot.latitude, 16);
+      setMediaTab("3d");
+      setWindowRect(null);
+      sheetForDetail();
+      flyToPlace(r.spot.longitude, r.spot.latitude);
       previewTime((r.bestWindow ?? r.searchWindow).start);
+      recordVisit(r.place);
+      learnTaste(r.place.type, 1);
     },
-    [previewTime]
+    [sheetForDetail, flyToPlace, previewTime]
   );
 
-  /* ------------------------------ navegación ------------------------------ */
-  const go = useCallback(
-    (v: AppView) => {
+  /** Ficha de un lugar sin analizar todavía (buscador, Mis sitios, historial, enlaces). */
+  const openPlace = useCallback(
+    async (place: SunPlace): Promise<boolean> => {
+      const seq = ++cardSeq.current;
       setLayersOpen(false);
-      clearDetail();
-      restoreTime();
-      // Find the Sun parte de la hora que se está explorando (no vuelve a «ahora»).
-      if (v === "find" && findSearch.state.status === "idle" && clock.mode === "ahead") {
-        const m = minutesOfDay(timeRef.current);
-        setFindPlanner((p) =>
-          p.when === "sunset"
-            ? p
-            : { ...p, when: "custom", dayOffset: dayOffsetRef.current, fromMinutes: m, toMinutes: Math.min(1439, m + p.durationMinutes) }
-        );
-      }
-      if (v === "plan" && planSearch.state.status === "idle" && dayOffsetRef.current !== 0) {
-        setPlanPlanner((p) => ({ ...p, dayOffset: dayOffsetRef.current }));
-      }
-      navigate(v);
-    },
-    [clearDetail, restoreTime, findSearch.state.status, planSearch.state.status, clock.mode, navigate]
-  );
-
-  /* ------------------------------ búsquedas ------------------------------ */
-  const [venuesLoading, setVenuesLoading] = useState(false);
-
-  const runFind = useCallback(
-    async (p?: PlannerState, origin?: LngLat | null) => {
-      const plan = p ?? findPlanner;
-      setFindPlanner(plan);
-
-      // «Café» y «Terraza» necesitan el inventario de negocios, que no está en el general.
-      const wantsVenues = plan.intent === "coffee" || plan.locationType === "terrace";
-      let places: SunPlace[] | undefined;
-      if (wantsVenues) {
-        setVenuesLoading(true);
-        try {
-          const { venues } = await venueService.loadVenues(PLACES_CONFIG.bbox);
-          places = venues.map(venueToSunPlace);
-        } catch {
-          setToast(tr("app.no_hemos_podido_cargar_los_2"));
-          setVenuesLoading(false);
-          return;
+      setPointTimeline(null);
+      setPointSunlight(null);
+      setFiltersOpen(false);
+      setCard({ data: { place, result: null, request: null, status: "loading" }, peers: [] });
+      setSelection({ id: ++selCounter.current, lng: place.longitude, lat: place.latitude, name: place.name });
+      setMediaTab("3d");
+      setWindowRect(null);
+      sheetForDetail();
+      flyToPlace(place.longitude, place.latitude);
+      recordVisit(place);
+      learnTaste(place.type, 1);
+      try {
+        const s = await getPlaceSunSummaryCached(place);
+        if (seq !== cardSeq.current) return true;
+        const r = s.result;
+        if (r && s.request) {
+          setCard({ data: { place: r.place, result: r, request: s.request, status: "ready" }, peers: [r] });
+          setSelection((sel) => (sel ? { ...sel, lng: r.spot.longitude, lat: r.spot.latitude } : sel));
+          previewTime((r.bestWindow ?? r.searchWindow).start);
+        } else {
+          setCard((c) => (c ? { ...c, data: { ...c.data, status: "error" } } : c));
         }
-        setVenuesLoading(false);
+      } catch {
+        if (seq === cardSeq.current) setCard((c) => (c ? { ...c, data: { ...c.data, status: "error" } } : c));
       }
-
-      void findSearch.run(buildSearchRequest(plan, { now: Date.now(), origin: origin ?? userLocation }), {
-        places,
-      });
+      return true;
     },
-    [findPlanner, findSearch, userLocation]
-  );
-  const runPlan = useCallback(
-    (p?: PlannerState) => {
-      const plan = p ?? planPlanner;
-      setPlanPlanner(plan);
-      void planSearch.run(buildSearchRequest(plan, { now: Date.now(), origin: userLocation }));
-    },
-    [planPlanner, planSearch, userLocation]
-  );
-
-  // Lugares: los mejores de hoy (o de mañana si ya no queda sol) para la categoría elegida.
-  const placesKeyRef = useRef("");
-  const todaySunset = useMemo(
-    () => solarService.getSunTimes(dayStartFor(Date.now(), 0), BARCELONA.lat, BARCELONA.lng).sunset,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dayKey]
-  );
-  const placesTomorrow = now > todaySunset - 45 * MIN;
-  useEffect(() => {
-    if (view !== "places") return;
-    const key = `${placesCategory}|${dayKey}|${Math.floor(now / HOUR)}|${userLocation ? 1 : 0}`;
-    if (placesKeyRef.current === key) return;
-    placesKeyRef.current = key;
-    const t = Date.now();
-    const sun = solarService.getSunTimes(dayStartFor(t, placesTomorrow ? 1 : 0), BARCELONA.lat, BARCELONA.lng);
-    const start = placesTomorrow ? sun.sunrise : Math.floor(t / MIN) * MIN;
-    const span = Math.max(10, Math.round((sun.sunset - start) / MIN));
-    void placesSearch.run({
-      startTime: start,
-      endTime: sun.sunset,
-      minimumSunlightMinutes: Math.min(60, span),
-      locationType: placesCategory,
-      origin: userLocation,
-      limit: 6,
-    });
-  }, [view, placesCategory, dayKey, now, userLocation, placesTomorrow, placesSearch]);
-
-  /* ------------------------------ resultados de la vista actual ------------------------------ */
-  const viewOutcome =
-    view === "now"
-      ? nowSearch.state.outcome
-      : view === "find"
-      ? findSearch.state.outcome
-      : view === "plan"
-        ? planSearch.state.outcome
-        : view === "places"
-          ? placesSearch.state.outcome
-          : null;
-  const viewResults = useMemo(() => shownResults(viewOutcome), [viewOutcome]);
-
-  // Cada conjunto de resultados nuevo se encuadra una vez, con un movimiento suave.
-  const fitted = useRef(new WeakSet<object>());
-  useEffect(() => {
-    if (!viewOutcome || viewResults.length === 0 || fitted.current.has(viewOutcome)) return;
-    fitted.current.add(viewOutcome);
-    mapController.current?.fitPoints(viewResults.map((r) => ({ lng: r.spot.longitude, lat: r.spot.latitude })));
-  }, [viewOutcome, viewResults]);
-  useEffect(() => {
-    if (view === "saved" && saved.length > 0) {
-      mapController.current?.fitPoints(saved.map((p) => ({ lng: p.longitude, lat: p.latitude })));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
-  const activeId = activeResult?.result.placeId ?? null;
-  const highlights = useMemo<Highlight[]>(() => {
-    if (view === "saved") {
-      return saved.map((p, i) => ({ id: p.id, lng: p.longitude, lat: p.latitude, score: 0.2, rank: i + 1, name: p.name }));
-    }
-    if (viewResults.length === 0) return EMPTY_HIGHLIGHTS;
-    return viewResults.map((r) => {
-      const primary = activeId ? r.placeId === activeId : r.rank === 1;
-      return {
-        id: r.placeId,
-        lng: r.spot.longitude,
-        lat: r.spot.latitude,
-        score: primary ? 0.9 : 0.25,
-        rank: r.rank,
-        name: r.place.name,
-        label: String(r.score),
-        primary,
-      };
-    });
-  }, [view, saved, viewResults, activeId]);
-
-  const pickFromView = useCallback(
-    (r: SunSearchResult) => {
-      if (viewOutcome) openResult(r, viewOutcome.request, shownResults(viewOutcome));
-    },
-    [viewOutcome, openResult]
+    [sheetForDetail, flyToPlace, previewTime]
   );
 
   const openSaved = useCallback(
     (p: SavedPlace, summary: PlaceSunSummary | null) => {
-      if (summary?.result && summary.request) {
-        openResult(summary.result, summary.request, [summary.result]);
-        return;
-      }
-      handleSelect({ id: ++selCounter.current, lng: p.longitude, lat: p.latitude, name: p.name });
-      mapController.current?.flyToPoint(p.longitude, p.latitude, 16);
+      if (summary?.result && summary.request) openResult(summary.result, summary.request, [summary.result]);
+      else void openPlace(savedToPlace(p));
     },
-    [openResult, handleSelect]
+    [openResult, openPlace]
   );
 
-  /* ------------------------------ enlaces profundos ------------------------------ */
-  const openPlaceLink = useCallback(
-    async (ref: PlaceLinkRef) => {
-      const place = await resolvePlaceRef(ref);
-      if (!place) return false;
-      // Se vuela al lugar en cuanto se conoce; la ficha se abre cuando termina su análisis.
-      mapController.current?.flyToPoint(place.longitude, place.latitude, 16);
-      const summary = await getPlaceSunSummaryCached(place).catch(() => null);
-      if (!summary?.result || !summary.request) return false;
-      openResult(summary.result, summary.request, [summary.result]);
-      return true;
-    },
-    [openResult]
-  );
-  useDeepLink({
-    ready: loaded,
-    view,
-    chosenTime: clock.mode === "ahead" ? selectedTime : null,
-    place: activeResult?.result.place ?? null,
-    showTimeAt,
-    flyTo: (lng, lat, zoom) => mapController.current?.flyToPoint(lng, lat, zoom ?? 16),
-    openPlace: openPlaceLink,
-    onToast: setToast,
-  });
+  // La ficha recién abierta recibe el foco (lectores de pantalla).
+  const cardId = card?.data.place.id ?? null;
+  useEffect(() => {
+    if (cardId) titleRef.current?.focus({ preventScroll: true });
+  }, [cardId]);
 
-  const handlePickSpot = useCallback(
-    (id: string) => {
-      if (view === "saved") {
-        const p = saved.find((s) => s.id === id);
-        if (p) openSaved(p, null);
-        return;
-      }
-      const r = viewResults.find((x) => x.placeId === id);
-      if (r) pickFromView(r);
+  /* ------------------------------ navegación ------------------------------ */
+  const go = useCallback(
+    (v: AppView, t?: ViewTab | null) => {
+      setLayersOpen(false);
+      clearDetail();
+      restoreTime();
+      if (v !== "explore") setFiltersOpen(false);
+      if (isMobile && v !== "explore" && sheetLevelRef.current === "peek") setSheetLevel("half");
+      navigate(v, t);
     },
-    [view, saved, viewResults, openSaved, pickFromView]
+    [clearDetail, restoreTime, isMobile, setSheetLevel, navigate]
   );
 
-  /* ------------------------------ ubicación, guardar, compartir ------------------------------ */
+  /* ------------------------------ ubicación ------------------------------ */
   const requestUserLocation = useCallback(async (): Promise<LngLat | null> => {
     try {
       const pos = await locateUser();
@@ -568,35 +654,310 @@ export default function App() {
       return null;
     }
   }, []);
+  const locateMe = useCallback(async () => {
+    setLocating(true);
+    await requestUserLocation();
+    setLocating(false);
+  }, [requestUserLocation]);
 
+  /* ------------------------------ Explorar: buscador, chips y colecciones ------------------------------ */
+  const applySpec = useCallback(
+    (s: ExploreSpec) => {
+      clearDetail();
+      restoreTime();
+      setSpec(s);
+      setHoverId(null);
+      if (view !== "explore") navigate("explore");
+      if (isMobile && sheetLevelRef.current === "peek") setSheetLevel("half");
+    },
+    [clearDetail, restoreTime, view, navigate, isMobile, setSheetLevel]
+  );
+
+  const pickSuggestion = useCallback(
+    (s: SearchSuggestion) => {
+      if (s.kind === "place") {
+        setQuery("");
+        if (view !== "explore") navigate("explore");
+        void openPlace(s.place);
+      } else if (s.kind === "area") {
+        setQuery(s.area.name);
+        applySpec(homeSpec(s.area));
+        mapController.current?.flyToPoint(s.area.lng, s.area.lat, 14.8);
+      } else {
+        applySpec(s.spec);
+        if (s.spec.area) mapController.current?.flyToPoint(s.spec.area.lng, s.spec.area.lat, 14.6);
+      }
+    },
+    [view, navigate, openPlace, applySpec]
+  );
+
+  const submitQuery = useCallback(
+    (text: string) => {
+      const { spec: s, place } = universal.interpret(text);
+      if (place) {
+        setQuery("");
+        if (view !== "explore") navigate("explore");
+        void openPlace(place);
+        return;
+      }
+      if (s) {
+        applySpec(s);
+        if (s.area) mapController.current?.flyToPoint(s.area.lng, s.area.lat, 14.6);
+        return;
+      }
+      const best = searchPlaces(buildNameIndex(placeService.getPlaces() ?? []), text, 1)[0];
+      if (best) {
+        setQuery("");
+        if (view !== "explore") navigate("explore");
+        void openPlace(best.place);
+      } else setToast(tr("search.no_lo_hemos_entendido"));
+    },
+    [universal, view, navigate, openPlace, applySpec]
+  );
+
+  const clearSearch = useCallback(() => {
+    setQuery("");
+    if (spec.source !== "home" || spec.area) applySpec(homeSpec());
+  }, [spec, applySpec]);
+
+  const onChip = useCallback(
+    (c: ChipId | null) => {
+      setQuery("");
+      applySpec(c ? chipSpec(c, spec.area) : homeSpec(spec.area));
+    },
+    [applySpec, spec.area]
+  );
+
+  /* ------------------------------ guardar, compartir, al plan ------------------------------ */
   const savedIds = useMemo(() => new Set(saved.map((p) => p.id)), [saved]);
-  const isSaved = useCallback((id: string) => savedIds.has(id), [savedIds]);
-  const toggleSaveResult = useCallback(
-    (r: SunSearchResult) => setToast(toggle(r.place) ? tr("app.guardado_en_tus_sitios_soleados") : tr("app.quitado_de_guardados")),
+  const planIds = useMemo(() => new Set(groupDraft.options.map((o) => o.id)), [groupDraft]);
+  const toggleSavePlace = useCallback(
+    (place: Pick<SunPlace, "id" | "name" | "type" | "latitude" | "longitude">) => {
+      const nowSaved = toggle(place);
+      if (nowSaved) learnTaste(place.type, 3);
+      else forgetPlace(place.id);
+      setToast(nowSaved ? tr("app.guardado_en_tus_sitios_soleados") : tr("app.quitado_de_guardados"));
+    },
     [toggle]
   );
   const shareResult = useCallback(async (r: SunSearchResult) => {
     if ((await shareOrCopy(createShareablePlan(r))) === "copied") setToast(tr("app.copiado_al_portapapeles"));
   }, []);
+  const toggleInPlan = useCallback((c: CardData) => {
+    const p = c.place;
+    const draft = groupDraftStore.get();
+    if (draft.options.some((o) => o.id === p.id)) {
+      removeFromGroupDraft(p.id);
+      setToast(tr("group.quitado_del_plan"));
+      return;
+    }
+    if (draft.options.length >= GROUP_MAX) {
+      setToast(tr("group.plan_lleno", { p0: GROUP_MAX }));
+      return;
+    }
+    addToGroupDraft({ id: p.id, name: p.name, type: p.type, lat: c.result?.spot.latitude ?? p.latitude, lng: c.result?.spot.longitude ?? p.longitude, time: null });
+    setToast(tr("group.anadido_al_plan", { p0: draft.options.length + 1, p1: GROUP_MAX }));
+  }, []);
+  const setHome = useCallback((p: { lat: number; lng: number; name: string }) => {
+    homeStore.set({ ...p, savedAt: Date.now() });
+    setToast(tr("home.guardada"));
+  }, []);
 
   const pointSaved = useMemo(
-    () => (selection ? saved.find((p) => distanceMeters(p.longitude, p.latitude, selection.lng, selection.lat) < 5) ?? null : null),
+    () => (selection ? (saved.find((p) => distanceMeters(p.longitude, p.latitude, selection.lng, selection.lat) < 5) ?? null) : null),
     [selection, saved]
   );
   const toggleSavePoint = useCallback(() => {
     if (!selection) return;
-    const target = pointSaved ?? createCoordinatePlace(selection.lat, selection.lng, selection.name === tr("app.tu_ubicacion") ? tr("app.mi_ubicacion") : selection.name);
+    const target =
+      pointSaved ?? createCoordinatePlace(selection.lat, selection.lng, selection.name === tr("app.tu_ubicacion") ? tr("app.mi_ubicacion") : selection.name);
     setToast(toggle(target) ? tr("app.punto_guardado") : tr("app.quitado_de_guardados"));
   }, [selection, pointSaved, toggle]);
 
-  /* ------------------------------ Ahora: respuesta y modo sol/sombra ------------------------------ */
-  const sunShade = useSunShadeMode(now);
-  const [answerHidden, setAnswerHidden] = useState(false);
-  const [nearbyBusy, setNearbyBusy] = useState(false);
+  /* ------------------------------ Planes: Más tarde ------------------------------ */
+  const runPlan = useCallback(
+    (p?: PlannerState) => {
+      const plan = p ?? planPlanner;
+      setPlanPlanner(plan);
+      void planSearch.run(buildSearchRequest(plan, { now: Date.now(), origin: userLocation }));
+    },
+    [planPlanner, planSearch, userLocation]
+  );
+
+  const weekCandidates = useMemo<WeekCandidate[]>(() => {
+    const out: WeekCandidate[] = [];
+    const add = (key: string, label: string, place: SunPlace) => {
+      if (!out.some((x) => x.key === key)) out.push({ key, label, place });
+    };
+    if (weekFocus) add(weekFocus.id, weekFocus.name, weekFocus);
+    if (home) {
+      const p = homeToPlace(home);
+      add(p.id, tr("home.mi_casa"), p);
+    }
+    for (const s of saved.slice(0, 8)) add(s.id, s.name, savedToPlace(s));
+    return out;
+  }, [weekFocus, home, saved]);
+
+  const closeShared = useCallback(() => {
+    setSharedCode(null);
+    try {
+      const q = new URLSearchParams(window.location.search);
+      q.delete("g");
+      const s = q.toString();
+      window.history.replaceState(window.history.state, "", urlWith({ view: "plans", tab: "group" }, s ? `?${s}` : ""));
+    } catch {
+      /* sin History API */
+    }
+  }, []);
+
+  /* ------------------------------ pines del mapa (sincronizados con las listas) ------------------------------ */
+  const activePin = hoverId ?? card?.data.place.id ?? null;
+  const highlights = useMemo<Highlight[]>(() => {
+    const pin = (id: string, lng: number, lat: number, name: string, i: number, firstPrimary: boolean): Highlight => {
+      const primary = activePin ? id === activePin : firstPrimary && i === 0;
+      return { id, lng, lat, name, rank: i + 1, score: primary ? 0.9 : 0.3, primary };
+    };
+    if (view === "explore") return explore.results.map((r, i) => pin(r.placeId, r.spot.longitude, r.spot.latitude, r.place.name, i, true));
+    if (view === "plans") {
+      if (plansTab === "route" && route) return route.stops.map((s, i) => pin(s.result.placeId, s.result.spot.longitude, s.result.spot.latitude, s.result.place.name, i, false));
+      if (plansTab === "later") return shownResults(planSearch.state.outcome).map((r, i) => pin(r.placeId, r.spot.longitude, r.spot.latitude, r.place.name, i, true));
+      if (plansTab === "group") return (sharedPlan ?? groupDraft).options.map((o, i) => pin(o.id, o.lng, o.lat, o.name, i, false));
+      if (plansTab === "week" && weekCandidates[0]) {
+        const p = weekCandidates[0].place;
+        return [pin(p.id, p.longitude, p.latitude, p.name, 0, true)];
+      }
+      return EMPTY_HIGHLIGHTS;
+    }
+    if (view === "mine") {
+      if (mineTab === "lists") return saved.map((p, i) => pin(p.id, p.longitude, p.latitude, p.name, i, false));
+      if (mineTab === "home" && home) return [pin("home", home.lng, home.lat, home.name, 0, true)];
+      if (mineTab === "history") return history.slice(0, 12).map((e, i) => pin(e.id, e.longitude, e.latitude, e.name, i, false));
+    }
+    return EMPTY_HIGHLIGHTS;
+  }, [view, plansTab, mineTab, explore.results, route, planSearch.state.outcome, sharedPlan, groupDraft, weekCandidates, saved, home, history, activePin]);
+
+  const handlePickSpot = useCallback(
+    (id: string) => {
+      if (view === "explore") {
+        const r = explore.results.find((x) => x.placeId === id);
+        if (r && explore.outcome) openResult(r, explore.outcome.request, explore.results);
+        return;
+      }
+      if (view === "plans") {
+        if (plansTab === "route" && route) {
+          const s = route.stops.find((x) => x.result.placeId === id);
+          if (s) openResult(s.result, route.request, route.stops.map((x) => x.result));
+          return;
+        }
+        if (plansTab === "later") {
+          const o = planSearch.state.outcome;
+          const shown = shownResults(o);
+          const r = shown.find((x) => x.placeId === id);
+          if (r && o) openResult(r, o.request, shown);
+          return;
+        }
+        if (plansTab === "group") {
+          const o = (sharedPlan ?? groupDraft).options.find((x) => x.id === id);
+          if (o) void openPlace(optionToPlace(o));
+          return;
+        }
+        const w = weekCandidates.find((x) => x.place.id === id);
+        if (w) void openPlace(w.place);
+        return;
+      }
+      if (view === "mine") {
+        if (id === "home" && home) {
+          selectPoint(home.lat, home.lng, home.name);
+          return;
+        }
+        const s = saved.find((p) => p.id === id);
+        if (s) {
+          openSaved(s, null);
+          return;
+        }
+        const h = history.find((e) => e.id === id);
+        if (h) void openPlace(historyToPlace(h));
+      }
+    },
+    [view, plansTab, explore.results, explore.outcome, route, planSearch.state.outcome, sharedPlan, groupDraft, weekCandidates, home, saved, history, openResult, openPlace, openSaved, selectPoint]
+  );
+
+  // Cada conjunto de resultados nuevo se encuadra una vez, con un movimiento suave.
+  const fitted = useRef(new WeakSet<object>());
+  useEffect(() => {
+    if (card || selection) return;
+    let key: object | null = null;
+    let points: LngLat[] = [];
+    if (view === "explore" && explore.outcome && explore.results.length) {
+      key = explore.outcome;
+      points = explore.results.map((r) => ({ lng: r.spot.longitude, lat: r.spot.latitude }));
+    } else if (view === "plans" && plansTab === "route" && route) {
+      key = route;
+      points = route.stops.map((s) => ({ lng: s.result.spot.longitude, lat: s.result.spot.latitude }));
+    } else if (view === "plans" && plansTab === "later" && planSearch.state.outcome) {
+      key = planSearch.state.outcome;
+      points = shownResults(planSearch.state.outcome).map((r) => ({ lng: r.spot.longitude, lat: r.spot.latitude }));
+    }
+    if (!key || points.length === 0 || fitted.current.has(key)) return;
+    fitted.current.add(key);
+    mapController.current?.fitPoints(points);
+  }, [view, plansTab, card, selection, explore.outcome, explore.results, route, planSearch.state.outcome]);
+  useEffect(() => {
+    if (view === "mine" && mineTab === "lists" && saved.length > 0) mapController.current?.fitPoints(saved.map((p) => ({ lng: p.longitude, lat: p.latitude })));
+    if (view === "plans" && plansTab === "group") {
+      const opts = (sharedPlan ?? groupDraftStore.get()).options;
+      if (opts.length) mapController.current?.fitPoints(opts.map((o) => ({ lng: o.lng, lat: o.lat })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, mineTab, plansTab]);
+
+  /* ------------------------------ enlaces profundos ------------------------------ */
+  const openPlaceLink = useCallback(
+    async (ref: PlaceLinkRef) => {
+      const place = await resolvePlaceRef(ref);
+      if (!place) return false;
+      return openPlace(place);
+    },
+    [openPlace]
+  );
+  useDeepLink({
+    ready: loaded,
+    view,
+    tab: view === "plans" || view === "mine" ? tab : null,
+    chosenTime: clock.mode === "ahead" ? selectedTime : null,
+    place: card?.data.place ?? null,
+    showTimeAt,
+    flyTo: (lng, lat, zoom) => mapController.current?.flyToPoint(lng, lat, zoom ?? 16),
+    openPlace: openPlaceLink,
+    onToast: setToast,
+  });
+
+  /* ------------------------------ teclado ------------------------------ */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const el = document.activeElement;
+      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) return;
+      if (layersOpen) setLayersOpen(false);
+      else if (timelineOpen) setTimelineOpen(false);
+      else if (card || selection) closeDetail();
+      else if (filtersOpen) setFiltersOpen(false);
+      else if (view === "settings" || view === "about") go("explore");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [layersOpen, timelineOpen, card, selection, filtersOpen, view, closeDetail, go]);
+
+  /* ------------------------------ frases-respuesta ------------------------------ */
   const nextSunrise = useMemo(
     () => solarService.getSunTimes(dayStartFor(Date.now(), dayOffset + 1), BARCELONA.lat, BARCELONA.lng).sunrise,
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dayKey, dayOffset]
+  );
+  const todaySunset = useMemo(
+    () => solarService.getSunTimes(dayStartFor(Date.now(), 0), BARCELONA.lat, BARCELONA.lng).sunset,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dayKey]
   );
   const cityAnswer = useMemo(
     () =>
@@ -614,260 +975,135 @@ export default function App() {
       }),
     [selectedTime, sunTimes, nextSunrise, up, stats, isNow, sunShade.temperatureC, sunShade.apparentC, sunShade.mode]
   );
+  const pointAnswer = useMemo(
+    () =>
+      selection && !card && pointTimeline
+        ? describePoint({
+            time: selectedTime,
+            intervals: pointTimeline.intervals,
+            sunrise: sunTimes.sunrise,
+            sunset: sunTimes.sunset,
+            nextSunrise,
+            weatherAvailable: pointTimeline.weatherAvailable,
+            mode: sunShade.mode,
+            apparentC: isNow ? sunShade.apparentC : null,
+          })
+        : null,
+    [selection, card, pointTimeline, selectedTime, sunTimes, nextSunrise, sunShade.mode, isNow, sunShade.apparentC]
+  );
+  const dayLabel = dayChoiceLabel(dayStart, now);
+  const answerTimeLabel = isNow ? tr("app.ahora", { p0: formatClock(selectedTime) }) : `${dayLabel} · ${formatClock(selectedTime)}`;
 
-  /** «Sol / Sombra cerca de mí»: ubicación (si se da), 1 h desde ahora y búsqueda en Buscar. */
-  const startNearby = useCallback(
-    async (mode: SunShadeMode) => {
-      if (mode !== sunShade.mode) sunShade.choose(mode);
-      setNearbyBusy(true);
-      const origin = userLocation ?? (await requestUserLocation());
-      setNearbyBusy(false);
-      const plan: PlannerState = { ...oneHourOfSun(60, !!origin), intent: mode, preference: SUN_INTENTS[mode].preference };
-      go("find");
-      void runFind(plan, origin);
+  /* ------------------------------ contenido: Explorar ------------------------------ */
+  const windowLabel = `${dayChoiceLabel(startOfZoneDay(explore.window.start), now)} ${formatClock(explore.window.start)}–${formatClock(explore.window.end)}`;
+  const kidsSearch = !!spec.types?.includes("playground");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const inventoryPlaces = useMemo(() => placeService.getPlaces() ?? [], [inventory.total]);
+  const extraFor = useCallback(
+    (r: SunSearchResult) => {
+      if (!kidsSearch) return null;
+      const wc = nearestOfType(inventoryPlaces, "toilet", r.spot.latitude, r.spot.longitude, 350);
+      return wc ? tr("forYou.lavabo_a", { p0: Math.max(10, Math.round(wc.meters / 10) * 10) }) : null;
     },
-    [sunShade, userLocation, requestUserLocation, go, runFind]
+    [kidsSearch, inventoryPlaces]
+  );
+  const shelter = useMemo(
+    () => (explore.mode === "shade" ? nearestOfType(inventoryPlaces, "climate_shelter", explore.origin.lat, explore.origin.lng, 3000) : null),
+    [explore.mode, explore.origin, inventoryPlaces]
   );
 
-  const showMyPoint = useCallback(() => {
-    if (!userLocation) return;
-    handleSelect({ id: ++selCounter.current, lng: userLocation.lng, lat: userLocation.lat, name: tr("app.tu_ubicacion") });
-    mapController.current?.flyToPoint(userLocation.lng, userLocation.lat, 16);
-  }, [userLocation, handleSelect]);
-
-  const handleRename = useCallback((id: number, name: string, area: string) => {
-    setSelection((s) => (s && s.id === id ? { ...s, name, area } : s));
-  }, []);
-
-  // Buscar sigue al modo (sol o sombra) mientras no haya una búsqueda en marcha ni otra intención elegida.
-  const findStatus = findSearch.state.status;
-  useEffect(() => {
-    if (findStatus !== "idle") return;
-    setFindPlanner((p) =>
-      p.locationType === "any" && (p.intent === "sun" || p.intent === "shade") && p.intent !== sunShade.mode
-        ? { ...p, intent: sunShade.mode, preference: SUN_INTENTS[sunShade.mode].preference }
-        : p
-    );
-  }, [sunShade.mode, findStatus]);
-
-  const answerVisible = view === "now" && !activeResult && !selection && !answerHidden;
-  const answerTimeLabel = isNow ? tr("app.ahora", { p0: formatClock(selectedTime) }) : `${dayChoiceLabel(dayStart, now)} · ${formatClock(selectedTime)}`;
-  const answerCard = (compact: boolean, inline = false) => (
-    <AnswerCard
-      compact={compact}
-      inline={inline}
-      answer={cityAnswer}
-      timeLabel={answerTimeLabel}
-      mode={sunShade.mode}
-      heatSuggested={sunShade.auto === "shade" && !sunShade.overridden}
-      hasLocation={!!userLocation}
-      busy={nearbyBusy}
-      onNearby={(m) => void startNearby(m)}
-      onMyPoint={showMyPoint}
-      onHide={inline ? undefined : () => setAnswerHidden(true)}
+  const filtersNode = filtersOpen ? (
+    <FiltersPanel
+      filters={filters}
+      onChange={setFilters}
+      venues={spec.venues}
+      hasOrigin={!!userLocation}
+      originLabel={spec.area ? tr("filters.desde", { p0: spec.area.name }) : userLocation ? tr("filters.desde_tu_ubicacion") : tr("filters.desde_el_centro")}
+      onUseLocation={() => void locateMe()}
+      timeIsNow={isNow}
     />
+  ) : null;
+
+  const exploreBody = (
+    <>
+      <ForYou
+        title={specTitle(spec, sunShade.mode, now)}
+        subtitle={explore.window.movedToTomorrow ? `${windowLabel} · ${tr("forYou.hoy_ya_no_queda_sol")}` : windowLabel}
+        results={explore.results}
+        loading={explore.loading}
+        refreshing={explore.refreshing}
+        emptyText={exploreEmptyText(explore)}
+        mode={explore.mode}
+        now={now}
+        sunset={todaySunset}
+        showWalk={explore.originIsReal}
+        activeId={activePin}
+        onPick={(r) => explore.outcome && openResult(r, explore.outcome.request, explore.results)}
+        onHover={isMobile ? undefined : setHoverId}
+        onBackToForYou={
+          spec.source !== "home"
+            ? () => {
+                setQuery("");
+                applySpec(homeSpec(spec.area));
+              }
+            : undefined
+        }
+        hasLocation={!!userLocation}
+        locating={locating}
+        onUseLocation={() => void locateMe()}
+        filters={filtersNode}
+        extraFor={extraFor}
+        failed={explore.state.failed}
+        onRetry={explore.retry}
+        footer={
+          shelter ? (
+            <button
+              type="button"
+              onClick={() => void openPlace(shelter.place)}
+              className="flex min-h-[56px] w-full items-center gap-3 rounded-[18px] bg-shade/[0.08] px-3.5 py-2.5 text-left outline-none hover:bg-shade/[0.12] focus-visible:ring-2 focus-visible:ring-sun/60"
+            >
+              <SunGlyph state="shade" size={22} className="shrink-0" />
+              <span className="min-w-0 text-[13.5px] leading-snug text-ink">
+                {tr("forYou.refugio_mas_cercano", { p0: shelter.place.name, p1: Math.max(1, Math.round(minutesForStraightMeters(shelter.meters))) })}
+              </span>
+            </button>
+          ) : null
+        }
+      />
+      {(spec.source === "home" || spec.source === "collection") && (
+        <Collections items={collections} activeId={spec.collection} onPick={(c) => applySpec(collectionSpec(c, spec.area))} />
+      )}
+      {spec.source === "collection" && <AffiliateSlot place={null} context="collection" />}
+      <div className="mt-6 flex flex-wrap gap-x-5 gap-y-1 border-t border-line pt-3">
+        <button type="button" onClick={() => go("plans", "route")} className="min-h-[44px] text-[14px] font-semibold text-ink underline-offset-4 hover:underline">
+          {tr("forYou.ruta_del_sol")} →
+        </button>
+        <button type="button" onClick={() => go("plans", "later")} className="min-h-[44px] text-[14px] font-semibold text-ink-soft underline-offset-4 hover:text-ink hover:underline">
+          {tr("forYou.busqueda_avanzada")}
+        </button>
+      </div>
+    </>
   );
 
-  /* ------------------------------ Ahora: «Cerca de ti ahora» ------------------------------ */
-  // Próximas 2 h (hasta la puesta si se busca sol), 1 h mínima, cerca de la ubicación o, sin ella,
-  // del centro. Pasada la puesta (o a menos de 45 min), las primeras horas de mañana.
-  const nowTomorrow = placesTomorrow;
-  const nowKeyRef = useRef("");
-  const [nowLocating, setNowLocating] = useState(false);
-  useEffect(() => {
-    if (view !== "now") return;
-    const mode = sunShade.mode;
-    const origin: LngLat = userLocation ?? { lng: BARCELONA.lng, lat: BARCELONA.lat };
-    const key = `${mode}|${dayKey}|${Math.floor(now / (15 * MIN))}|${origin.lng.toFixed(3)},${origin.lat.toFixed(3)}|${nowTomorrow ? 1 : 0}`;
-    if (nowKeyRef.current === key) return;
-    nowKeyRef.current = key;
-    const t = Date.now();
-    let start: number;
-    let end: number;
-    if (nowTomorrow) {
-      const sun = solarService.getSunTimes(dayStartFor(t, 1), BARCELONA.lat, BARCELONA.lng);
-      start = sun.sunrise + 90 * MIN;
-      end = start + 2 * HOUR;
-    } else {
-      start = Math.floor(t / MIN) * MIN;
-      end = mode === "sun" ? Math.min(start + 2 * HOUR, todaySunset) : start + 2 * HOUR;
-    }
-    const span = Math.max(10, Math.round((end - start) / MIN));
-    void nowSearch.run({
-      startTime: start,
-      endTime: end,
-      minimumSunlightMinutes: Math.min(60, span),
-      maximumWalkingMinutes: userLocation ? 20 : 30,
-      origin,
-      locationType: "any",
-      intent: mode,
-      preference: SUN_INTENTS[mode].preference,
-      limit: 3,
-    }, {
-      // Respuesta rápida en la pantalla de inicio: los 40 lugares más cercanos y 4 puntos por lugar.
-      maxCandidates: 40,
-      maxSamplePoints: 4,
-    });
-  }, [view, sunShade.mode, dayKey, now, userLocation, nowTomorrow, nowSearch, todaySunset]);
-
-  const locateForNow = useCallback(async () => {
-    setNowLocating(true);
-    await requestUserLocation();
-    setNowLocating(false);
-  }, [requestUserLocation]);
-
-  const nearbyShade = sunShade.mode === "shade";
-  const nearby = {
-    title: nowTomorrow
-      ? tr(nearbyShade ? "app.manana_con_sombra" : "app.manana_con_sol")
-      : userLocation
-        ? tr(nearbyShade ? "app.con_sombra_cerca_de_ti" : "app.con_sol_cerca_de_ti")
-        : tr(nearbyShade ? "app.con_sombra_cerca_del_centro" : "app.con_sol_cerca_del_centro"),
-    results: shownResults(nowSearch.state.outcome).slice(0, 3),
-    loading: nowSearch.state.status === "searching" || (view === "now" && nowSearch.state.status === "idle"),
-    emptyText: nearbyEmptyText(nowSearch.state.outcome, nowTomorrow, nearbyShade),
-    mode: sunShade.mode,
-    now,
-    sunset: todaySunset,
-    hasLocation: !!userLocation,
-    locating: nowLocating,
-    activeId,
-    onUseLocation: () => void locateForNow(),
-    onPick: pickFromView,
-    onMore: () => go("find"),
-  };
-
-  /* ------------------------------ teclado ------------------------------ */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || e.defaultPrevented) return;
-      const el = document.activeElement;
-      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) return;
-      if (layersOpen) setLayersOpen(false);
-      else if (activeResult || selection) closeDetail();
-      else if (view !== "explore" && view !== "now") go("explore");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [layersOpen, activeResult, selection, view, closeDetail, go]);
-
-  /* ------------------------------ geometría de la pantalla ------------------------------ */
-  // En móvil, Ahora no es una hoja: la tarjeta va arriba y los sitios en una tira sobre la línea de tiempo.
-  const panelOpen = PANEL_VIEWS.has(view) && !(isMobile && view === "now");
-  const panelLabel = isSearchView(view) ? tr("app.buscar") : NAV_ITEMS[view].label;
-  const nearbyStrip = isMobile && view === "now" && !activeResult && !selection;
-  const hasDetail = !!activeResult || !!selection;
-  const navW = isMobile ? 0 : device === "tablet" || prefs.sidebarCollapsed ? LAYOUT.sidebarCompact : LAYOUT.sidebarExpanded;
-  const navRight = isMobile ? 0 : LAYOUT.gap + navW;
-  const panelW = device === "tablet" ? LAYOUT.panelWidthTablet : LAYOUT.panelWidth;
-  const detailInLeft = !isMobile && panelOpen && hasDetail && !wide;
-  const detailRight = !isMobile && hasDetail && !detailInLeft;
-  const mapLeft = navRight + LAYOUT.gap + (!isMobile && panelOpen ? panelW + LAYOUT.gap : 0);
-  const sheetOpen = isMobile && (panelOpen || hasDetail);
-  const showTimeline = isMobile ? !sheetOpen : view !== "settings" && view !== "about";
-  /** Espacio que ocupa la línea de tiempo (o su acceso compacto, si está oculta). */
-  const timelineSpace = !showTimeline
-    ? 0
-    : prefs.timelineHidden
-      ? LAYOUT.timelineCollapsedHeight
-      : LAYOUT.timelineHeight;
-
-  useEffect(() => {
-    mapController.current?.setInsets(
-      isMobile
-        ? {
-            top: answerVisible && !sheetOpen ? 270 : 104,
-            left: 0,
-            right: 0,
-            bottom: sheetOpen
-              ? Math.round(window.innerHeight * 0.5)
-              : (prefs.timelineHidden ? 150 : 200) + (nearbyStrip ? 128 : 0),
-          }
-        : {
-            top: 64,
-            left: mapLeft,
-            right: LAYOUT.controlsWidth + (detailRight ? LAYOUT.detailWidth + LAYOUT.gap : 0),
-            bottom: showTimeline ? timelineSpace + LAYOUT.gap * 2 : LAYOUT.gap,
-          }
-    );
-  }, [isMobile, sheetOpen, mapLeft, detailRight, showTimeline, timelineSpace, prefs.timelineHidden, answerVisible, nearbyStrip]);
-
-  /* ------------------------------ contenido de los paneles ------------------------------ */
-  const detailNode: ReactNode =
-    activeResult || selection ? (
-      <Suspense fallback={<PanelFallback />}>
-        {activeResult ? (
-          <SunDetails
-            key={activeResult.result.placeId}
-            embedded
-            result={activeResult.result}
-            peers={activeResult.peers}
-            request={activeResult.request}
-            saved={isSaved(activeResult.result.placeId)}
-            onToggleSave={() => toggleSaveResult(activeResult.result)}
-            onShare={() => void shareResult(activeResult.result)}
-            onClose={closeDetail}
-            now={now}
-            onTerraceFeedback={(hasTerrace: boolean) =>
-              setToast(
-                hasTerrace
-                  ? tr("app.gracias_esta_terraza_queda_confirmada")
-                  : tr("app.gracias_lo_tendremos_en_cuenta")
-              )
-            }
-          />
-        ) : (
-          <PointPanel
-            key={selection!.id}
-            embedded
-            point={selection!}
-            timeline={pointTimeline}
-            sunlight={pointSunlight}
-            now={now}
-            time={selectedTime}
-            onClose={closeDetail}
-            saved={!!pointSaved}
-            onToggleSave={toggleSavePoint}
-            mode={sunShade.mode}
-            apparentC={sunShade.apparentC}
-          />
-        )}
-      </Suspense>
-    ) : null;
-
-  const closeView = () => go("explore");
-  const viewNode: ReactNode = (
+  /* ------------------------------ contenido: Planes ------------------------------ */
+  const plansBody = (
     <Suspense fallback={<PanelFallback />}>
-      {(() => {
-        switch (view) {
-      case "now":
-        return <NowPanel answerCard={answerCard(false, true)} {...nearby} />;
-      case "find":
-        return (
-          <FindSunPanel
-            search={findSearch}
-            planner={findPlanner}
-            onChange={(patch) => {
-              // Elegir «Máximo sol» o «Sombra» es una elección de modo: se respeta hasta medianoche.
-              if ((patch.intent === "sun" || patch.intent === "shade") && (patch.locationType ?? "any") === "any") {
-                sunShade.choose(patch.intent);
-              }
-              setFindPlanner((p) => ({ ...p, ...patch }));
-            }}
-            onSearch={runFind}
-            venuesLoading={venuesLoading}
-            now={now}
-            origin={userLocation}
-            activeId={activeId}
-            onPick={pickFromView}
-            onRequestLocation={requestUserLocation}
-            onOpenPlaces={() => go("places")}
-            onOpenPlan={() => go("plan")}
-            onClose={closeView}
-          />
-        );
-      case "plan":
-        return (
+      {plansTab === "route" && (
+        <SunRoutePanel
+          now={now}
+          appMode={sunShade.mode}
+          origin={userLocation}
+          hasLocation={!!userLocation}
+          onUseLocation={() => void locateMe()}
+          route={route}
+          onRoute={setRoute}
+          onPickStop={(r) => route && openResult(r, route.request, route.stops.map((s) => s.result))}
+          activeId={activePin}
+        />
+      )}
+      {plansTab === "week" && <WeekPanel now={now} candidates={weekCandidates} onPickPlace={() => go("explore")} />}
+      {plansTab === "later" && (
+        <PanelChrome.Provider value={{ embedded: true }}>
           <SunPlanner
             search={planSearch}
             planner={planPlanner}
@@ -876,85 +1112,304 @@ export default function App() {
             now={now}
             origin={userLocation}
             inventory={inventory}
-            activeId={activeId}
-            isSaved={isSaved}
-            onPick={pickFromView}
-            onToggleSave={toggleSaveResult}
+            activeId={activePin}
+            isSaved={(id) => savedIds.has(id)}
+            onPick={(r) => {
+              const o = planSearch.state.outcome;
+              if (o) openResult(r, o.request, shownResults(o));
+            }}
+            onToggleSave={(r) => toggleSavePlace(r.place)}
             onShare={(r) => void shareResult(r)}
             onRequestLocation={requestUserLocation}
-            onClose={closeView}
+            onClose={() => go("explore")}
           />
-        );
-      case "places":
-        return (
-          <PlacesExplorer
-            inventory={inventory}
-            category={placesCategory}
-            onCategory={setPlacesCategory}
-            search={placesSearch}
-            dayWord={placesTomorrow ? tr("app.manana") : tr("app.hoy")}
-            activeId={activeId}
-            onPick={pickFromView}
-            onClose={closeView}
-          />
-        );
-      case "recommended":
-        return (
-          <Recommended
-            inventory={inventory}
-            search={recommendedSearch}
-            dayWord={placesTomorrow ? tr("app.manana") : tr("app.hoy")}
-            activeId={activeId}
-            onPick={pickFromView}
-            onOpenPlaces={() => go("places")}
-            onClose={closeView}
-          />
-        );
-      case "saved":
-        return (
-          <SavedPlaces
-            saved={saved}
-            activeId={activeId}
-            onOpen={openSaved}
-            onRemove={(p) => {
-              toggle(p);
-              setToast(tr("app.quitado_de_guardados"));
-            }}
-            onClose={closeView}
-          />
-        );
-      case "settings":
-        return (
-          <SettingsPanel
-            prefs={prefs}
-            onChange={setPrefs}
-            light={light}
-            onRequestLocation={() => void requestUserLocation()}
-            onClose={closeView}
-          />
-        );
-      case "about":
-        return <AboutPanel onClose={closeView} />;
-      default:
-        return null;
-      }
-    })()}
+        </PanelChrome.Provider>
+      )}
+      {plansTab === "group" && (
+        <GroupPlanPanel
+          now={now}
+          draft={groupDraft}
+          sharedCode={sharedCode}
+          selectedTime={selectedTime}
+          isNow={isNow}
+          onOpen={(o) => {
+            if (o.time) showTimeAt(o.time);
+            void openPlace(optionToPlace(o));
+          }}
+          onRemove={removeFromGroupDraft}
+          onTitle={setGroupDraftTitle}
+          onSetTimes={(t) => groupDraftStore.set((p) => ({ ...p, options: p.options.map((o) => ({ ...o, time: t })) }))}
+          onAdoptShared={(plan) => {
+            groupDraftStore.set({ title: plan.title, options: plan.options });
+            closeShared();
+          }}
+          onCloseShared={closeShared}
+          onToast={setToast}
+        />
+      )}
+      {plansTab === "alerts" && <AlertsPanel savedCount={saved.length} onOpenSaved={() => go("mine", "lists")} />}
     </Suspense>
   );
 
-  /** Las pestañas de Buscar comparten un contenedor con su título y sus pestañas. */
-  const panelNode: ReactNode = isSearchView(view) ? (
-    <SearchHub view={view} onTab={(v) => go(v)} onClose={closeView}>
-      {viewNode}
-    </SearchHub>
-  ) : (
-    viewNode
+  /* ------------------------------ contenido: Mis sitios ------------------------------ */
+  const mineBody = (
+    <Suspense fallback={<PanelFallback />}>
+      {mineTab === "lists" && (
+        <ListsPanel
+          saved={saved}
+          lists={lists}
+          activeId={activePin}
+          onOpen={openSaved}
+          onRemove={(p) => {
+            toggle(p);
+            forgetPlace(p.id);
+            setToast(tr("app.quitado_de_guardados"));
+          }}
+        />
+      )}
+      {mineTab === "home" && (
+        <HomePanel
+          home={home}
+          selection={selection}
+          userLocation={userLocation}
+          onSet={setHome}
+          onClear={() => homeStore.set(null)}
+          onShow={(h) => selectPoint(h.lat, h.lng, h.name)}
+          onRequestLocation={requestUserLocation}
+        />
+      )}
+      {mineTab === "history" && (
+        <HistoryPanel
+          entries={history}
+          now={now}
+          tasteCount={taste.total}
+          onOpen={(e) => void openPlace(historyToPlace(e))}
+          onClearHistory={() => {
+            historyStore.reset();
+            setToast(tr("history.historial_borrado"));
+          }}
+          onClearTaste={() => {
+            tasteStore.reset();
+            setToast(tr("history.gustos_borrados"));
+          }}
+        />
+      )}
+    </Suspense>
   );
 
+  const settingsBody = (
+    <Suspense fallback={<PanelFallback />}>
+      <PanelChrome.Provider value={{ embedded: true }}>
+        {view === "settings" ? (
+          <SettingsPanel prefs={prefs} onChange={setPrefs} light={light} onRequestLocation={() => void requestUserLocation()} onClose={() => go("explore")} />
+        ) : (
+          <AboutPanel onClose={() => go("explore")} />
+        )}
+      </PanelChrome.Provider>
+    </Suspense>
+  );
+
+  /* ------------------------------ contenido: ficha y punto ------------------------------ */
+  const cardMode: SunShadeMode = card?.data.request?.intent === "shade" ? "shade" : "sun";
+  const cardSubject = card
+    ? {
+        id: card.data.place.id,
+        name: card.data.place.name,
+        type: card.data.place.type,
+        latitude: card.data.result?.spot.latitude ?? card.data.place.latitude,
+        longitude: card.data.result?.spot.longitude ?? card.data.place.longitude,
+        category: typeof card.data.place.metadata?.category === "string" ? card.data.place.metadata.category : undefined,
+      }
+    : null;
+  const on3D = useCallback(() => {
+    const f = focusRef.current;
+    if (!f) return;
+    setMediaTab("3d");
+    if (isMobile && sheetLevelRef.current !== "full") {
+      setSheetLevel("peek");
+      applyInsets(insetsFor("peek", null), false);
+    }
+    flyToPlace(f.lng, f.lat);
+  }, [isMobile, setSheetLevel, applyInsets, insetsFor, flyToPlace]);
+
+  const cardMedia = cardSubject ? (
+    <PlaceMedia subject={cardSubject} tab={mediaTab} onTab={setMediaTab} variant={windowMode ? "tabs" : "inline"} device={isMobile ? "mobile" : "desktop"} on3D={on3D} />
+  ) : null;
+  const cardHeader = card ? <PlaceCardHeader data={card.data} mode={cardMode} now={now} onClose={closeDetail} titleRef={titleRef} /> : null;
+  const cardBody = card ? (
+    <PlaceCardBody
+      data={card.data}
+      mode={cardMode}
+      now={now}
+      media={windowMode ? undefined : cardMedia}
+      saved={savedIds.has(card.data.place.id)}
+      onToggleSave={() => toggleSavePlace(card.data.place)}
+      onShare={() => card.data.result && void shareResult(card.data.result)}
+      inPlan={planIds.has(card.data.place.id)}
+      onAddToPlan={() => toggleInPlan(card.data)}
+      onAlerts={() => go("plans", "alerts")}
+      onTerraceFeedback={(hasTerrace) => setToast(hasTerrace ? tr("app.gracias_esta_terraza_queda_confirmada") : tr("app.gracias_lo_tendremos_en_cuenta"))}
+      onRetry={() => void openPlace(card.data.place)}
+    />
+  ) : null;
+
+  const pointHeader =
+    selection && !card ? (
+      <div>
+        <div className="flex items-start gap-1">
+          <div className="min-w-0 flex-1 pl-0.5">
+            <p className="fts-caps truncate !text-[11.5px]">
+              {dayLabel} · {formatDayLabel(selectedTime)}
+            </p>
+            <h2 className="mt-1 truncate font-serif text-[24px] leading-[1.08] text-ink">{selection.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={closeDetail}
+            aria-label={tr("sunDetails.cerrar")}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-soft outline-none transition-colors hover:bg-ink/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="mt-1.5 flex min-h-[24px] items-center gap-2" aria-live="polite">
+          {pointAnswer ? (
+            <>
+              <SunGlyph state={pointAnswer.state} size={22} className="shrink-0" />
+              <p className="min-w-0 truncate text-[14.5px] font-semibold text-ink">{pointAnswer.headline}</p>
+            </>
+          ) : (
+            <p className="text-[14px] text-ink-soft">{tr("answer.calculando_donde_da_el_sol")}</p>
+          )}
+        </div>
+      </div>
+    ) : null;
+  const pointBody =
+    selection && !card ? (
+      <PointPanel
+        key={selection.id}
+        embedded
+        headerless={isMobile}
+        point={selection}
+        timeline={pointTimeline}
+        sunlight={pointSunlight}
+        now={now}
+        time={selectedTime}
+        onClose={closeDetail}
+        saved={!!pointSaved}
+        onToggleSave={toggleSavePoint}
+        mode={sunShade.mode}
+        apparentC={sunShade.apparentC}
+        onSetHome={() => setHome({ lat: selection.lat, lng: selection.lng, name: selection.name })}
+        onWeek={() => {
+          setWeekFocus(createCoordinatePlace(selection.lat, selection.lng, selection.name));
+          go("plans", "week");
+        }}
+      />
+    ) : null;
+
+  /* ------------------------------ qué enseña la hoja (o el panel) ------------------------------ */
+  let header: ReactNode;
+  let subheader: ReactNode = null;
+  let body: ReactNode;
+  let label: string;
+  let scrollKey: string;
+  if (card) {
+    header = cardHeader;
+    subheader = windowMode ? <div className="px-4">{cardMedia}</div> : null;
+    body = cardBody;
+    label = tr("placeCard.ficha_de", { p0: card.data.place.name });
+    scrollKey = `card:${card.data.place.id}`;
+  } else if (selection) {
+    header = pointHeader;
+    body = pointBody;
+    label = selection.name;
+    scrollKey = `point:${selection.id}`;
+  } else if (view === "plans") {
+    header = <ViewHeader title={tr("nav.planes")} subtitle={tr("nav.planes_hint")} />;
+    subheader = <PlansTabs tab={plansTab} onTab={(t) => go("plans", t)} groupCount={groupDraft.options.length} />;
+    body = plansBody;
+    label = tr("nav.planes");
+    scrollKey = `plans:${plansTab}`;
+  } else if (view === "mine") {
+    header = <ViewHeader title={tr("navItems.mis_sitios")} subtitle={tr("nav.mis_sitios_hint")} />;
+    subheader = <MineTabs tab={mineTab} onTab={(t) => go("mine", t)} />;
+    body = mineBody;
+    label = tr("navItems.mis_sitios");
+    scrollKey = `mine:${mineTab}`;
+  } else if (view === "settings" || view === "about") {
+    header = <ViewHeader title={view === "settings" ? tr("navItems.ajustes") : tr("sunDetails.como_lo_sabemos")} onBack={() => go("explore")} />;
+    body = settingsBody;
+    label = view === "settings" ? tr("navItems.ajustes") : tr("sunDetails.como_lo_sabemos");
+    scrollKey = view;
+  } else {
+    header = <SheetAnswer answer={cityAnswer} timeLabel={answerTimeLabel} />;
+    body = exploreBody;
+    label = tr("nav.explorar");
+    scrollKey = `explore:${spec.key}`;
+  }
+
+  /* ------------------------------ capas del mapa y hora ------------------------------ */
   const layerPanel = <LayerControl prefs={prefs} onChange={setPrefs} onClose={() => setLayersOpen(false)} />;
   /** Relieve 3D efectivo: hace falta ver los edificios. */
   const buildings3D = prefs.showBuildings && (prefs.buildings3D || FEATURES.buildings3D);
-  const dayLabel = dayChoiceLabel(dayStart, now);
+  /**
+   * «El día en movimiento» (Fase A): con el motor gráfico, `useDayAnimation({ getRange, scrub })`
+   * de `src/graphics` da el reproductor; sin él, el botón no aparece.
+   */
+  const dayPlayer: DayPlayer | null = null;
+  const autoHide = useAutoHide(timelineOpen, () => setTimelineOpen(false), 7000, selectedTime);
+
+  const timeline = (
+    <TimeSlider
+      selectedTime={selectedTime}
+      now={now}
+      range={range}
+      day={timelineDay}
+      mode={clock.mode}
+      isNight={!up}
+      dayOffset={dayOffset}
+      onSelectDay={selectDay}
+      onHide={() => setTimelineOpen(false)}
+      intervals={pointTimeline && selection && !card ? pointTimeline.intervals : null}
+      zones={light.zones}
+      provenance={PROVENANCE_WORD[light.summary.kind]}
+      onScrub={scrub}
+      onNow={goNow}
+      compact={isMobile}
+      dayPlayer={dayPlayer}
+    />
+  );
+  const timePill = (
+    <TimePill selectedTime={selectedTime} dayLabel={dayLabel} isNow={isNow} open={timelineOpen} onToggle={() => setTimelineOpen((v) => !v)} onNow={goNow} dayPlayer={dayPlayer} />
+  );
+
+  const searchBox = (variant: "floating" | "panel") => (
+    <UniversalSearch
+      value={query}
+      onChange={setQuery}
+      suggestions={universal.suggestions}
+      onPick={pickSuggestion}
+      onSubmit={submitQuery}
+      onClear={clearSearch}
+      active={spec.source !== "home" || !!spec.area}
+      variant={variant}
+      profile={<ProfileMenu onNavigate={(v) => go(v)} />}
+    />
+  );
+  const chips = (variant: "floating" | "panel") => (
+    <ChipsBar
+      active={spec.source === "chip" ? spec.chip : null}
+      onChip={onChip}
+      filterCount={activeFilterCount(filters)}
+      filtersOpen={filtersOpen}
+      onFilters={() => {
+        setFiltersOpen((v) => !v);
+        if (isMobile && sheetLevelRef.current === "peek") setSheetLevel("half");
+      }}
+      variant={variant}
+    />
+  );
 
   /* ------------------------------ composición ------------------------------ */
   const map = (
@@ -966,7 +1421,7 @@ export default function App() {
       onToast={setToast}
       onCamera={handleCamera}
       onUserLocation={setUserLocation}
-      onRename={handleRename}
+      onRename={(id, name, area) => setSelection((s) => (s && s.id === id && !card ? { ...s, name, area } : s))}
       autoTilt={prefs.autoTilt && buildings3D}
     >
       <BuildingLayer visible={prefs.showBuildings} extrude={prefs.buildings3D || FEATURES.buildings3D} />
@@ -984,85 +1439,61 @@ export default function App() {
         <ShadowLayer visible={prefs.showShadows} />
         <CloudLayer visible={prefs.showClouds} source={debugSource} />
       </SolarOverlay>
-      <MapMarkers
-        selection={selection}
-        userLocation={userLocation}
-        highlights={highlights}
-        activeSpotId={activeId}
-        onPickSpot={handlePickSpot}
-      />
+      <MapMarkers selection={selection} userLocation={userLocation} highlights={highlights} activeSpotId={activePin} onPickSpot={handlePickSpot} />
     </BarcelonaMap>
   );
 
-  const timeline = prefs.timelineHidden ? (
-    <TimelineCollapsed
-      selectedTime={selectedTime}
-      dayLabel={dayLabel}
-      onShow={() => setPrefs({ timelineHidden: false })}
-    />
-  ) : (
-    <TimeSlider
-      selectedTime={selectedTime}
-      now={now}
-      range={range}
-      day={timelineDay}
-      mode={clock.mode}
-      isNight={!up}
-      dayOffset={dayOffset}
-      onSelectDay={selectDay}
-      onHide={() => setPrefs({ timelineHidden: true })}
-      intervals={pointTimeline && selection ? pointTimeline.intervals : null}
-      zones={light.zones}
-      provenance={PROVENANCE_WORD[light.summary.kind]}
-      onScrub={scrub}
-      onNow={goNow}
-      compact={isMobile}
-    />
-  );
+  const navBadge = { plans: groupDraft.options.length };
+  const mapButton =
+    "fts-glass flex h-11 w-11 items-center justify-center rounded-full text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sun/60";
 
   return (
     <AppShell map={map}>
       {loaded && !isMobile && (
         <>
-          <Sidebar
-            view={view}
-            compact={navW === LAYOUT.sidebarCompact}
-            canExpand={device === "desktop"}
-            onNavigate={go}
-            onToggleCompact={() => setPrefs({ sidebarCollapsed: !prefs.sidebarCollapsed })}
-          />
+          <SidePanel
+            label={label}
+            width={panelW}
+            top={
+              <div className="space-y-3 pb-1">
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => go("explore")}
+                    aria-label={tr("mobileHeader.i_follow_the_sun_volver")}
+                    className="flex min-h-[44px] items-center gap-2.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
+                  >
+                    <LogoMark size={28} className="text-ink" />
+                    <span className="text-[12.5px] font-semibold tracking-[0.24em] text-ink">
+                      <Wordmark />
+                    </span>
+                  </button>
+                </div>
+                <DestinationTabs view={view} onNavigate={(v) => go(v)} badge={navBadge} />
+                {searchBox("panel")}
+                {view === "explore" && !card && !selection && chips("panel")}
+              </div>
+            }
+          >
+            <div key={scrollKey}>
+              {card ? (
+                <>
+                  {cardHeader}
+                  {cardBody}
+                </>
+              ) : selection ? (
+                pointBody
+              ) : (
+                <>
+                  <div className="mb-3">{header}</div>
+                  {subheader && <div className="-mx-4 mb-3">{subheader}</div>}
+                  {body}
+                </>
+              )}
+            </div>
+          </SidePanel>
 
-          {panelOpen && (
-            <ContextPanel
-              device={device}
-              side="left"
-              label={detailInLeft ? tr("app.detalle") : panelLabel}
-              width={panelW}
-              style={{ left: navRight + LAYOUT.gap, top: LAYOUT.gap, bottom: LAYOUT.gap }}
-              resetKey={view}
-              key={detailInLeft ? "detail" : view}
-            >
-              {detailInLeft ? detailNode : panelNode}
-            </ContextPanel>
-          )}
-
-          {detailRight && (
-            <ContextPanel
-              device={device}
-              side="right"
-              label={tr("app.detalle")}
-              width={LAYOUT.detailWidth}
-              style={{
-                right: LAYOUT.controlsWidth,
-                top: LAYOUT.gap,
-                maxHeight: `calc(100% - ${LAYOUT.gap * 3 + timelineSpace}px)`,
-              }}
-            >
-              {detailNode}
-            </ContextPanel>
-          )}
-
-          <div className="pointer-events-none absolute z-10 transition-[left] duration-300" style={{ left: mapLeft, top: LAYOUT.gap }}>
+          <div className="pointer-events-none absolute z-10" style={{ left: mapLeft, top: LAYOUT.gap }}>
             <SunStatus
               stats={stats}
               time={selectedTime}
@@ -1073,7 +1504,6 @@ export default function App() {
               azimuthDeg={sunPos.azimuthDeg}
               light={light}
             />
-
           </div>
 
           <div className="pointer-events-none absolute right-3 z-20" style={{ top: LAYOUT.gap }}>
@@ -1097,92 +1527,96 @@ export default function App() {
             </div>
           </div>
 
-          {showTimeline && (
-            <div
-              className="pointer-events-none absolute bottom-3 z-10 flex justify-center transition-[left] duration-300"
-              style={{ left: mapLeft, right: LAYOUT.controlsWidth }}
-            >
-              <div className="pointer-events-auto w-full max-w-[760px]">{timeline}</div>
+          <div className="pointer-events-none absolute bottom-3 z-10 flex justify-center" style={{ left: mapLeft, right: LAYOUT.controlsWidth }}>
+            <div className="pointer-events-auto w-full max-w-[760px]" {...autoHide.handlers}>
+              {timelineOpen ? timeline : <div className="flex justify-center">{timePill}</div>}
             </div>
-          )}
+          </div>
         </>
       )}
 
       {loaded && isMobile && (
         <>
-          <MobileHeader
-            view={view}
-            layersOpen={layersOpen}
-            onToggleLayers={() => setLayersOpen((v) => !v)}
-            onLocate={() => mapController.current?.locate()}
-            onNavigate={go}
-            onBrand={() => go("now")}
-            layerPanel={layerPanel}
-          />
-
-          <div
-            className={cn("pointer-events-none fixed left-3 z-20 transition-opacity duration-300", layersOpen && "opacity-0")}
-            style={{ top: "calc(env(safe-area-inset-top) + 58px)" }}
-          >
-            <SunStatus
-              compact
-              stats={stats}
-              time={selectedTime}
-              dayLabel={dayLabel}
-              sunTimes={sunTimes}
-              up={up}
-              altitudeDeg={sunPos.altitudeDeg}
-              azimuthDeg={sunPos.azimuthDeg}
-              light={light}
-            />
-            {answerVisible && !sheetOpen && !layersOpen && <div className="mt-2">{answerCard(true)}</div>}
-          </div>
-          <div
-            className={cn("pointer-events-auto fixed right-3 z-20 transition-opacity duration-300", layersOpen && "pointer-events-none opacity-0")}
-            style={{ top: "calc(env(safe-area-inset-top) + 58px)" }}
-          >
-            <MapControls
-              variant="mobile"
-              onZoomIn={() => undefined}
-              onZoomOut={() => undefined}
-              onLocate={() => mapController.current?.locate()}
-              onResetNorth={() => mapController.current?.resetNorth()}
-              bearing={camera.bearing}
-              pitch={camera.pitch}
-              layersOpen={false}
-              onToggleLayers={() => setLayersOpen(true)}
-              layerPanel={null}
-              sun={{ azimuthDeg: sunPos.azimuthDeg, altitudeDeg: sunPos.altitudeDeg }}
-              isNow={isNow}
-              onNow={goNow}
-            />
+          <div className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3" style={{ paddingTop: `calc(env(safe-area-inset-top) + 8px)` }}>
+            <div className="fts-fade-top pointer-events-none absolute inset-x-0 top-0 h-24" />
+            <div className="relative pointer-events-auto">{searchBox("floating")}</div>
+            {chipsShown && <div className="relative mt-2">{chips("floating")}</div>}
           </div>
 
-          {sheetOpen ? (
-            <ContextPanel
-              device="mobile"
-              side="left"
-              label={hasDetail ? tr("app.detalle") : panelLabel}
-              mobileBottom={LAYOUT.mobileNav}
-              resetKey={hasDetail ? `d${selection?.id ?? activeId}` : view}
-              key={hasDetail ? "detail" : view}
-              onDismiss={hasDetail ? closeDetail : () => go("explore")}
+          {sheetLevel !== "full" && (
+            <div
+              className={cn("pointer-events-none fixed right-3 z-30 flex flex-col items-end gap-2 transition-opacity duration-300", layersOpen && "z-40")}
+              style={{ top: mobileTop }}
             >
-              {hasDetail ? detailNode : panelNode}
-            </ContextPanel>
-          ) : (
-            <div className="fixed inset-x-2 z-20" style={{ bottom: `calc(${LAYOUT.mobileNav}px + env(safe-area-inset-bottom) + 8px)` }}>
-              {/* Ahora: los sitios cerca, encima de la línea de tiempo (sin taparla). */}
-              {nearbyStrip && (
-                <div className="fts-fade-in mb-2">
-                  <NearbyStrip {...nearby} />
-                </div>
-              )}
-              <div className="pointer-events-auto">{timeline}</div>
+              <div className="pointer-events-auto relative">
+                <button type="button" data-layers-toggle aria-label={tr("layerControl.capas_del_mapa")} aria-expanded={layersOpen} onClick={() => setLayersOpen((v) => !v)} className={cn(mapButton, layersOpen && "bg-ink text-paper")}>
+                  <Layers size={19} strokeWidth={1.5} absoluteStrokeWidth />
+                </button>
+                {layersOpen && <div className="absolute right-full top-0 mr-2 max-h-[calc(100dvh-14rem)] overflow-y-auto overscroll-contain rounded-2xl">{layerPanel}</div>}
+              </div>
+              <button type="button" aria-label={tr("app.mi_ubicacion")} onClick={() => mapController.current?.locate()} className={cn(mapButton, "pointer-events-auto")}>
+                <LocateFixed size={19} strokeWidth={1.5} absoluteStrokeWidth />
+              </button>
+              <div className="pointer-events-auto">
+                <MapControls
+                  variant="mobile"
+                  onZoomIn={() => undefined}
+                  onZoomOut={() => undefined}
+                  onLocate={() => mapController.current?.locate()}
+                  onResetNorth={() => mapController.current?.resetNorth()}
+                  bearing={camera.bearing}
+                  pitch={camera.pitch}
+                  layersOpen={false}
+                  onToggleLayers={() => setLayersOpen(true)}
+                  layerPanel={null}
+                  sun={{ azimuthDeg: sunPos.azimuthDeg, altitudeDeg: sunPos.altitudeDeg }}
+                  isNow={isNow}
+                  onNow={goNow}
+                  showSunDial={prefs.showSunPath}
+                />
+              </div>
             </div>
           )}
 
-          <MobileNavigation view={view} onNavigate={go} />
+          <BottomSheet
+            label={label}
+            level={sheetLevel}
+            onLevel={setSheetLevel}
+            heights={heights}
+            bottom={navH}
+            header={header}
+            subheader={subheader}
+            windowHeight={windowMode ? windowHeight : undefined}
+            onWindowRect={setWindowRect}
+            scrollKey={scrollKey}
+            above={
+              sheetLevel !== "full" ? (
+                <div className="pointer-events-auto" {...autoHide.handlers}>
+                  {timelineOpen ? (
+                    timeline
+                  ) : (
+                    <div className="flex items-end justify-between gap-2">
+                      {timePill}
+                      {card && sheetLevel === "peek" && (
+                        <button
+                          type="button"
+                          onClick={() => setSheetLevel("half")}
+                          className="fts-glass flex h-11 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-sun/60"
+                        >
+                          {tr("placeCard.volver_a_la_ficha")}
+                          <span aria-hidden>▴</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : null
+            }
+          >
+            {body}
+          </BottomSheet>
+
+          <MobileNavigation view={view} onNavigate={(v) => go(v)} badge={navBadge} />
         </>
       )}
 

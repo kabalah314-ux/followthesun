@@ -1,11 +1,11 @@
-import { CalendarClock, Compass, Heart, Info, MapPin, Search, Settings, Shuffle } from "../LineIcons";
+import { CalendarClock, Heart, Info, Settings } from "../LineIcons";
 import type { ReactNode } from "react";
 import { destinationOf, type AppView } from "../../lib/routing";
 import { tr } from "../../i18n";
 
 /**
- * Icono del Sol de Follow the Sun para «Find the Sun»: disco + arco de trayectoria, con el mismo
- * trazo fino que el resto de iconos.
+ * Icono del Sol de Follow the Sun: disco + arco de trayectoria, con el mismo trazo fino que el
+ * resto de iconos.
  */
 export function SunTrackIcon({ size = 20, className }: { size?: number; className?: string }) {
   return (
@@ -28,46 +28,22 @@ export interface NavItemDef {
 const stroke = { strokeWidth: 1.5, absoluteStrokeWidth: true } as const;
 
 export const NAV_ITEMS: Record<AppView, NavItemDef> = {
-  now: {
-    view: "now",
-    label: tr("findSunPanel.ahora"),
-    hint: tr("navItems.tu_sol_o_tu_sombra"),
-    icon: (s) => <SunTrackIcon size={s} />,
-  },
   explore: {
     view: "explore",
-    label: tr("layerControl.mapa"),
-    hint: tr("navItems.sol_y_sombra_a_cualquier"),
-    icon: (s) => <Compass size={s} {...stroke} />,
+    label: tr("nav.explorar"),
+    hint: tr("nav.explorar_hint"),
+    icon: (s) => <SunTrackIcon size={s} />,
   },
-  find: {
-    view: "find",
-    label: tr("app.buscar"),
-    hint: tr("navItems.sitios_con_sol_o_sombra"),
-    icon: (s) => <Search size={s} {...stroke} />,
-  },
-  plan: {
-    view: "plan",
-    label: tr("navItems.mas_tarde"),
-    hint: tr("navItems.elige_dia_y_franja"),
+  plans: {
+    view: "plans",
+    label: tr("nav.planes"),
+    hint: tr("nav.planes_hint"),
     icon: (s) => <CalendarClock size={s} {...stroke} />,
   },
-  places: {
-    view: "places",
-    label: tr("searchProgress.lugares"),
-    hint: tr("navItems.los_mejores_sitios_de_hoy"),
-    icon: (s) => <MapPin size={s} {...stroke} />,
-  },
-  recommended: {
-    view: "recommended",
-    label: tr("navItems.sorprendeme"),
-    hint: tr("navItems.nueve_sitios_para_descubrir"),
-    icon: (s) => <Shuffle size={s} {...stroke} />,
-  },
-  saved: {
-    view: "saved",
+  mine: {
+    view: "mine",
     label: tr("navItems.mis_sitios"),
-    hint: tr("navItems.tus_sitios_guardados"),
+    hint: tr("nav.mis_sitios_hint"),
     icon: (s) => <Heart size={s} {...stroke} />,
   },
   settings: {
@@ -78,22 +54,22 @@ export const NAV_ITEMS: Record<AppView, NavItemDef> = {
   },
   about: {
     view: "about",
-    label: tr("aboutPanel.acerca_de"),
+    label: tr("sunDetails.como_lo_sabemos"),
     hint: tr("navItems.datos_precision_y_limites"),
     icon: (s) => <Info size={s} {...stroke} />,
   },
 };
 
-/** Los cuatro destinos (barra lateral en escritorio y tableta, barra inferior en móvil). */
-export const PRIMARY_NAV: AppView[] = ["now", "explore", "find", "saved"];
-/** Secundaria, separada de la principal. */
+/** Los tres destinos (barra inferior en móvil, pestañas del panel en escritorio). */
+export const PRIMARY_NAV: AppView[] = ["explore", "plans", "mine"];
+/** En el icono de perfil del buscador. */
 export const SECONDARY_NAV: AppView[] = ["settings", "about"];
-/** Móvil: los mismos cuatro destinos. */
+/** Móvil: los mismos tres destinos. */
 export const MOBILE_NAV: AppView[] = PRIMARY_NAV;
-/** Móvil: en el menú «Más» de la cabecera. */
-export const MOBILE_MORE: AppView[] = ["settings", "about"];
+/** Móvil: en el menú de perfil. */
+export const MOBILE_MORE: AppView[] = SECONDARY_NAV;
 
-/** ¿Está activo el destino `item` cuando se ve `view`? (las pestañas de Buscar cuentan como Buscar). */
+/** ¿Está activo el destino `item` cuando se ve `view`? */
 export function isNavActive(item: AppView, view: AppView): boolean {
   const d = destinationOf(item);
   return d ? d === destinationOf(view) : item === view;

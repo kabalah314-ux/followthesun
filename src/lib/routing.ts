@@ -1,142 +1,155 @@
 /**
- * Rutas de I Follow the Sun. Todas comparten el MISMO mapa: cambiar de ruta solo cambia el panel
- * contextual, nunca desmonta el mapa.
+ * Rutas de I Follow the Sun (guía maestra 2, «Nueva navegación y menú»). Todas comparten el MISMO
+ * mapa: cambiar de ruta solo cambia la hoja (o el panel), nunca desmonta el mapa.
  *
- * Cuatro destinos principales (guía maestra, «Arquitectura de la información»):
+ * Tres destinos:
  *
- *   /                      Ahora       (respuesta + «Cerca de ti ahora»)
- *   /mapa                  Mapa        (sol y sombra a cualquier hora)
- *   /buscar                Buscar      (pestaña Ahora; ?pestana=mas-tarde | lugares | sorprendeme)
- *   /mis-sitios            Mis sitios
- *   /ajustes · /acerca-de  Ajustes y Acerca de
- *   /lugar/<slug>          ficha de un lugar, sobre el Mapa (ver `deepLinks.ts`)
+ *   /                      Explorar    (mapa, buscador universal, chips, «Para ti» y ficha)
+ *   /planes                Planes      (?vista=ruta | semana | mas-tarde | grupo | alertas)
+ *   /mis-sitios            Mis sitios  (?vista=listas | mi-casa | historial)
+ *   /ajustes · /acerca-de  desde el icono de perfil del buscador
+ *   /lugar/<slug>          ficha de un lugar, sobre Explorar (ver `deepLinks.ts`)
  *
- * Las rutas antiguas (/find, /plan, /places, /recomendados, /saved, /settings, /about) se siguen
- * entendiendo y se redirigen a la nueva conservando la query (`?hora=…&dia=…&debug=…`).
+ * Las rutas antiguas se siguen entendiendo y se sustituyen por la nueva conservando la query
+ * (`?hora=…&dia=…&c=…&z=…&debug=…`):
  *
- * Modo «path» (rutas limpias, History API) por defecto. Modo «hash» (#/buscar) cuando la app se
+ *   /mapa · /buscar · /find · /places · /recomendados   →  /
+ *   /buscar?pestana=mas-tarde · /plan                   →  /planes?vista=mas-tarde
+ *   /saved → /mis-sitios · /settings → /ajustes · /about → /acerca-de
+ *
+ * Modo «path» (rutas limpias, History API) por defecto. Modo «hash» (#/planes) cuando la app se
  * abre como archivo (`file:`), desde una ruta que termina en `.html`, o con `VITE_ROUTER_MODE=hash`
  * (para servidores estáticos sin redirección de rutas desconocidas a index.html).
  */
 
-export type AppView =
-  | "now"
-  | "explore"
-  | "find"
-  | "plan"
-  | "places"
-  | "recommended"
-  | "saved"
-  | "settings"
-  | "about";
+export type AppView = "explore" | "plans" | "mine" | "settings" | "about";
 
-export const APP_VIEWS: AppView[] = [
-  "now",
-  "explore",
-  "find",
-  "plan",
-  "places",
-  "recommended",
-  "saved",
-  "settings",
-  "about",
-];
+export const APP_VIEWS: readonly AppView[] = ["explore", "plans", "mine", "settings", "about"];
 
-/** Los cuatro destinos de la navegación principal. */
-export type Destination = "now" | "map" | "search" | "mine";
+/** Los tres destinos de la navegación principal. */
+export type Destination = "explore" | "plans" | "mine";
+export const DESTINATIONS: readonly Destination[] = ["explore", "plans", "mine"];
 
-/** Vistas que son pestañas de Buscar, en su orden. */
-export type SearchView = "find" | "plan" | "places" | "recommended";
-export const SEARCH_VIEWS: readonly SearchView[] = ["find", "plan", "places", "recommended"];
+/** Secciones de Planes, en el orden en que se ofrecen. */
+export type PlansTab = "route" | "week" | "later" | "group" | "alerts";
+export const PLANS_TABS: readonly PlansTab[] = ["route", "week", "later", "group", "alerts"];
 
-export const isSearchView = (v: AppView): v is SearchView => (SEARCH_VIEWS as readonly AppView[]).includes(v);
+/** Secciones de Mis sitios. */
+export type MineTab = "lists" | "home" | "history";
+export const MINE_TABS: readonly MineTab[] = ["lists", "home", "history"];
 
-/** Destino al que pertenece una vista (null: Ajustes y Acerca de, fuera de los cuatro). */
+export type ViewTab = PlansTab | MineTab;
+
+export const isDestination = (v: AppView): v is Destination => (DESTINATIONS as readonly AppView[]).includes(v);
+
+/** Destino al que pertenece una vista (null: Ajustes y Acerca de, fuera de los tres). */
 export function destinationOf(view: AppView): Destination | null {
-  if (view === "now") return "now";
-  if (view === "explore") return "map";
-  if (view === "saved") return "mine";
-  if (isSearchView(view)) return "search";
+  return isDestination(view) ? view : null;
+}
+
+/** Valor de `?vista=` de cada sección. */
+export const TAB_PARAM: Record<ViewTab, string> = {
+  route: "ruta",
+  week: "semana",
+  later: "mas-tarde",
+  group: "grupo",
+  alerts: "alertas",
+  lists: "listas",
+  home: "mi-casa",
+  history: "historial",
+};
+
+/** Sección por defecto de cada destino con secciones (no se escribe en la URL). */
+export const DEFAULT_TAB: { plans: PlansTab; mine: MineTab } = { plans: "route", mine: "lists" };
+
+/** Sección de una vista a partir de `?vista=` (la de por defecto si falta o no se reconoce). */
+export function tabFromParam(view: AppView, param: string | null): ViewTab | null {
+  if (view === "plans") return PLANS_TABS.find((t) => TAB_PARAM[t] === param) ?? DEFAULT_TAB.plans;
+  if (view === "mine") return MINE_TABS.find((t) => TAB_PARAM[t] === param) ?? DEFAULT_TAB.mine;
   return null;
 }
 
-/** Valor de `?pestana=` de cada pestaña de Buscar. La primera (Ahora) no se escribe en la URL. */
-export const SEARCH_TAB: Record<SearchView, string> = {
-  find: "ahora",
-  plan: "mas-tarde",
-  places: "lugares",
-  recommended: "sorprendeme",
-};
+/** La sección tiene sentido en esa vista (las de Planes en Planes, las de Mis sitios en Mis sitios). */
+export function tabBelongs(view: AppView, tab: ViewTab | null | undefined): boolean {
+  if (!tab) return false;
+  if (view === "plans") return (PLANS_TABS as readonly ViewTab[]).includes(tab);
+  if (view === "mine") return (MINE_TABS as readonly ViewTab[]).includes(tab);
+  return false;
+}
 
 const SEGMENT: Record<AppView, string> = {
-  now: "",
-  explore: "mapa",
-  find: "buscar",
-  plan: "buscar",
-  places: "buscar",
-  recommended: "buscar",
-  saved: "mis-sitios",
+  explore: "",
+  plans: "planes",
+  mine: "mis-sitios",
   settings: "ajustes",
   about: "acerca-de",
 };
 
-/** Rutas antiguas → vista. Se redirigen a la ruta nueva. */
-const LEGACY: Record<string, AppView> = {
-  find: "find",
-  plan: "plan",
-  places: "places",
-  recomendados: "recommended",
-  recommended: "recommended",
-  saved: "saved",
-  settings: "settings",
-  about: "about",
+/** Rutas antiguas → vista y sección. Se redirigen a la ruta nueva. */
+const LEGACY: Record<string, { view: AppView; tab: ViewTab | null }> = {
+  mapa: { view: "explore", tab: null },
+  find: { view: "explore", tab: null },
+  places: { view: "explore", tab: null },
+  recomendados: { view: "explore", tab: null },
+  recommended: { view: "explore", tab: null },
+  plan: { view: "plans", tab: "later" },
+  saved: { view: "mine", tab: "lists" },
+  settings: { view: "settings", tab: null },
+  about: { view: "about", tab: null },
 };
 
 /** Segmentos que no forman parte del prefijo de la app (para detectar ese prefijo). */
-const APP_SEGMENTS = new Set(["mapa", "buscar", "mis-sitios", "ajustes", "acerca-de", ...Object.keys(LEGACY)]);
+const APP_SEGMENTS = new Set(["buscar", "planes", "mis-sitios", "ajustes", "acerca-de", ...Object.keys(LEGACY)]);
 
 export interface RouteMatch {
   view: AppView;
+  tab: ViewTab | null;
   /** true: ruta antigua; hay que redirigir a la nueva. */
   legacy: boolean;
 }
 
-function tabView(tab: string | null): SearchView {
-  const hit = SEARCH_VIEWS.find((v) => SEARCH_TAB[v] === tab);
-  return hit ?? "find";
-}
-
 /**
- * Vista de una ruta relativa al prefijo de la app («», «buscar», «lugar/slug»…) y de su
- * `?pestana=`. Función pura. null: ruta desconocida.
+ * Vista de una ruta relativa al prefijo de la app («», «planes», «lugar/slug»…) y de su query.
+ * Función pura. null: ruta desconocida.
  */
-export function matchRoute(rest: string, tab: string | null): RouteMatch | null {
+export function matchRoute(rest: string, search = ""): RouteMatch | null {
+  const q = new URLSearchParams(search);
   const seg = rest.replace(/^\/+/, "").split("/")[0] ?? "";
   switch (seg) {
     case "":
-      return { view: "now", legacy: false };
-    case "mapa":
     case "lugar":
-      return { view: "explore", legacy: false };
-    case "buscar":
-      return { view: tabView(tab), legacy: false };
+      return { view: "explore", tab: null, legacy: false };
+    case "planes":
+      return { view: "plans", tab: tabFromParam("plans", q.get("vista")), legacy: false };
     case "mis-sitios":
-      return { view: "saved", legacy: false };
+      return { view: "mine", tab: tabFromParam("mine", q.get("vista")), legacy: false };
     case "ajustes":
-      return { view: "settings", legacy: false };
+      return { view: "settings", tab: null, legacy: false };
     case "acerca-de":
-      return { view: "about", legacy: false };
+      return { view: "about", tab: null, legacy: false };
+    case "buscar":
+      // Buscar tenía cuatro pestañas: «Más tarde» vive ahora en Planes; el resto, en Explorar.
+      return q.get("pestana") === "mas-tarde"
+        ? { view: "plans", tab: "later", legacy: true }
+        : { view: "explore", tab: null, legacy: true };
   }
   const old = LEGACY[seg];
-  return old ? { view: old, legacy: true } : null;
+  return old ? { ...old, legacy: true } : null;
 }
 
-/** La query con el `pestana` que corresponde a la vista (o sin él), sin tocar el resto. Pura. */
-export function searchForView(search: string, view: AppView): string {
+/**
+ * La query que corresponde a una vista sin tocar el resto de parámetros: escribe `vista` para una
+ * sección que no es la de por defecto, quita la `pestana` de la versión anterior y solo conserva
+ * el plan en grupo (`g`) en su sección. Pura.
+ */
+export function searchFor(search: string, view: AppView, tab: ViewTab | null = null): string {
   const params = new URLSearchParams(search);
-  const tab = isSearchView(view) && view !== "find" ? SEARCH_TAB[view] : null;
-  if (tab) params.set("pestana", tab);
-  else params.delete("pestana");
+  params.delete("pestana");
+  const t = tabBelongs(view, tab) ? tab : null;
+  const isDefault = t !== null && ((view === "plans" && t === DEFAULT_TAB.plans) || (view === "mine" && t === DEFAULT_TAB.mine));
+  if (t && !isDefault) params.set("vista", TAB_PARAM[t]);
+  else params.delete("vista");
+  if (!(view === "plans" && t === "group")) params.delete("g");
   const s = params.toString();
   return s ? `?${s}` : "";
 }
@@ -178,36 +191,46 @@ const getRouter = () => (router ??= detect());
 /** Vista que indica la URL actual y si es una ruta antigua. */
 export function parseRoute(): RouteMatch {
   const r = getRouter();
-  const tab = new URLSearchParams(window.location.search).get("pestana");
+  const search = window.location.search;
   const hash = window.location.hash.replace(/^#\/?/, "").split("?")[0];
-  if (hash) return matchRoute(hash, tab) ?? { view: "now", legacy: false };
-  if (r.mode === "hash") return { view: "now", legacy: false };
+  const fallback: RouteMatch = { view: "explore", tab: null, legacy: false };
+  if (hash) return matchRoute(hash, search) ?? fallback;
+  if (r.mode === "hash") return fallback;
   const rest = window.location.pathname.slice(r.base.length);
-  return matchRoute(rest, tab) ?? { view: "now", legacy: false };
-}
-
-/** Vista que indica la URL actual. */
-export function parseLocation(): AppView {
-  return parseRoute().view;
+  return matchRoute(rest, search) ?? fallback;
 }
 
 /** URL de una vista (conserva la query, p. ej. `?debug=weather` o `?hora=…`). */
-export function buildUrl(view: AppView): string {
-  return urlWith({ view }, window.location.search);
+export function buildUrl(view: AppView, tab: ViewTab | null = null): string {
+  return urlWith({ view, tab }, window.location.search);
 }
 
 /**
  * URL (sin origen) de una vista o de la ficha de un lugar con la query dada. En modo «hash» no hay
- * rutas de lugar: se queda en la vista principal con la query.
+ * rutas de lugar: se queda en Explorar con la query.
  */
-export function urlWith(target: { view: AppView } | { slug: string }, search: string): string {
+export function urlWith(target: { view: AppView; tab?: ViewTab | null } | { slug: string }, search: string): string {
   const r = getRouter();
   if ("slug" in target) {
-    const q = searchForView(search, "explore");
+    const q = searchFor(search, "explore");
     return r.mode === "hash" ? `${r.base}${q}` : `${r.base}lugar/${encodeURIComponent(target.slug)}${q}`;
   }
-  const q = searchForView(search, target.view);
+  const q = searchFor(search, target.view, target.tab ?? null);
   const seg = SEGMENT[target.view];
   if (r.mode === "hash") return `${r.base}${q}${seg ? `#/${seg}` : ""}`;
   return `${r.base}${seg}${q}`;
+}
+
+/**
+ * Compatibilidad con la navegación anterior (pestañas de Buscar). Solo la usan componentes que
+ * ya no se montan; se puede borrar con ellos.
+ * @deprecated
+ */
+export type SearchView = "find" | "plan" | "places" | "recommended";
+/** @deprecated */
+export const SEARCH_VIEWS: readonly SearchView[] = ["find", "plan", "places", "recommended"];
+
+/** Dirección absoluta de la app con una vista y una query (enlaces para compartir). */
+export function absoluteUrl(target: { view: AppView; tab?: ViewTab | null }, search: string): string {
+  return `${window.location.origin}${urlWith(target, search)}`;
 }

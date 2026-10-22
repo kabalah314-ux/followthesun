@@ -266,9 +266,15 @@ interface Props {
   /** Modo de la app (busco sol / busco sombra) y sensación térmica, para la frase-respuesta. */
   mode?: SunShadeMode;
   apparentC?: number | null;
+  /** La cabecera (nombre y cerrar) la pone la hoja: aquí no se repite. */
+  headerless?: boolean;
+  /** Guardar este punto como «Mi casa o balcón». */
+  onSetHome?(): void;
+  /** Ver la semana de este punto (Planes · Esta semana). */
+  onWeek?(): void;
 }
 
-function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave, mode, apparentC }: Props) {
+function PointPanelBase({ point, timeline, sunlight, now, time, onClose, className, embedded, saved, onToggleSave, mode, apparentC, headerless, onSetHome, onWeek }: Props) {
   const comfort = useComfort(time);
   const intervalLabel = (state: SunState) =>
     state === "sun"
@@ -309,7 +315,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
         className
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      {!headerless && <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="fts-caps">
             {dayChoiceLabel(startOfZoneDay(time), now)} · {formatDayLabel(time)}
@@ -327,7 +333,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
         >
           <CloseIcon />
         </button>
-      </div>
+      </div>}
 
       <SunlightBlock r={sunlight} now={now} answer={answer} comfort={comfort} />
 
@@ -398,7 +404,7 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             onClick={onToggleSave}
             aria-pressed={saved}
             className={cn(
-              "flex items-center gap-1.5 rounded-full border px-3 py-2 text-[12.5px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
+              "flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-sun/60",
               saved ? "border-sun/60 bg-sun-soft text-sun-deep" : "border-line text-ink-soft hover:bg-ink/[0.05] hover:text-ink"
             )}
           >
@@ -411,10 +417,28 @@ function PointPanelBase({ point, timeline, sunlight, now, time, onClose, classNa
             href={`https://www.google.com/maps/dir/?api=1&destination=${point.lat},${point.lng}&travelmode=walking`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 rounded-full border border-line px-3 py-2 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+            className="flex min-h-[44px] items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
           >
             {tr("sunDetails.como_llegar")}
           </a>
+          {onWeek && (
+            <button
+              type="button"
+              onClick={onWeek}
+              className="flex min-h-[44px] items-center rounded-full border border-line px-3.5 py-2 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+            >
+              {tr("pointPanel.su_semana")}
+            </button>
+          )}
+          {onSetHome && (
+            <button
+              type="button"
+              onClick={onSetHome}
+              className="flex min-h-[44px] items-center rounded-full border border-line px-3.5 py-2 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60"
+            >
+              {tr("pointPanel.es_mi_casa")}
+            </button>
+          )}
         </div>
       )}
     </section>

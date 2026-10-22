@@ -35,7 +35,7 @@ export default function NavigationItem({ item, active, compact, onSelect }: Prop
             compact && "left-[2px]"
           )}
         />
-        <span className={cn("shrink-0", item.view === "find" && "text-sun-deep")}>{item.icon(19)}</span>
+        <span className={cn("shrink-0", item.view === "explore" && "text-sun-deep")}>{item.icon(19)}</span>
         {!compact && <span className="truncate">{item.label}</span>}
         {compact && (
           <span

@@ -32,7 +32,7 @@ export default function Sidebar({ view, compact, canExpand, onNavigate, onToggle
     >
       <button
         type="button"
-        onClick={() => onNavigate("now")}
+        onClick={() => onNavigate("explore")}
         aria-label={tr("mobileHeader.i_follow_the_sun_volver")}
         className={cn(
           "pointer-events-auto mb-6 flex items-center gap-3 rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-sun/60",

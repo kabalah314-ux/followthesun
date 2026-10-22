@@ -712,6 +712,11 @@ export interface SunSearchRequest {
   /** Ubicación de la persona (si la comparte). Sin ella no hay filtro de distancia. */
   origin?: LngLat | null;
   locationType?: LocationTypeFilter;
+  /**
+   * Varios tipos de lugar a la vez (p. ej. parques y espacios abiertos para pasear con el perro).
+   * Manda sobre `locationType` y sobre los tipos de la intención.
+   */
+  locationTypes?: SunPlaceType[];
   intent?: SunIntent;
   preference?: SunPreference;
   avoidClouds?: boolean;
