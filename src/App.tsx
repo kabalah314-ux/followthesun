@@ -58,7 +58,8 @@ import { useUniversalSearch, type SearchSuggestion } from "./hooks/useUniversalS
 import { useViewport } from "./hooks/useViewport";
 import { describeCity, describePoint, type SunShadeMode } from "./lib/answer";
 import { distanceMeters } from "./lib/coordinates";
-import type { PlaceLinkRef } from "./lib/deepLinks";
+import { placeSlug, type PlaceLinkRef } from "./lib/deepLinks";
+import { addAlert, downloadAlert } from "./services/alertsService";
 import {
   activeFilterCount,
   chipSpec,
@@ -1176,7 +1177,7 @@ export default function App() {
           onToast={setToast}
         />
       )}
-      {plansTab === "alerts" && <AlertsPanel savedCount={saved.length} onOpenSaved={() => go("mine", "lists")} />}
+      {plansTab === "alerts" && <AlertsPanel now={now} savedCount={saved.length} onOpenSaved={() => go("mine", "lists")} />}
     </Suspense>
   );
 
@@ -1276,7 +1277,27 @@ export default function App() {
       onShare={() => card.data.result && void shareResult(card.data.result)}
       inPlan={planIds.has(card.data.place.id)}
       onAddToPlan={() => toggleInPlan(card.data)}
-      onAlerts={() => go("plans", "alerts")}
+      onAlerts={() => {
+        // «Avisarme»: el próximo rato de sol (o de sombra) del sitio, al calendario con alarma.
+        const r = card.data.result;
+        const w = r ? (r.bestWindow ?? r.searchWindow) : null;
+        if (!r || !w || w.end <= now) {
+          go("plans", "alerts");
+          return;
+        }
+        const a = addAlert({
+          placeId: card.data.place.id,
+          name: card.data.place.name,
+          slug: placeSlug(card.data.place),
+          kind: sunShade.mode === "shade" ? "shade" : "sun",
+          start: Math.max(w.start, now),
+          end: w.end,
+          latitude: r.spot.latitude,
+          longitude: r.spot.longitude,
+        });
+        downloadAlert(a);
+        setToast(tr("alerts.aviso_creado", { p0: formatClock(a.start) }));
+      }}
       onTerraceFeedback={(hasTerrace) => setToast(hasTerrace ? tr("app.gracias_esta_terraza_queda_confirmada") : tr("app.gracias_lo_tendremos_en_cuenta"))}
       onRetry={() => void openPlace(card.data.place)}
     />
