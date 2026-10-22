@@ -102,7 +102,7 @@ export const ca: Record<MessageKey, string> = {
   "app.gracias_lo_tendremos_en_cuenta": "Gràcies, ho tindrem en compte per no recomanar-la.",
   "app.guardado_en_tus_sitios_soleados": "Desat als teus llocs assolellats",
   "app.hoy": "Avui",
-  "app.las_nubes_taparan_el_sol": "Els núvols taparan el sol {p0}. Prova-ho més tard a Cerca.",
+  "app.las_nubes_taparan_el_sol": "Els núvols taparan el sol {p0}. Prova una altra hora o mira «Aquesta setmana» a Plans.",
   "app.los_edificios_dan_sombra_a": "Els edificis fan ombra als llocs propers {p0}. Prova-ho a Cerca.",
   "app.manana": "Demà",
   "app.manana_a_primera_hora": "demà a primera hora",

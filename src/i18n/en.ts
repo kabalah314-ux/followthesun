@@ -102,7 +102,7 @@ export const en: Record<MessageKey, string> = {
   "app.gracias_lo_tendremos_en_cuenta": "Thanks, we'll bear that in mind and stop recommending it.",
   "app.guardado_en_tus_sitios_soleados": "Saved to your sunny places",
   "app.hoy": "Today",
-  "app.las_nubes_taparan_el_sol": "Clouds will block the sun {p0}. Try later in Search.",
+  "app.las_nubes_taparan_el_sol": "Clouds will block the sun {p0}. Try another time or check “This week” in Plans.",
   "app.los_edificios_dan_sombra_a": "Buildings shade the nearby places {p0}. Try in Search.",
   "app.manana": "Tomorrow",
   "app.manana_a_primera_hora": "early tomorrow",

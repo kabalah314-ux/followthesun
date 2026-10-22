@@ -941,6 +941,20 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, mineTab, plansTab]);
 
+  // Una búsqueda con hora («a las 18», «mañana», «al atardecer») lleva el mapa a esa hora: las
+  // sombras que se ven son las de la búsqueda. Con «ahora» el mapa sigue en la hora elegida.
+  const timedSearch = useRef<string | null>(null);
+  useEffect(() => {
+    if (spec.when.kind === "now" || card) {
+      if (spec.when.kind === "now") timedSearch.current = null;
+      return;
+    }
+    const key = `${spec.key}@${explore.window.start}`;
+    if (timedSearch.current === key) return;
+    timedSearch.current = key;
+    showTimeAt(explore.window.start);
+  }, [spec.key, spec.when.kind, explore.window.start, card, showTimeAt]);
+
   /* ------------------------------ enlaces profundos ------------------------------ */
   const openPlaceLink = useCallback(
     async (ref: PlaceLinkRef) => {

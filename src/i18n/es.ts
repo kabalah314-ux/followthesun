@@ -100,7 +100,7 @@ export const es = {
   "app.gracias_lo_tendremos_en_cuenta": "Gracias, lo tendremos en cuenta para no recomendarla.",
   "app.guardado_en_tus_sitios_soleados": "Guardado en tus sitios soleados",
   "app.hoy": "Hoy",
-  "app.las_nubes_taparan_el_sol": "Las nubes taparán el sol {p0}. Prueba más tarde en Buscar.",
+  "app.las_nubes_taparan_el_sol": "Las nubes taparán el sol {p0}. Prueba otra hora o mira «Esta semana» en Planes.",
   "app.los_edificios_dan_sombra_a": "Los edificios dan sombra a los sitios cercanos {p0}. Prueba en Buscar.",
   "app.manana": "Mañana",
   "app.manana_a_primera_hora": "mañana a primera hora",
