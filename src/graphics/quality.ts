@@ -6,9 +6,10 @@ import { preferences, type GraphicsQualityPreference } from "../lib/preferences"
  *
  *   Alta    capa solar en WebGL2 · máscara de sombras con MSAA ×4 a resolución completa ·
  *           penumbra física (tamaño real del sol) · campo de luz bicúbico · sombra de contacto ·
- *           aristas de tejado en 3D · mapa hasta 2× · zoom 20
+ *           aristas de tejado en 3D · árboles en 3D y su sombra · sombra del sol sobre tejados y
+ *           fachadas (mapa de sombras 2048) · relieve sombreado · mapa hasta 2× · zoom 20
  *   Media   WebGL2 · máscara a 3/4 sin MSAA · penumbra ligera · campo bicúbico · aristas de
- *           tejado · mapa hasta 1,5× · zoom 20
+ *           tejado · sombra de los árboles (sin 3D) · mapa hasta 1,5× · zoom 20
  *   Ahorro  canvas 2D (el motor de siempre) · mapa a 1× · zoom 19 · sin trabajo extra de GPU
  *
  * «Auto» decide al arrancar con lo que se sabe del dispositivo (WebGL2, memoria, ahorro de datos,
@@ -54,6 +55,18 @@ export interface QualitySettings {
   contactShadow: boolean;
   /** Aristas de tejado nítidas en 3D. */
   roofEdges: boolean;
+  /** Sombra de los árboles del inventario municipal en el suelo (con la hoja de cada estación). */
+  treeShadows: boolean;
+  /** Árboles en 3D (copas y troncos) al acercarse. */
+  trees3d: boolean;
+  /** Tope de árboles cargados alrededor de la vista (los más cercanos al centro). */
+  maxTrees: number;
+  /** Sombra del sol sobre tejados y fachadas (mapa de sombras de los edificios cercanos). */
+  facadeShadows: boolean;
+  /** Lado del mapa de sombras del sol (texels). */
+  shadowMapSize: number;
+  /** Relieve sombreado con la luz del sol (modelo del terreno abierto). */
+  hillshade: boolean;
   /** Tope de devicePixelRatio del mapa (nitidez frente a coste). */
   maxPixelRatio: number;
   /** Zoom máximo permitido. */
@@ -70,6 +83,12 @@ export const QUALITY_SETTINGS: Record<QualityLevel, QualitySettings> = {
     smoothField: true,
     contactShadow: true,
     roofEdges: true,
+    treeShadows: true,
+    trees3d: true,
+    maxTrees: 12_000,
+    facadeShadows: true,
+    shadowMapSize: 2048,
+    hillshade: true,
     maxPixelRatio: 2,
     maxZoom: 20,
   },
@@ -82,6 +101,12 @@ export const QUALITY_SETTINGS: Record<QualityLevel, QualitySettings> = {
     smoothField: true,
     contactShadow: false,
     roofEdges: true,
+    treeShadows: true,
+    trees3d: false,
+    maxTrees: 6_000,
+    facadeShadows: false,
+    shadowMapSize: 0,
+    hillshade: false,
     maxPixelRatio: 1.5,
     maxZoom: 20,
   },
@@ -94,6 +119,12 @@ export const QUALITY_SETTINGS: Record<QualityLevel, QualitySettings> = {
     smoothField: false,
     contactShadow: false,
     roofEdges: false,
+    treeShadows: false,
+    trees3d: false,
+    maxTrees: 0,
+    facadeShadows: false,
+    shadowMapSize: 0,
+    hillshade: false,
     maxPixelRatio: 1,
     maxZoom: 19,
   },

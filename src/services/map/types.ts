@@ -38,6 +38,7 @@ export interface MapLike {
   /* Opcionales (MapLibre 5 los tiene todos): capa solar en la GPU, calidad y encuadre. */
   getStyle?(): { layers?: Array<{ id: string; type: string }> } | undefined;
   removeLayer?(id: string): unknown;
+  removeSource?(id: string): unknown;
   moveLayer?(id: string, beforeId?: string): unknown;
   /** Pide un fotograma nuevo (cuando cambia algo que el mapa no ve: la hora, una capa propia…). */
   triggerRepaint?(): void;

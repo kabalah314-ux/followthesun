@@ -1,5 +1,6 @@
 import { DEG, EARTH_CIRC, distanceToLine, latToMy, lngToMx } from "../lib/coordinates";
 import type { Bounds2D } from "../types";
+import { CATASTRO, catastroHeights, type HeightHint } from "./map/catastroHeights";
 import type { MapLike } from "./map/types";
 
 /**
@@ -40,6 +41,8 @@ export interface BuildingSet {
   /** Zona del mapa que se consultó (para saber si un punto tiene datos a su alrededor). */
   coverage: Rect;
   source: string;
+  /** Huellas sin altura en el mapa cuya altura (para sombras) sale del Catastro. */
+  catastro?: number;
 }
 
 export interface BuildingProvider {
@@ -67,7 +70,9 @@ function estimateHeight(raw: number, areaM2: number) {
 export function buildBuildingSet(
   features: LooseFeature[],
   coverage: Rect,
-  source: string
+  source: string,
+  /** Altura (para sombras) de las huellas que llegan sin ella: alturas del Catastro. */
+  heightHint: HeightHint | null = null
 ): BuildingSet {
   const coords: number[] = [];
   const offsets: number[] = [0];
@@ -79,6 +84,7 @@ export function buildBuildingSet(
   const buckets: number[][] = HEIGHT_BUCKETS.map(() => []);
   buckets.push([]);
   let count = 0;
+  let catastro = 0;
 
   for (const f of features) {
     const g = f.geometry;
@@ -159,7 +165,13 @@ export function buildBuildingSet(
       }
       angle = ((angle % 180) + 180) % 180;
 
-      const h = estimateHeight(rawH, areaM2);
+      // Sin altura en el mapa (≈5 m por defecto): la del Catastro si se conoce; si no, por el área.
+      const fromCatastro =
+        heightHint && !(rawH > 5.01)
+          ? heightHint(coords, start, n, { minX, minY, maxX, maxY })
+          : null;
+      if (fromCatastro !== null) catastro++;
+      const h = fromCatastro ?? estimateHeight(rawH, areaM2);
       let bucket = HEIGHT_BUCKETS.length;
       for (let b = 0; b < HEIGHT_BUCKETS.length; b++) {
         if (h < HEIGHT_BUCKETS[b]) {
@@ -189,7 +201,8 @@ export function buildBuildingSet(
     buckets: buckets.map((b) => Uint32Array.from(b)),
     hide3d: Uint8Array.from(hide3d),
     coverage,
-    source,
+    source: catastro > 0 ? `${source}+catastro` : source,
+    catastro,
   };
 }
 
@@ -245,7 +258,10 @@ export const vectorTileBuildings: BuildingProvider = {
       { layers: [BUILDINGS_QUERY_LAYER] }
     );
     const coverage = inscribedCoverage(map, w, h, padX, padY);
-    return buildBuildingSet(feats as LooseFeature[], coverage, "vector-tiles");
+    // Alturas del Catastro para las huellas sin altura: se piden a escala de calle y se usan las
+    // que ya hay (al llegar más, el motor vuelve a extraer).
+    if (map.getZoom() >= CATASTRO.minZoom) catastroHeights.ensure(coverage);
+    return buildBuildingSet(feats as LooseFeature[], coverage, "vector-tiles", catastroHeights.hint());
   },
 };
 

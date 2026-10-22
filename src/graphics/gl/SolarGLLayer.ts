@@ -5,7 +5,12 @@ import type { SolarGrid } from "../../lib/solarGrid";
 import { SHADOW_MAX_LENGTH_M, SHADOW_MIN_ALTITUDE } from "../../services/shadowService";
 import type { Theme } from "../../types";
 import type { QualitySettings } from "../quality";
+import { shadowToneAlpha } from "../shadowTone";
 import { ROOF_EDGE_STRIDE, SHADOW_VERTEX_STRIDE, type ShadowGeometry } from "../shadowGeometry";
+import type { TreeBatch } from "../trees/treeStore";
+import { FacadeShadowRenderer, type FacadeFrustum } from "./facadeShadowsGL";
+import { eyeFromMatrix, lightMatrix, sunVectorLocal } from "./lightSpace";
+import { TreeRenderer, type TreeShadowMap } from "./treeGL";
 import {
   createProgram,
   createRenderTarget,
@@ -39,6 +44,25 @@ import * as SH from "./shaders";
 
 export const SOLAR_GL_LAYER_ID = "fts-solar-gl";
 export const ROOF_EDGES_LAYER_ID = "fts-roof-edges";
+export const FACADE_SHADOWS_LAYER_ID = "fts-facade-shadows";
+export const TREES_3D_LAYER_ID = "fts-trees-3d";
+
+/** Fase C: árboles 3D, sombras sobre fachadas y su aparición con el zoom. */
+export const PHASE_C = {
+  /** Los árboles se cargan desde este zoom (alrededor de la vista). */
+  treesLoadZoom: 15.3,
+  /** Su sombra en el suelo aparece entre estos zooms (en barrio manda la de los edificios). */
+  treeShadowZoom: [15.4, 16.0] as const,
+  /** Las copas 3D crecen entre estos zooms (como los edificios). */
+  trees3dZoom: [15.6, 16.6] as const,
+  /** Sombras sobre tejados y fachadas: desde aquí (con edificios en 3D). */
+  facadeZoom: [15.8, 16.5] as const,
+  /** Radio del mapa de sombras del sol (m): se ajusta a lo que se ve, entre estos límites. */
+  facadeRadiusM: [120, 450] as const,
+  /** Opacidad máxima de la sombra sobre fachadas y tejados (fracción del tono). */
+  facadeAlpha: 0.5,
+  facadeRoofAlpha: 0.85,
+} as const;
 
 /** Radio máximo dibujado alrededor del centro de la vista (m), como el canvas. */
 const MAX_GROUND_M = 16_000;
@@ -59,6 +83,8 @@ export interface SolarGLFrame {
   theme: Theme;
   /** Aparición al cargar (0-1): la luz entra suave, como en el canvas. */
   opacity: number;
+  /** Densidad de hoja por tipo de árbol (perenne, caducifolio, palmera, conífera, semi) para la fecha. */
+  leaf?: readonly number[];
 }
 
 export interface SolarGLStats {
@@ -104,7 +130,12 @@ interface Resources {
   statsPbo: WebGLBuffer;
   maskTarget: RenderTarget | null;
   statsTarget: RenderTarget | null;
+  /** Árboles y mapa de sombras del sol: se crean al usarlos por primera vez. */
+  trees: TreeRenderer | null;
+  facade: FacadeShadowRenderer | null;
 }
+
+const DEFAULT_LEAF = [0.82, 0.8, 0.55, 0.85, 0.78];
 
 const MASK_UNIFORMS = ["u_matrix", "u_dir", "u_perMeter", "u_maxLen", "u_value"] as const;
 const GROUND_UNIFORMS = [
@@ -147,9 +178,8 @@ export function zoomFactors(zoom: number, buildings3D: boolean) {
   return {
     /** Las sombras aparecen enteras desde el zoom inicial del móvil (13,2). */
     shadowZoomFade: smoothstep(12.2, 13.0, zoom),
-    /** Tono pizarra: se refuerza en «calle» y un poco más en «terraza». */
-    toneAlpha:
-      SHADOW_TONE.base + SHADOW_TONE.calle * smoothstep(14, 16, zoom) + SHADOW_TONE.terraza * smoothstep(17, 19, zoom),
+    /** Tono pizarra: suave en ciudad y barrio (los rótulos mandan), pleno en «calle», algo más en «terraza». */
+    toneAlpha: shadowToneAlpha(zoom),
     /** Altura 3D: misma interpolación lineal que la extrusión del mapa. */
     extrudeK: buildings3D
       ? clamp((zoom - BUILDINGS_3D.fromZoom) / (BUILDINGS_3D.fullZoom - BUILDINGS_3D.fromZoom), 0, 1)
@@ -162,6 +192,8 @@ export class SolarGLLayer {
   readonly type = "custom" as const;
   readonly renderingMode = "2d" as const;
   readonly roofLayer: RoofEdgesLayer;
+  readonly facadeLayer: Delegate3DLayer;
+  readonly treesLayer: Delegate3DLayer;
 
   private map: GLMap | null = null;
   private res: Resources | null = null;
@@ -188,7 +220,12 @@ export class SolarGLLayer {
 
   private matGeom = new Float32Array(16);
   private matGround = new Float32Array(16);
+  private matTrees = new Float32Array(16);
+  private matLight = new Float32Array(16);
   private groundVerts = new Float32Array(8);
+
+  private trees: TreeBatch | null = null;
+  private facadeKey = "";
 
   private onLost = () => {
     // El contexto se perdió: los recursos ya no valen (se recrean al restaurarse).
@@ -198,12 +235,15 @@ export class SolarGLLayer {
     this.rampUploaded = false;
     this.statsPending = null;
     this.maskKey = "";
+    this.facadeKey = "";
   };
 
   constructor(opts: SolarGLLayerOptions) {
     this.settings = opts.settings;
     this.onError = opts.onError;
     this.roofLayer = new RoofEdgesLayer(this);
+    this.facadeLayer = new Delegate3DLayer(FACADE_SHADOWS_LAYER_ID, (gl, args) => this.drawFacade(gl, args));
+    this.treesLayer = new Delegate3DLayer(TREES_3D_LAYER_ID, (gl, args) => this.drawTrees3D(gl, args));
   }
 
   /* ------------------------------ API del motor ------------------------------ */
@@ -227,6 +267,16 @@ export class SolarGLLayer {
     if (g === this.geometry) return;
     this.geometry = g;
     this.maskKey = "";
+    this.facadeKey = "";
+    this.repaint();
+  }
+
+  /** Árboles visibles (o null para quitarlos). */
+  setTrees(batch: TreeBatch | null) {
+    if (batch === this.trees) return;
+    this.trees = batch;
+    this.maskKey = "";
+    this.facadeKey = "";
     this.repaint();
   }
 
@@ -319,6 +369,7 @@ export class SolarGLLayer {
     this.rampUploaded = false;
     this.statsPending = null;
     this.maskKey = "";
+    this.facadeKey = "";
   }
 
   prerender(gl: WebGLRenderingContext | WebGL2RenderingContext, args: unknown) {
@@ -437,6 +488,8 @@ export class SolarGLLayer {
       statsPbo,
       maskTarget: null,
       statsTarget: null,
+      trees: null,
+      facade: null,
     };
     this.uploaded = null;
     this.fieldUploaded = -1;
@@ -452,6 +505,23 @@ export class SolarGLLayer {
     [r.fieldTex, r.rampTex, r.emptyTex].forEach((t) => gl.deleteTexture(t));
     deleteRenderTarget(gl, r.maskTarget);
     deleteRenderTarget(gl, r.statsTarget);
+    r.trees?.dispose();
+    r.facade?.dispose();
+  }
+
+  private treeRenderer(r: Resources): TreeRenderer {
+    r.trees ??= new TreeRenderer(r.gl);
+    r.trees.upload(this.trees);
+    return r.trees;
+  }
+
+  private facadeRenderer(r: Resources): FacadeShadowRenderer {
+    r.facade ??= new FacadeShadowRenderer(r.gl, r.geomVbo, r.geomIbo);
+    return r.facade;
+  }
+
+  private leaf(): readonly number[] {
+    return this.frame?.leaf ?? DEFAULT_LEAF;
   }
 
   private uploadGeometry(r: Resources) {
@@ -509,10 +579,14 @@ export class SolarGLLayer {
     const fade = frame ? frame.shadowsK * zf.shadowZoomFade : 0;
     this.lastShadowFade = fade;
     const g = this.uploaded;
-    const want = !!(frame && g && g.indices.length > 0 && fade > 0.001 && frame.altitude > -0.02);
+    const hasBuildings = !!(g && g.indices.length > 0);
+    const treeFade = smoothstep(PHASE_C.treeShadowZoom[0], PHASE_C.treeShadowZoom[1], zoom);
+    const trees = this.settings.treeShadows && this.trees && this.trees.count > 0 && treeFade > 0.01 ? this.trees : null;
+    const want = !!(frame && (hasBuildings || trees) && fade > 0.001 && frame.altitude > -0.02);
     this.maskActive = want;
-    if (!want || !frame || !g) {
+    if (!want || !frame) {
       this.maskKey = "";
+      if (r.facade) r.facade.ready = false;
       return;
     }
 
@@ -527,9 +601,14 @@ export class SolarGLLayer {
       this.maskKey = "";
     }
 
-    localToClipMatrix(main, g.ox, g.oy, g.mpu, this.matGeom);
+    if (g) localToClipMatrix(main, g.ox, g.oy, g.mpu, this.matGeom);
+    if (trees) localToClipMatrix(main, trees.ox, trees.oy, trees.mpu, this.matTrees);
     const alt = Math.max(frame.altitude, SHADOW_MIN_ALTITUDE);
-    const key = `${Array.prototype.join.call(this.matGeom, ",")}|${frame.azimuth.toFixed(5)}|${alt.toFixed(5)}|${mw}x${mh}`;
+    const leaf = this.leaf().map((v) => v * treeFade);
+    const treeKey = trees
+      ? `${trees.version}|${Array.prototype.join.call(this.matTrees, ",")}|${leaf.map((v) => v.toFixed(2)).join(",")}`
+      : "-";
+    const key = `${g ? Array.prototype.join.call(this.matGeom, ",") : "-"}|${treeKey}|${frame.azimuth.toFixed(5)}|${alt.toFixed(5)}|${mw}x${mh}`;
     const needMask = key !== this.maskKey;
 
     if (needMask) {
@@ -546,30 +625,185 @@ export class SolarGLLayer {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
 
-      const p = r.mask;
-      gl.useProgram(p.program);
-      gl.uniformMatrix4fv(p.uniforms.u_matrix, false, this.matGeom);
-      // Dirección de la sombra (opuesta al sol) en ejes este / sur.
-      gl.uniform2f(p.uniforms.u_dir, -Math.sin(frame.azimuth), Math.cos(frame.azimuth));
-      gl.uniform1f(p.uniforms.u_perMeter, 1 / Math.tan(alt));
-      gl.uniform1f(p.uniforms.u_maxLen, SHADOW_MAX_LENGTH_M);
-      gl.bindVertexArray(r.geomVao);
-      const ranges = g.ranges;
-      for (let b = 0; b < ranges.length; b += 4) {
-        if (ranges[b + 1] > 0) {
-          gl.uniform1f(p.uniforms.u_value, 1);
-          gl.drawElements(gl.TRIANGLES, ranges[b + 1], gl.UNSIGNED_INT, ranges[b] * 4);
-        }
-        if (ranges[b + 3] > 0) {
-          gl.uniform1f(p.uniforms.u_value, 0);
-          gl.drawElements(gl.TRIANGLES, ranges[b + 3], gl.UNSIGNED_INT, ranges[b + 2] * 4);
-        }
+      if (trees) {
+        // Copas primero: elipses de borde suave con la densidad de hoja de la estación (MAX entre
+        // copas que se solapan). Luego los edificios las tapan: su sombra es plena y su planta
+        // (el tejado) queda limpia, como antes.
+        const tr = this.treeRenderer(r);
+        gl.enable(gl.BLEND);
+        gl.blendEquation(gl.MAX);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        tr.drawShadows(this.matTrees, -Math.sin(frame.azimuth), Math.cos(frame.azimuth), 1 / Math.tan(alt), SHADOW_MAX_LENGTH_M, leaf);
+        gl.blendEquation(gl.FUNC_ADD);
+        gl.disable(gl.BLEND);
       }
-      gl.bindVertexArray(null);
+      if (g && hasBuildings) {
+        const p = r.mask;
+        gl.useProgram(p.program);
+        gl.uniformMatrix4fv(p.uniforms.u_matrix, false, this.matGeom);
+        // Dirección de la sombra (opuesta al sol) en ejes este / sur.
+        gl.uniform2f(p.uniforms.u_dir, -Math.sin(frame.azimuth), Math.cos(frame.azimuth));
+        gl.uniform1f(p.uniforms.u_perMeter, 1 / Math.tan(alt));
+        gl.uniform1f(p.uniforms.u_maxLen, SHADOW_MAX_LENGTH_M);
+        gl.bindVertexArray(r.geomVao);
+        const ranges = g.ranges;
+        for (let b = 0; b < ranges.length; b += 4) {
+          if (ranges[b + 1] > 0) {
+            gl.uniform1f(p.uniforms.u_value, 1);
+            gl.drawElements(gl.TRIANGLES, ranges[b + 1], gl.UNSIGNED_INT, ranges[b] * 4);
+          }
+          if (ranges[b + 3] > 0) {
+            gl.uniform1f(p.uniforms.u_value, 0);
+            gl.drawElements(gl.TRIANGLES, ranges[b + 3], gl.UNSIGNED_INT, ranges[b + 2] * 4);
+          }
+        }
+        gl.bindVertexArray(null);
+      }
       resolveRenderTarget(gl, t);
     }
 
     if (this.statsReq && !this.statsPending) this.reduceForStats(r);
+    this.renderFacadeMap(r, map, frame, g);
+  }
+
+  /** Radio (m) de lo que se ve alrededor del centro, acotado a los límites del mapa de sombras. */
+  private visibleRadius(map: GLMap): number {
+    const el = map.getContainer();
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    const c = map.getCenter();
+    const cx = lngToMx(c.lng);
+    const cy = latToMy(c.lat);
+    const mpu = metersPerMercatorUnit(c.lat);
+    let r = 0;
+    for (const pt of [
+      [0, h],
+      [w, h],
+      [0, h * 0.35],
+      [w, h * 0.35],
+    ] as Array<[number, number]>) {
+      const p = map.unproject(pt);
+      const d = Math.hypot((lngToMx(p.lng) - cx) * mpu, (latToMy(p.lat) - cy) * mpu);
+      if (Number.isFinite(d)) r = Math.max(r, d);
+    }
+    const [lo, hi] = PHASE_C.facadeRadiusM;
+    return clamp(r || hi, lo, hi);
+  }
+
+  /** Mapa de sombras del sol para tejados y fachadas (solo Alta, con edificios en 3D). */
+  private renderFacadeMap(r: Resources, map: GLMap, frame: SolarGLFrame, g: ShadowGeometry | null) {
+    const s = this.settings;
+    const zoom = map.getZoom();
+    if (!s.facadeShadows || !g || g.indices.length === 0 || !frame.buildings3D || frame.altitude < 0.035 || zoom < PHASE_C.facadeZoom[0] - 0.1) {
+      this.facadeKey = "";
+      if (r.facade) r.facade.ready = false;
+      return;
+    }
+    const c = map.getCenter();
+    const cx = (lngToMx(c.lng) - g.ox) * g.mpu;
+    const cy = (latToMy(c.lat) - g.oy) * g.mpu;
+    const radius = this.visibleRadius(map);
+    const trees = s.trees3d && this.trees && this.trees.count > 0 ? this.trees : null;
+    const hMax = Math.max(g.maxHeight, trees?.maxHeight ?? 0, 10);
+    const halfWidth = radius * 1.42 + hMax;
+    const halfDepth = halfWidth + hMax + 60;
+    const alt = Math.max(frame.altitude, SHADOW_MIN_ALTITUDE);
+    const q = Math.max(8, radius * 0.08);
+    const leaf = this.leaf();
+    // Las copas proyectan con el tamaño con el que se ven (crecen al acercarse, como en 3D).
+    const grow = trees ? smoothstep(PHASE_C.trees3dZoom[0], PHASE_C.trees3dZoom[1], zoom) : 1;
+    const key = `${trees?.version ?? 0}|${Math.round(grow * 50)}|${frame.azimuth.toFixed(3)}|${alt.toFixed(3)}|${Math.round(cx / q)}|${Math.round(cy / q)}|${Math.round(radius / 10)}|${leaf
+      .map((v) => v.toFixed(2))
+      .join(",")}|${s.shadowMapSize}`;
+    const facade = this.facadeRenderer(r);
+    if (key === this.facadeKey && facade.ready) return;
+    this.facadeKey = key;
+    const frustum: FacadeFrustum = { cx, cy, halfWidth, halfDepth, radius };
+    lightMatrix(frame.azimuth, alt, frustum, this.matLight);
+    facade.renderMap(g, this.matLight, frustum, s.shadowMapSize, () => {
+      if (!trees) return;
+      if (grow < 0.02) return;
+      this.treeRenderer(r).drawDepth(this.matLight, (trees.ox - g.ox) * g.mpu, (trees.oy - g.oy) * g.mpu, leaf, grow);
+    });
+  }
+
+  /** Sombra de los edificios vecinos sobre tejados y fachadas (capa 3D, tras los edificios del mapa). */
+  drawFacade(gl: WebGL2RenderingContext, args: unknown) {
+    if (this.failed) return;
+    this.guard(() => {
+      const map = this.map;
+      const frame = this.frame;
+      const main = mainMatrixOf(args);
+      const g = this.uploaded;
+      const r = this.res;
+      if (!map || !frame || !main || !g || !r || r.gl !== gl || !r.facade || !r.facade.ready || !this.settings.facadeShadows) return;
+      const zoom = map.getZoom();
+      const zf = zoomFactors(zoom, frame.buildings3D);
+      const appear = smoothstep(PHASE_C.facadeZoom[0], PHASE_C.facadeZoom[1], zoom);
+      const k = frame.shadowsK * appear * clamp(frame.opacity, 0, 1);
+      if (zf.extrudeK < 0.05 || k < 0.01 || frame.altitude < 0.035) return;
+      localToClipMatrix(main, g.ox, g.oy, g.mpu, this.matGeom);
+      const eye = eyeFromMatrix(this.matGeom);
+      if (!eye) return;
+      const tc = SHADOW_TONE.color;
+      r.facade.drawOverlay(g, this.matGeom, {
+        extrude: zf.extrudeK,
+        sun: sunVectorLocal(frame.azimuth, Math.max(frame.altitude, SHADOW_MIN_ALTITUDE)),
+        eye,
+        tone: [tc[0] / 255, tc[1] / 255, tc[2] / 255],
+        alpha: PHASE_C.facadeAlpha * k,
+        roofAlpha: PHASE_C.facadeRoofAlpha,
+      });
+    });
+  }
+
+  /** Árboles en 3D (solo Alta): copas y troncos con la luz del sol y la profundidad del mapa. */
+  drawTrees3D(gl: WebGL2RenderingContext, args: unknown) {
+    if (this.failed) return;
+    this.guard(() => {
+      const map = this.map;
+      const frame = this.frame;
+      const main = mainMatrixOf(args);
+      const r = this.res;
+      const trees = this.trees;
+      if (!map || !frame || !main || !r || r.gl !== gl || !trees || trees.count === 0 || !this.settings.trees3d || !frame.buildings3D) return;
+      const zoom = map.getZoom();
+      const grow = smoothstep(PHASE_C.trees3dZoom[0], PHASE_C.trees3dZoom[1], zoom);
+      if (grow < 0.02) return;
+      const tr = this.treeRenderer(r);
+      localToClipMatrix(main, trees.ox, trees.oy, trees.mpu, this.matTrees);
+      // Sombra de edificios (y de copas vecinas) sobre la copa: el mismo mapa que las fachadas.
+      const g = this.uploaded;
+      const facade = r.facade;
+      const sampling = this.settings.facadeShadows && facade ? facade.sampling(g) : null;
+      const shadow: TreeShadowMap | null =
+        sampling && facade && g
+          ? {
+              light: facade.light,
+              offsetX: (trees.ox - g.ox) * g.mpu,
+              offsetY: (trees.oy - g.oy) * g.mpu,
+              invSize: sampling.invSize,
+              depthPerM: sampling.depthPerM,
+              bind: (unit) => facade.bindMap(unit),
+            }
+          : null;
+      const day = clamp(frame.altitude / 0.35, 0, 1);
+      const night = frame.theme === "night" ? 1 : clamp(1 - (frame.altitude + 0.05) / 0.1, 0, 1) * 0.7;
+      gl.disable(gl.BLEND);
+      gl.depthMask(true);
+      gl.disable(gl.CULL_FACE);
+      gl.disable(gl.STENCIL_TEST);
+      tr.draw3D(this.matTrees, {
+        sun: sunVectorLocal(frame.azimuth, Math.max(frame.altitude, 0.02)),
+        ambient: 0.58,
+        diffuse: 0.5 * day + 0.08,
+        appear: grow * clamp(frame.opacity, 0, 1),
+        night,
+        grow,
+        densities: this.leaf(),
+        shadow,
+      });
+    });
   }
 
   private reduceForStats(r: Resources) {
@@ -674,7 +908,8 @@ export class SolarGLLayer {
       GRAPHICS.edgeSoftnessM,
       GRAPHICS.maxPenumbraPx
     );
-    gl.uniform1f(u.u_maxDist, g ? Math.min(SHADOW_MAX_LENGTH_M, g.maxHeight * perMeter) : 0);
+    const maxH = Math.max(g?.maxHeight ?? 0, this.settings.treeShadows ? (this.trees?.maxHeight ?? 0) : 0);
+    gl.uniform1f(u.u_maxDist, Math.min(SHADOW_MAX_LENGTH_M, maxH * perMeter));
     if (s.contactShadow) gl.uniform2f(u.u_contact, GRAPHICS.contactShadow.amount, GRAPHICS.contactShadow.meters);
     else gl.uniform2f(u.u_contact, 0, 1);
     gl.uniform1i(u.u_mode, s.penumbra === "full" ? 2 : s.penumbra === "lite" ? 1 : 0);
@@ -780,6 +1015,27 @@ export class SolarGLLayer {
       gl.bindVertexArray(null);
       gl.depthMask(true);
     });
+  }
+}
+
+/** Capa 3D que delega en la capa solar (comparte sus recursos de la GPU). */
+export class Delegate3DLayer {
+  readonly id: string;
+  readonly type = "custom" as const;
+  readonly renderingMode = "3d" as const;
+  private draw: (gl: WebGL2RenderingContext, args: unknown) => void;
+
+  constructor(id: string, draw: (gl: WebGL2RenderingContext, args: unknown) => void) {
+    this.id = id;
+    this.draw = draw;
+  }
+
+  onAdd() {
+    /* los recursos los crea la capa solar */
+  }
+
+  render(gl: WebGLRenderingContext | WebGL2RenderingContext, args: unknown) {
+    this.draw(gl as WebGL2RenderingContext, args);
   }
 }
 

@@ -54,12 +54,27 @@ describe("escala de luz compartida por canvas y GPU", () => {
 });
 
 describe("factores de zoom", () => {
-  it("las sombras aparecen hacia 13, el tono se refuerza en «calle» y «terraza»", () => {
+  it("las sombras aparecen hacia 13; el tono es suave en barrio y pleno en «calle» y «terraza»", () => {
     expect(zoomFactors(11, true).shadowZoomFade).toBe(0);
     expect(zoomFactors(13.2, true).shadowZoomFade).toBe(1);
-    expect(zoomFactors(13, true).toneAlpha).toBeCloseTo(0.46, 5);
-    expect(zoomFactors(16, true).toneAlpha).toBeCloseTo(0.58, 5);
+    expect(zoomFactors(13, true).toneAlpha).toBeCloseTo(0.26, 5);
+    expect(zoomFactors(14.5, true).toneAlpha).toBeCloseTo(0.26, 5);
+    // Vista de barrio (Gràcia a 15): bastante más suave que la plena de «calle».
+    expect(zoomFactors(15, true).toneAlpha < 0.31).toBe(true);
+    expect(zoomFactors(15.5, true).toneAlpha).toBeCloseTo(0.42, 5);
+    expect(zoomFactors(16.5, true).toneAlpha).toBeCloseTo(0.58, 5);
     expect(zoomFactors(19.5, true).toneAlpha).toBeCloseTo(0.64, 5);
+  });
+
+  it("el tono nunca baja al acercarse", () => {
+    let prev = 0;
+    let ok = true;
+    for (let z = 10; z <= 21; z += 0.1) {
+      const a = zoomFactors(z, true).toneAlpha;
+      if (a < prev - 1e-9) ok = false;
+      prev = a;
+    }
+    expect(ok).toBe(true);
   });
 
   it("la altura 3D sigue la misma transición que la extrusión del mapa", () => {

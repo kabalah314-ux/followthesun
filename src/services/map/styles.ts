@@ -159,6 +159,17 @@ function colorPaint(theme: Theme): Record<string, Record<string, unknown>> {
   };
 }
 
+/**
+ * Halo de los rótulos de parque, barrio y calle: más ancho y difuminado para que conserven el
+ * contraste encima de las sombras (la capa solar va por debajo de los rótulos, pero su tono pizarra
+ * oscurecía el fondo de las letras en la vista de barrio).
+ */
+const LABEL_HALO = {
+  park: { "text-halo-width": 1.7, "text-halo-blur": 0.6 },
+  place: { "text-halo-width": 2.2, "text-halo-blur": 0.8 },
+  road: { "text-halo-width": 2, "text-halo-blur": 0.6 },
+} as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Expresiones y ayudas                                                        */
 /* -------------------------------------------------------------------------- */
@@ -409,7 +420,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
         "text-max-width": 7,
         "text-letter-spacing": 0.04,
       },
-      paint: { ...c["label-park"], "text-halo-width": 1.4, "text-opacity": 0.95 },
+      paint: { ...c["label-park"], ...LABEL_HALO.park, "text-opacity": 0.95 },
     },
     {
       id: "label-city",
@@ -442,7 +453,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
         "text-letter-spacing": 0.2,
         "text-max-width": 7,
       },
-      paint: { ...c["label-place"], "text-halo-width": 1.6, "text-opacity": 0.85 },
+      paint: { ...c["label-place"], ...LABEL_HALO.place, "text-opacity": 0.92 },
     },
     {
       id: "label-road",
@@ -458,7 +469,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
         "text-size": ["interpolate", ["linear"], ["zoom"], 15, 10, 18, 12.5],
         "text-letter-spacing": 0.04,
       },
-      paint: { ...c["label-road"], "text-halo-width": 1.5, "text-opacity": 0.9 },
+      paint: { ...c["label-road"], ...LABEL_HALO.road, "text-opacity": 0.95 },
     },
     (() => {
       const l = housenumberLayer(S, "housenum_label", "house_num", MB_FONT);
@@ -666,7 +677,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
         "text-max-width": 7,
         "text-letter-spacing": 0.04,
       },
-      paint: { ...c["label-park"], "text-halo-width": 1.4, "text-opacity": 0.95 },
+      paint: { ...c["label-park"], ...LABEL_HALO.park, "text-opacity": 0.95 },
     },
     {
       id: "label-city",
@@ -699,7 +710,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
         "text-letter-spacing": 0.2,
         "text-max-width": 7,
       },
-      paint: { ...c["label-place"], "text-halo-width": 1.6, "text-opacity": 0.85 },
+      paint: { ...c["label-place"], ...LABEL_HALO.place, "text-opacity": 0.92 },
     },
     {
       id: "label-road",
@@ -715,7 +726,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
         "text-size": ["interpolate", ["linear"], ["zoom"], 15, 10, 18, 12.5],
         "text-letter-spacing": 0.04,
       },
-      paint: { ...c["label-road"], "text-halo-width": 1.5, "text-opacity": 0.9 },
+      paint: { ...c["label-road"], ...LABEL_HALO.road, "text-opacity": 0.95 },
     },
     (() => {
       const l = housenumberLayer(S, "housenumber", "housenumber", OMT_FONT);

@@ -1,3 +1,6 @@
+import { createTreeShadeTester, type TreeShadeTester } from "../graphics/trees/treeShade";
+import type { TreeBatch } from "../graphics/trees/treeStore";
+import { leafDensities } from "../graphics/trees/treeTiles";
 import { DEG, lngToMx, latToMy, metersPerMercatorUnit, pointInPolygon } from "../lib/coordinates";
 import type { ShadowResult, SolarPosition } from "../types";
 import { buildingsCover, type BuildingSet } from "./buildingService";
@@ -22,6 +25,19 @@ export const SHADOW_MAX_LENGTH_M = 380;
 
 /** Margen de seguridad (rad) sobre el horizonte natural para considerar el sol visible. */
 const HORIZON_MARGIN = 0.003;
+
+/**
+ * Sombra de los árboles en el cálculo de un punto (sol de una terraza, línea del día…). APAGADA:
+ *  · los árboles solo se cargan para la vista del mapa (desde zoom 15,3), así que un mismo sitio
+ *    daría resultados distintos según dónde mire el mapa, y los datos precalculados de los sitios
+ *    aún no los incluyen;
+ *  · `ShadowResult` solo tiene «sombra sí / no» y una copa deja pasar parte del sol.
+ * El cálculo ya está hecho y probado (`createTreeShadeTester`): para activarlo basta poner esto a
+ * true y pasar los árboles (y la fecha) a `createShadowEvaluator`.
+ */
+export const TREES_IN_POINT_SUNLIGHT = false;
+/** Fracción del sol tapada por copas a partir de la cual el punto cuenta como «a la sombra». */
+export const TREE_SHADE_THRESHOLD = 0.5;
 
 /* -------------------------------------------------------------------------- */
 /*  Test de sombra urbana en un punto                                          */
@@ -154,6 +170,9 @@ export interface ShadowEvaluatorArgs {
   latitude: number;
   longitude: number;
   buildings: BuildingSet | null;
+  /** Árboles cercanos y fecha (hoja de la estación): solo cuentan con `TREES_IN_POINT_SUNLIGHT`. */
+  trees?: TreeBatch | null;
+  date?: Date;
 }
 
 /**
@@ -165,6 +184,9 @@ export function createShadowEvaluator(args: ShadowEvaluatorArgs): ShadowEvaluato
   const { latitude, longitude, buildings } = args;
   const known = buildings !== null && buildingsCover(buildings, longitude, latitude, 300);
   const tester = known && buildings ? createShadeTester(buildings, longitude, latitude) : null;
+  const trees: TreeShadeTester | null =
+    TREES_IN_POINT_SUNLIGHT && args.trees ? createTreeShadeTester(args.trees, longitude, latitude) : null;
+  const leaf = trees ? leafDensities(args.date ?? new Date()) : null;
 
   const source = tester ? tr("shadowService.edificios_osm_modelo_de_relieve") : tr("shadowService.modelo_de_relieve_sin_edificios");
   const confidence = tester ? 0.85 : 0.6;
@@ -178,7 +200,9 @@ export function createShadowEvaluator(args: ShadowEvaluatorArgs): ShadowEvaluato
       const horizon = terrainService.horizonAngle(longitude, latitude, sun.azimuth);
       return {
         terrainShadow: sun.altitude < horizon + HORIZON_MARGIN,
-        urbanShadow: tester ? tester.isShaded(sun.azimuth, sun.altitude) : false,
+        urbanShadow:
+          (tester ? tester.isShaded(sun.azimuth, sun.altitude) : false) ||
+          (trees && leaf ? trees.shadeAt(sun.azimuth, sun.altitude, leaf) >= TREE_SHADE_THRESHOLD : false),
         buildingsKnown: tester !== null,
         confidence,
         source,
