@@ -2,7 +2,8 @@ import { tr } from "../i18n";
 import { buildIcs } from "../lib/ics";
 import { timeParams } from "../lib/deepLinks";
 import { createLocalStore } from "../lib/localStore";
-import { formatClock } from "./timeService";
+import { zonedMs } from "../lib/planningTime";
+import { formatClock, startOfZoneDay } from "./timeService";
 
 /**
  * Avisos de sol o de sombra (guía maestra 2, utilidad «Alertas»), sin servidor y sin cuentas: cada
@@ -90,6 +91,48 @@ export function alertIcs(a: SunAlert, origin: string, now: number = Date.now()):
 }
 
 /** Descarga el evento: en el móvil se abre directamente en el calendario. */
+/** Hora del resumen de cada mañana. */
+export const DAILY_SUMMARY_MINUTES = 8 * 60 + 55;
+
+/**
+ * «Resumen matinal» (utilidad 27 de la guía maestra 2) sin servidor: un evento diario en el
+ * calendario a las 8:55 con aviso y el enlace a la app, que al abrirse da las horas de sol de hoy,
+ * el UV y lo mejor cerca.
+ */
+export function dailySummaryIcs(origin: string, now: number = Date.now()): string {
+  const today = startOfZoneDay(now);
+  let start = zonedMs(today, DAILY_SUMMARY_MINUTES);
+  if (start <= now) start = zonedMs(startOfZoneDay(today + 30 * 3_600_000), DAILY_SUMMARY_MINUTES);
+  const url = `${origin}/`;
+  return buildIcs(
+    {
+      uid: "resumen-diario@ifollowthesun",
+      start,
+      end: start + 5 * 60_000,
+      floating: true,
+      rrule: "FREQ=DAILY",
+      title: tr("alerts.resumen_titulo"),
+      description: tr("alerts.resumen_descripcion", { p0: url }),
+      url,
+      alarmMinutesBefore: 0,
+      alarmText: tr("alerts.resumen_titulo"),
+    },
+    now
+  );
+}
+
+export function downloadDailySummary(origin: string = window.location.origin): void {
+  const blob = new Blob([dailySummaryIcs(origin)], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "sol-de-hoy-cada-manana.ics";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export function downloadAlert(a: SunAlert, origin: string = window.location.origin): void {
   const blob = new Blob([alertIcs(a, origin)], { type: "text/calendar;charset=utf-8" });
   const url = URL.createObjectURL(blob);

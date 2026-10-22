@@ -238,6 +238,15 @@ export default function SunPlanner(p: Props) {
                   >
                     {tr("sunPlanner.sombra_1_h")}
                   </GhostButton>
+                  {/* Evento al aire libre (utilidad 28): la zona de un parque con sombra a la hora del evento. */}
+                  <GhostButton
+                    onClick={() => {
+                      onChange({ intent: "shade", preference: SUN_INTENTS.shade.preference, locationType: "park", ...timeDefaults() });
+                      setStep(2);
+                    }}
+                  >
+                    {tr("sunPlanner.evento_al_aire_libre")}
+                  </GhostButton>
                 </div>
               </div>
             </div>

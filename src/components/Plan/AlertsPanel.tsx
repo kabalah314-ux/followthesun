@@ -1,6 +1,6 @@
 import { useLocalStore } from "../../hooks/useLocalStore";
 import { dayChoiceLabel } from "../../lib/planningTime";
-import { alertsStore, downloadAlert, removeAlert, upcomingAlerts, ALERT_MINUTES_BEFORE } from "../../services/alertsService";
+import { alertsStore, downloadAlert, downloadDailySummary, removeAlert, upcomingAlerts, ALERT_MINUTES_BEFORE } from "../../services/alertsService";
 import { formatClock, startOfZoneDay } from "../../services/timeService";
 import { tr } from "../../i18n";
 
@@ -59,6 +59,18 @@ export default function AlertsPanel({ now, savedCount, onOpenSaved }: { now: num
           ))}
         </ul>
       )}
+
+      <div className="mt-4 rounded-[18px] border border-line px-3.5 py-3">
+        <p className="text-[14.5px] font-semibold text-ink">{tr("alerts.resumen_bloque")}</p>
+        <p className="mt-1 text-[13px] leading-snug text-ink-soft">{tr("alerts.resumen_texto")}</p>
+        <button
+          type="button"
+          onClick={() => downloadDailySummary()}
+          className="mt-1 min-h-[44px] text-[13.5px] font-semibold text-sun-deep underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sun/60"
+        >
+          {tr("alerts.resumen_anadir")}
+        </button>
+      </div>
 
       <p className="mt-4 text-[13px] leading-relaxed text-ink-soft">{tr("alerts.nubes_aviso")}</p>
       <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">{tr("alerts.privacidad_calendario")}</p>

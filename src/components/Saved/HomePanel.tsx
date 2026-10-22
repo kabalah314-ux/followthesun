@@ -10,6 +10,15 @@ import { Caps, PrimaryButton } from "../FindSun/ui";
 import { intlLocale, tr } from "../../i18n";
 
 const monthFmt = new Intl.DateTimeFormat(intlLocale(), { month: "short", timeZone: BARCELONA.timeZone });
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** Horas de sol directo posible al año (sin nubes) a partir del día 21 de cada mes. */
+export function annualSunHours(months: readonly MonthSun[]): number | null {
+  if (months.length < 12) return null;
+  let minutes = 0;
+  for (const m of months) minutes += m.sunMinutes * (DAYS_IN_MONTH[m.month - 1] ?? 30);
+  return Math.round(minutes / 60);
+}
 const monthLong = new Intl.DateTimeFormat(intlLocale(), { month: "long", timeZone: BARCELONA.timeZone });
 
 /**
@@ -133,6 +142,14 @@ export default function HomePanel({
         </div>
       </div>
       <p className="mt-3 text-[12.5px] leading-snug text-ink-faint">{tr("home.nota")}</p>
+      {annualSunHours(months) !== null && (
+        <div className="mt-3 rounded-[16px] bg-ink/[0.035] px-3.5 py-3">
+          <p className="text-[14px] font-semibold text-ink">
+            {tr("home.al_ano", { p0: new Intl.NumberFormat(intlLocale()).format(annualSunHours(months) ?? 0) })}
+          </p>
+          <p className="mt-1 text-[12.5px] leading-snug text-ink-soft">{tr("home.placas")}</p>
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {selection && (

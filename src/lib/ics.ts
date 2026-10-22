@@ -16,6 +16,31 @@ export interface IcsEvent {
   /** Minutos de antelación de la alarma (sin alarma si no se indica). */
   alarmMinutesBefore?: number;
   alarmText?: string;
+  /** Regla de repetición (RFC 5545), p. ej. «FREQ=DAILY». */
+  rrule?: string;
+  /**
+   * Hora «flotante» (la del reloj de quien lo añade, sin zona): un evento diario a las 8:55 sigue
+   * a las 8:55 al cambiar al horario de verano. `start` y `end` se escriben en hora de Barcelona.
+   */
+  floating?: boolean;
+}
+
+const FLOAT_FMT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/Madrid",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Fecha local de Barcelona sin zona (hora flotante): 20261023T085500. */
+export function icsFloatingDate(ms: number): string {
+  const p: Record<string, string> = {};
+  for (const x of FLOAT_FMT.formatToParts(new Date(ms))) if (x.type !== "literal") p[x.type] = x.value;
+  return `${p.year}${p.month}${p.day}T${p.hour}${p.minute}${p.second}`;
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -66,10 +91,11 @@ export function buildIcs(ev: IcsEvent, now: number = Date.now()): string {
     "BEGIN:VEVENT",
     `UID:${ev.uid}`,
     `DTSTAMP:${icsDate(now)}`,
-    `DTSTART:${icsDate(ev.start)}`,
-    `DTEND:${icsDate(Math.max(ev.end, ev.start + 60_000))}`,
+    `DTSTART:${ev.floating ? icsFloatingDate(ev.start) : icsDate(ev.start)}`,
+    `DTEND:${ev.floating ? icsFloatingDate(Math.max(ev.end, ev.start + 60_000)) : icsDate(Math.max(ev.end, ev.start + 60_000))}`,
     `SUMMARY:${icsEscape(ev.title)}`,
   ];
+  if (ev.rrule) lines.push(`RRULE:${ev.rrule}`);
   if (ev.description) lines.push(`DESCRIPTION:${icsEscape(ev.description)}`);
   if (ev.location) lines.push(`LOCATION:${icsEscape(ev.location)}`);
   if (ev.geo) lines.push(`GEO:${ev.geo.lat.toFixed(6)};${ev.geo.lng.toFixed(6)}`);
