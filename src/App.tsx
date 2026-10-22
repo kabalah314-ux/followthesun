@@ -482,16 +482,26 @@ export default function App() {
   );
 
   /** Vuelo a un sitio «de cine»: inclinado y de espaldas al sol, para ver de frente la fachada iluminada. */
-  const flyToPlace = useCallback((lng: number, lat: number) => {
+  const flyNow = useCallback((lng: number, lat: number) => {
     const c = mapController.current;
     if (!c) return;
     c.flyToCinematic(lng, lat, { sunAzimuthDeg: solarService.getPosition(timeRef.current, lat, lng).azimuthDeg });
   }, []);
+  /**
+   * El vuelo se lanza en un efecto que va DETRÁS del de los márgenes: así sale ya con el padding de
+   * la nueva altura de la hoja y no lo corta un cambio de márgenes a medio camino.
+   */
+  const [pendingFly, setPendingFly] = useState<{ lng: number; lat: number; n: number } | null>(null);
+  const flySeq = useRef(0);
+  const flyToPlace = useCallback((lng: number, lat: number) => setPendingFly({ lng, lat, n: ++flySeq.current }), []);
 
   const effectiveWindow = windowMode ? windowRect : null;
   useEffect(() => {
     applyInsets(insetsFor(sheetLevel, effectiveWindow));
   }, [applyInsets, insetsFor, sheetLevel, effectiveWindow, loaded]);
+  useEffect(() => {
+    if (pendingFly) flyNow(pendingFly.lng, pendingFly.lat);
+  }, [pendingFly, flyNow]);
 
   // Lo elegido (ficha o punto): la cámara lo mantiene en la parte visible.
   const focus: LngLat | null = card

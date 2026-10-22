@@ -303,6 +303,8 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
       /* 6 · Relieve: inclinación automática. */
       // Al acercarse, el mapa se inclina para ver los edificios en 3D; al alejarse vuelve a la vista
       // cenital. Si la persona inclina o reorienta el mapa a mano, manda ella (hasta volver a alejarse).
+      /** Hay un padding nuevo esperando a que termine el movimiento de la cámara. */
+      let paddingPending = false;
       let tiltArmed = true;
       let autoTilted = false;
       /** El rumbo actual viene de un vuelo de cine (no de la persona): se endereza al alejarse. */
@@ -433,9 +435,23 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           const fitted = fitInsets(insets, container.clientWidth, container.clientHeight);
           paddingRef.current = fitted;
           try {
-            // Con la cámara en marcha (p. ej. el vuelo al abrir una ficha) un `easeTo` la cortaría:
-            // el padding se aplica al momento y el vuelo sigue hasta su destino.
-            if (opts?.animate === false || created.isMoving?.()) created.setPadding?.(fitted);
+            // Con la cámara en marcha (un vuelo o un gesto), tanto `easeTo` como `setPadding` (que es
+            // un `jumpTo`) la pararían: el padding nuevo se aplica cuando termine.
+            if (created.isMoving?.()) {
+              if (!paddingPending) {
+                paddingPending = true;
+                created.once("moveend", () => {
+                  paddingPending = false;
+                  try {
+                    created.easeTo({ padding: paddingRef.current, duration: 300, easing: easeOutCubic });
+                  } catch {
+                    /* noop */
+                  }
+                });
+              }
+              return;
+            }
+            if (opts?.animate === false) created.setPadding?.(fitted);
             else created.easeTo({ padding: fitted, duration: 450, easing: easeOutCubic });
           } catch {
             /* proveedor sin padding: quedan los desplazamientos de `setInsets` */
