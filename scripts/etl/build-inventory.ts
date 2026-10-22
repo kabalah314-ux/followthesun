@@ -46,6 +46,7 @@ import {
   type StaticVenuesFile,
 } from "../../src/services/staticData";
 import { buildVenueQuery, packVenueElement, type OvNode } from "../../src/services/venueService";
+import { venuesFromGeojsonSeq } from "./osmiumVenues";
 
 const OUT_DIR = resolve(process.cwd(), "public/data");
 const UA = "IFollowTheSun-ETL/1.0 (+https://github.com/kabalah314-ux/followthesun)";
@@ -197,6 +198,20 @@ async function main() {
   const venues = await step(
     "OSM · cafés, bares y restaurantes",
     async () => {
+      // 2a · Extracto de Geofabrik filtrado con osmium (lo prepara el flujo de GitHub Actions).
+      const seq = process.env.VENUES_GEOJSONSEQ?.trim();
+      if (seq && existsSync(seq)) {
+        const byRef = new Map<string, PackedVenue>();
+        for (const el of await venuesFromGeojsonSeq(seq, bbox)) {
+          const v = packVenueElement(el);
+          if (v && !byRef.has(v[0])) byRef.set(v[0], v);
+        }
+        const list = [...byRef.values()];
+        console.log(`  extracto de Geofabrik: ${list.length} negocios con nombre en la caja`);
+        if (list.length >= minVenues) return list.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+        warn(`el extracto solo trae ${list.length} negocios (mínimo ${minVenues}); se prueba con Overpass`);
+      }
+      // 2b · Overpass por teselas (respaldo).
       const t0 = Date.now();
       const byRef = new Map<string, PackedVenue>();
       const perTile: number[] = [];

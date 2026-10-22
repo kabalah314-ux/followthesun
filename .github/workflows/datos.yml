@@ -33,6 +33,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Los negocios salen de un extracto de OpenStreetMap (Geofabrik, Cataluña) filtrado con osmium:
+      # las consultas largas a los servidores públicos de Overpass se cortan desde GitHub Actions.
+      # Si este paso falla, el ETL vuelve a Overpass por teselas.
+      - name: Extracto de OpenStreetMap para los negocios
+        continue-on-error: true
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y osmium-tool > /dev/null
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/cataluna.osm.pbf" https://download.geofabrik.de/europe/spain/cataluna-latest.osm.pbf
+          osmium tags-filter "$RUNNER_TEMP/cataluna.osm.pbf" nwr/amenity=cafe,bar,restaurant,pub,ice_cream,biergarten -o "$RUNNER_TEMP/venues.osm.pbf" --overwrite
+          osmium export "$RUNNER_TEMP/venues.osm.pbf" -f geojsonseq -a type,id -o "$RUNNER_TEMP/venues.geojsonseq" --overwrite
+          wc -l "$RUNNER_TEMP/venues.geojsonseq"
+          echo "VENUES_GEOJSONSEQ=$RUNNER_TEMP/venues.geojsonseq" >> "$GITHUB_ENV"
       - name: Generar inventario
         run: npx vite-node scripts/etl/build-inventory.ts
       - name: Guardar los datos si han cambiado
