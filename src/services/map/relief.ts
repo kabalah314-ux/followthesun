@@ -94,7 +94,8 @@ export class ReliefLayer {
     this.map = map;
   }
 
-  update(enabled: boolean, sun: ReliefSun, theme: Theme) {
+  /** Devuelve false si el estilo aún no lo admitía (hay que reintentar). */
+  update(enabled: boolean, sun: ReliefSun, theme: Theme): boolean {
     const map = this.map;
     try {
       const want = enabled && !map.getLayer("satellite-base");
@@ -103,7 +104,7 @@ export class ReliefLayer {
         if (has) map.removeLayer?.(HILLSHADE_LAYER_ID);
         if (map.getSource(DEM_SOURCE_ID)) map.removeSource?.(DEM_SOURCE_ID);
         this.paintKey = "";
-        return;
+        return true;
       }
       const layer = hillshadeLayer(sun, theme);
       const paint = layer.paint as Record<string, unknown>;
@@ -112,14 +113,16 @@ export class ReliefLayer {
       if (!has) {
         map.addLayer(layer, hillshadeBeforeId(map.getStyle?.()?.layers ?? []));
         this.paintKey = key;
-        return;
+        return true;
       }
-      if (key === this.paintKey) return;
+      if (key === this.paintKey) return true;
       for (const [k, v] of Object.entries(paint)) map.setPaintProperty(HILLSHADE_LAYER_ID, k, v);
       this.paintKey = key;
+      return true;
     } catch {
-      // Estilo en transición: se reintenta en la siguiente actualización.
+      // Estilo en transición (aún cargando): se reintenta en la siguiente actualización.
       this.paintKey = "";
+      return false;
     }
   }
 }

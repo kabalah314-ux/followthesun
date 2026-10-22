@@ -497,6 +497,9 @@ export class SolarOverlayEngine {
 
   private onStyleData = () => {
     if (this.glLayer) this.ensureGLLayers();
+    // Un estilo nuevo (tema, satélite) o recién cargado llega sin el relieve: se mira en el próximo dibujo.
+    this.reliefKey = "";
+    this.dirty = true;
   };
 
   private requestGeometry(set: BuildingSet) {
@@ -667,8 +670,8 @@ export class SolarOverlayEngine {
     const alt = Math.round(pos.altitudeDeg / 2) * 2;
     const key = `${enabled}|${present}|${satellite}|${az}|${alt}|${this.theme}`;
     if (key === this.reliefKey) return;
-    this.reliefKey = key;
-    this.relief.update(enabled, { azimuthDeg: az, altitudeDeg: alt }, this.theme);
+    // Solo se da por hecho si el estilo lo admitió (al cargar el estilo se reintenta).
+    this.reliefKey = this.relief.update(enabled, { azimuthDeg: az, altitudeDeg: alt }, this.theme) ? key : "";
   }
 
   private refreshBuildings() {
