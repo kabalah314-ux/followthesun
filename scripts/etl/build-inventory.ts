@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync, appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PLACES_CONFIG } from "../../src/config";
-import { isRetryable, withRetry } from "../../src/lib/net";
+import { fetchWithTimeout, isRetryable, withRetry } from "../../src/lib/net";
 import { configureCkan, datastoreSearch, packageResources } from "../../src/services/openData/ckan";
 import { OPEN_DATA_CONFIG } from "../../src/services/openData/config";
 import { packPlaces, packTerraces } from "../../src/services/openData/datasets";
@@ -74,11 +74,29 @@ const VENUES_DEADLINE_MS = 25 * 60_000;
 
 configureCkan({
   headers: { "User-Agent": UA },
-  timeoutMs: 120_000,
-  retries: 4,
-  delaysMs: [3000, 8000, 20_000, 45_000],
+  timeoutMs: 90_000,
+  retries: 2,
+  delaysMs: [3000, 10_000],
   retryOn: isRetryable,
 });
+
+/**
+ * ¿Responde el portal de Open Data BCN? Una sola consulta corta: si está caído, se saltan todos
+ * sus pasos (cada uno, con sus reintentos, tardaría minutos) y se conservan los datos anteriores.
+ */
+async function openDataUp(): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(
+      `${OPEN_DATA_CONFIG.apiBase}package_show?id=${NEIGHBORHOODS_DATASET}`,
+      { headers: { "User-Agent": UA } },
+      30_000
+    );
+    const json = (await res.json()) as { success?: boolean };
+    return json?.success === true;
+  } catch {
+    return false;
+  }
+}
 
 const summary: Array<{ fuente: string; estado: string; elementos: number | string; ms: number }> = [];
 let warnings = 0;
@@ -150,8 +168,9 @@ async function main() {
   const places = await step(
     "OSM · lugares",
     async () => {
-      const query = buildOverpassQuery().replace("[timeout:60]", "[timeout:240]");
-      const list = normalizeOverpass(await overpassEtl<OvElement>(query, 300_000));
+      const query = buildOverpassQuery().replace("[timeout:60]", "[timeout:180]");
+      // Un reintento como mucho: si Overpass va lento, se conserva places.json y el resto sigue.
+      const list = normalizeOverpass(await overpassEtl<OvElement>(query, 200_000, 1));
       if (list.length < MIN_PLACES) throw new Error(`solo ${list.length} lugares (mínimo ${MIN_PLACES})`);
       return list.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     },
@@ -159,8 +178,11 @@ async function main() {
   );
   const prevPlaces = readPrevious<StaticPlacesFile>("places.json", "places");
 
+  const portal = await openDataUp();
+  if (!portal) warn("Open Data BCN no responde: se conservan los barrios, las terrazas y los servicios anteriores");
+
   /* 1b · Barrio de cada lugar, para las páginas /barrio/<slug> del prerender */
-  const neighborhoods = await step(
+  const neighborhoods = !portal ? null : await step(
     "Open Data BCN · barrios",
     async () => {
       const resources = await packageResources(NEIGHBORHOODS_DATASET);
@@ -245,13 +267,13 @@ async function main() {
   const sections: StaticOpenDataFile["sections"] = { ...(prevOpen?.sections ?? {}) };
   let changedOpen = false;
 
-  const terraces = await step("Open Data BCN · terrazas con licencia", () => openDataLive.terraces(), (v) => v.length);
+  const terraces = !portal ? null : await step("Open Data BCN · terrazas con licencia", () => openDataLive.terraces(), (v) => v.length);
   if (terraces && terraces.length > 0) {
     const items = packTerraces(terraces).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
     sections.terraces = { fetchedAt: NOW, items };
     changedOpen = true;
   }
-  for (const set of OPEN_DATA_PLACE_SETS) {
+  for (const set of portal ? OPEN_DATA_PLACE_SETS : []) {
     const list = await step(`Open Data BCN · ${set}`, () => openDataLive.places[set](), (v) => v.length);
     if (list && list.length > 0) {
       const items = packPlaces(list).sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));

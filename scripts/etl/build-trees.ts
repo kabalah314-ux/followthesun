@@ -16,7 +16,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { PLACES_CONFIG } from "../../src/config";
-import { isRetryable } from "../../src/lib/net";
+import { fetchWithTimeout, isRetryable } from "../../src/lib/net";
 import { configureCkan, fetchText, packageResources, type CkanResource } from "../../src/services/openData/ckan";
 import { parseCsv, toNumber } from "../../src/services/openData/csv";
 import { treeDims } from "../../src/graphics/trees/species";
@@ -80,6 +80,19 @@ async function loadDataset(slug: string, now: Date): Promise<{ trees: Map<string
 }
 
 async function main() {
+  // Si el portal no responde, se conservan las teselas anteriores sin gastar media hora en reintentos.
+  try {
+    const res = await fetchWithTimeout(
+      `https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id=${DATASETS[0]}`,
+      { headers: { "User-Agent": UA } },
+      30_000
+    );
+    const json = (await res.json()) as { success?: boolean };
+    if (json?.success !== true) throw new Error("respuesta inesperada");
+  } catch (e) {
+    console.log(`::warning::Arbolado: Open Data BCN no responde (${e instanceof Error ? e.message : String(e)}); se conservan las teselas anteriores`);
+    return;
+  }
   const now = new Date();
   const all = new Map<string, TreeRecord>();
   const summary: string[] = [];

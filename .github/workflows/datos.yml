@@ -22,7 +22,7 @@ concurrency:
 jobs:
   inventario:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 80
     # El commit del bot (con GITHUB_TOKEN) no dispara workflows, y además no toca scripts/etl:
     # no hay bucle.
     if: github.actor != 'github-actions[bot]'
@@ -52,18 +52,22 @@ jobs:
           wc -l "$RUNNER_TEMP/benches.geojsonseq"
           echo "BENCHES_GEOJSONSEQ=$RUNNER_TEMP/benches.geojsonseq" >> "$GITHUB_ENV"
       - name: Generar inventario
+        timeout-minutes: 25
         run: npx vite-node scripts/etl/build-inventory.ts
       - name: Generar bancos
         # Si falla, se conserva el fichero anterior.
         continue-on-error: true
+        timeout-minutes: 5
         run: npx vite-node scripts/etl/build-benches.ts
       - name: Generar arbolado (árboles 3D y sus sombras)
         # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
         continue-on-error: true
+        timeout-minutes: 20
         run: npx vite-node scripts/etl/build-trees.ts
       - name: Generar alturas del Catastro (sombras de edificios sin altura en OSM)
         # Si falla, se conservan las teselas anteriores y el resto de datos se guarda igual.
         continue-on-error: true
+        timeout-minutes: 20
         run: npx vite-node scripts/etl/build-heights.ts
       - name: Guardar los datos si han cambiado
         env:
