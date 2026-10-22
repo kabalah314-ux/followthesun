@@ -17,6 +17,7 @@ import CloudLayer from "./components/Map/CloudLayer";
 import LayerControl from "./components/Map/LayerControl";
 import MapControls from "./components/Map/MapControls";
 import MapMarkers from "./components/Map/MapMarkers";
+import RouteLayer from "./components/Map/RouteLayer";
 import ShadowLayer from "./components/Map/ShadowLayer";
 import StreetProbe, { type StreetInfo } from "./components/Map/StreetProbe";
 import TerraceLayer from "./components/Map/TerraceLayer";
@@ -55,6 +56,7 @@ import { usePreferences } from "./hooks/usePreferences";
 import { useReducedMotion } from "./hooks/useReducedMotion";
 import { useSavedPlaces } from "./hooks/useSavedPlaces";
 import { useSea } from "./hooks/useSea";
+import { useShadeRoute } from "./hooks/useShadeRoute";
 import { useSunSearch } from "./hooks/useSunSearch";
 import { useStreetSun } from "./hooks/useStreetSun";
 import { useSunShadeMode } from "./hooks/useSunShadeMode";
@@ -347,6 +349,13 @@ export default function App() {
   const [pointTimeline, setPointTimeline] = useState<PointTimeline | null>(null);
   const [pointSunlight, setPointSunlight] = useState<SunlightResult | null>(null);
   const [card, setCard] = useState<CardState | null>(null);
+  // Ruta por la sombra (o por el sol) hasta el sitio de la ficha.
+  const shadeRoute = useShadeRoute();
+  const clearRoute = shadeRoute.clear;
+  const routePlaceId = shadeRoute.state.placeId;
+  useEffect(() => {
+    if (routePlaceId && routePlaceId !== card?.data.place.id) clearRoute();
+  }, [routePlaceId, card?.data.place.id, clearRoute]);
   // «Comparar dos sitios»: el sitio apartado para compararlo con el de la siguiente ficha.
   const [comparePlace, setComparePlace] = useState<SunPlace | null>(null);
   // La terraza de la ficha dibujada en el mapa con su % al sol a la hora elegida (B10).
@@ -358,6 +367,14 @@ export default function App() {
   const [debugSource, setDebugSource] = useState<LightSourceMode>("fused");
   const [locating, setLocating] = useState(false);
   const mapController = useRef<MapController | null>(null);
+  // Con la ruta lista, el mapa la encuadra entera.
+  const routeReady = shadeRoute.state.status === "ready" ? shadeRoute.state : null;
+  useEffect(() => {
+    const r = routeReady?.routes[routeReady.best];
+    if (!r) return;
+    const step = Math.max(1, Math.floor(r.coords.length / 30));
+    mapController.current?.fitPoints(r.coords.filter((_, i) => i % step === 0 || i === r.coords.length - 1).map(([lng, lat]) => ({ lng, lat })));
+  }, [routeReady]);
   const selCounter = useRef(1_000_000);
   const savedTime = useRef<SavedTime | null>(null);
   const cardSeq = useRef(0);
@@ -1355,6 +1372,23 @@ export default function App() {
       onRetry={() => void openPlace(card.data.place)}
       onShowTime={showTimeAt}
       terrace={terraceSun}
+      route={shadeRoute.state}
+      routeMode={sunShade.mode}
+      onRoute={() => {
+        const target = card.data;
+        const to = { lat: target.result?.spot.latitude ?? target.place.latitude, lng: target.result?.spot.longitude ?? target.place.longitude };
+        void (async () => {
+          let from = userLocation;
+          if (!from) {
+            setLocating(true);
+            from = await requestUserLocation();
+            setLocating(false);
+          }
+          if (!from) return;
+          await shadeRoute.compute(target.place.id, from, to, Math.max(selectedTime, Date.now()), sunShade.mode);
+        })();
+      }}
+      onClearRoute={shadeRoute.clear}
       compare={comparePlace}
       onCompare={() => {
         setComparePlace(card.data.place);
@@ -1558,6 +1592,7 @@ export default function App() {
       </SolarOverlay>
       <MapMarkers selection={selection} userLocation={userLocation} highlights={highlights} activeSpotId={activePin} onPickSpot={handlePickSpot} />
       <TerraceLayer data={terraceSun} />
+      <RouteLayer state={card && shadeRoute.state.placeId === card.data.place.id ? shadeRoute.state : null} />
       <StreetProbe point={selection} onStreet={setStreetInfo} />
     </BarcelonaMap>
   );

@@ -18,6 +18,8 @@ import { CloseIcon, SunGlyph } from "../Icons";
 import WindowStrip from "../FindSun/WindowStrip";
 import AffiliateSlot from "./AffiliateSlot";
 import CompareBlock from "./CompareBlock";
+import RouteBlock from "./RouteBlock";
+import type { ShadeRouteState } from "../../hooks/useShadeRoute";
 import HowWeKnow from "./HowWeKnow";
 import OwnerBlock from "./OwnerBlock";
 import PhotoLightBlock from "./PhotoLightBlock";
@@ -175,6 +177,11 @@ export interface PlaceCardBodyProps {
   onShowTime?(t: number): void;
   /** La terraza dibujada con su % al sol a la hora elegida. */
   terrace?: TerraceSun | null;
+  /** Ruta por la sombra (o por el sol) hasta el sitio. */
+  route?: ShadeRouteState | null;
+  routeMode?: SunShadeMode;
+  onRoute?(): void;
+  onClearRoute?(): void;
   /** Sitio apartado para comparar (utilidad «Comparar dos sitios»). */
   compare?: SunPlace | null;
   onCompare?(): void;
@@ -268,6 +275,9 @@ export function PlaceCardBody(p: PlaceCardBodyProps) {
           {tr("sunDetails.como_llegar")}
         </a>
       </div>
+      {p.onRoute && (
+        <RouteBlock state={p.route ?? null} placeId={place.id} mode={p.routeMode ?? p.mode} onRoute={p.onRoute} onClear={() => p.onClearRoute?.()} />
+      )}
       <div className="mt-1.5 flex gap-1">
         <ActionButton onClick={p.onToggleSave} active={p.saved} label={p.saved ? tr("sunDetails.guardado") : tr("sunDetails.guardar")}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill={p.saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden>
