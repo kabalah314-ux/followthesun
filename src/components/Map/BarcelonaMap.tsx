@@ -433,7 +433,9 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
           const fitted = fitInsets(insets, container.clientWidth, container.clientHeight);
           paddingRef.current = fitted;
           try {
-            if (opts?.animate === false) created.setPadding?.(fitted);
+            // Con la cámara en marcha (p. ej. el vuelo al abrir una ficha) un `easeTo` la cortaría:
+            // el padding se aplica al momento y el vuelo sigue hasta su destino.
+            if (opts?.animate === false || created.isMoving?.()) created.setPadding?.(fitted);
             else created.easeTo({ padding: fitted, duration: 450, easing: easeOutCubic });
           } catch {
             /* proveedor sin padding: quedan los desplazamientos de `setInsets` */
@@ -459,6 +461,8 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
             zoom: cam.zoom,
             pitch: cam.pitch,
             bearing: cam.bearing,
+            // El vuelo termina también la transición de márgenes que hubiera en curso.
+            padding: paddingRef.current,
             offset: visibleOffset(),
             duration: GRAPHICS.cinematic.durationMs,
             curve: 1.42,

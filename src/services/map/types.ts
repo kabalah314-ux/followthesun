@@ -49,6 +49,8 @@ export interface MapLike {
   /** Zonas tapadas por la interfaz: desplazan el punto de fuga y el centro del mapa. */
   setPadding?(padding: { top: number; right: number; bottom: number; left: number }): unknown;
   getPadding?(): { top: number; right: number; bottom: number; left: number };
+  /** ¿Hay una animación de cámara o un gesto en curso? */
+  isMoving?(): boolean;
 }
 
 export interface MarkerLike {

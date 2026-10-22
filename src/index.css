@@ -266,6 +266,32 @@ button:focus-visible,
     background: color-mix(in srgb, var(--ink) 18%, transparent);
     border-radius: 999px;
   }
+  /* Filas de chips: la barra horizontal solo se ve al pasar el ratón (sin saltos de altura). En
+     pantallas táctiles no hace falta: se desliza con el dedo. */
+  .fts-scroll-x {
+    scrollbar-color: transparent transparent;
+  }
+  .fts-scroll-x::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .fts-scroll-x:hover,
+    .fts-scroll-x:focus-within {
+      scrollbar-color: color-mix(in srgb, var(--ink) 18%, transparent) transparent;
+    }
+    .fts-scroll-x:hover::-webkit-scrollbar-thumb,
+    .fts-scroll-x:focus-within::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--ink) 18%, transparent);
+    }
+  }
+  @media (pointer: coarse) {
+    .fts-scroll-x {
+      scrollbar-width: none;
+    }
+    .fts-scroll-x::-webkit-scrollbar {
+      display: none;
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- */
