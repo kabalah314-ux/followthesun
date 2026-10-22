@@ -42,6 +42,10 @@ export interface DayPlayer {
   /** Avance 0–1. */
   progress: number;
   toggle(): void;
+  /** Graba el día en un vídeo de 12 s (solo si el navegador sabe grabar el mapa). */
+  record?(): void;
+  /** Grabación en curso: avance 0–1; `null` si no se está grabando. */
+  recording?: number | null;
 }
 
 const chip = (active: boolean) =>
@@ -360,6 +364,32 @@ export default function TimeSlider(p: Props) {
 }
 
 function DayPlayButton({ player }: { player: DayPlayer }) {
+  const recording = player.recording ?? null;
+  return (
+    <>
+      <DayToggle player={player} />
+      {player.record && !player.playing && (
+        <button
+          type="button"
+          onClick={player.record}
+          disabled={recording !== null}
+          aria-label={tr("dayVideo.grabar_aria")}
+          title={tr("dayVideo.grabar_aria")}
+          className="relative flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold text-ink-soft outline-none transition-colors hover:bg-ink/[0.05] hover:text-ink focus-visible:ring-2 focus-visible:ring-sun/60 disabled:opacity-80"
+        >
+          <HitArea />
+          <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden>
+            <rect x="0.7" y="1.7" width="8.6" height="8.6" rx="2" />
+            <path d="M9.3 5l3.6-2.2v6.4L9.3 7" strokeLinejoin="round" />
+          </svg>
+          <span className="tabular-nums">{recording !== null ? tr("dayVideo.grabando_pct", { p0: Math.round(recording * 100) }) : tr("dayVideo.video")}</span>
+        </button>
+      )}
+    </>
+  );
+}
+
+function DayToggle({ player }: { player: DayPlayer }) {
   return (
     <button
       type="button"

@@ -92,9 +92,12 @@ describe("el orden por sol no depende de la afiliación", () => {
     });
 
   it("ningún servicio ni cálculo importa el módulo de afiliación", () => {
+    // Solo la interfaz (componentes y raíz de la app), el propio módulo y el registro del hueco.
+    const allowed = (f: string) =>
+      f.startsWith("services/affiliate/") || f.startsWith("components/") || f === "App.tsx" || f === "main.tsx" || f === "lib/affiliate.ts";
     const offenders = walk(SRC)
       .map((f) => relative(SRC, f).replace(/\\/g, "/"))
-      .filter((f) => !f.startsWith("services/affiliate/") && !f.startsWith("components/"))
+      .filter((f) => !allowed(f))
       .filter((f) => /from\s+["'][^"']*affiliate[^"']*["']/.test(readFileSync(join(SRC, f), "utf8")));
     expect(offenders).toEqual([]);
   });

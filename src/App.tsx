@@ -38,6 +38,8 @@ import UniversalSearch from "./components/Search/UniversalSearch";
 import { PROVENANCE_WORD } from "./components/SourceStatusLine";
 import Splash from "./components/Splash";
 import Toast from "./components/Toast";
+import VideoReady from "./components/Map/VideoReady";
+import { canRecordVideo, useDayAnimation, videoFileExtension } from "./graphics";
 import { BARCELONA, CITY_BOUNDS, DEBUG, FEATURES } from "./config";
 import { useAppNavigation, type AppView, type ViewTab } from "./hooks/useAppNavigation";
 import { useDeepLink } from "./hooks/useDeepLink";
@@ -193,11 +195,6 @@ interface CardState {
   peers: SunSearchResult[];
 }
 
-/** El controlador del mapa con lo que añade el motor gráfico (Fase A), si ya está. */
-type MapControllerPlus = MapController & {
-  flyToCinematic?(lng: number, lat: number, opts: { sunAzimuthDeg: number; zoom?: number; pitch?: number }): void;
-  setPadding?(insets: MapInsets, opts?: { animate?: boolean }): void;
-};
 
 /** Cabecera de una vista en la hoja o el panel: título, subtítulo y «atrás». */
 function ViewHeader({ title, subtitle, onBack }: { title: string; subtitle?: string; onBack?(): void }) {
@@ -251,6 +248,14 @@ export default function App() {
 
   const clock = useTimeController(now, range);
   const scrub = clock.scrub;
+
+  /* «El día en movimiento»: del amanecer a la puesta en 12 s moviendo la hora de la app, y en vídeo. */
+  const rangeRef = useRef(range);
+  rangeRef.current = range;
+  const dayAnim = useDayAnimation({ getRange: () => rangeRef.current, scrub });
+  const canVideo = useMemo(() => canRecordVideo(), []);
+  const [videoProgress, setVideoProgress] = useState<number | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const clockGoNow = clock.goNow;
   const selectedTime = clock.selectedTime;
   const sunPos = useMemo(() => solarService.getPosition(selectedTime, BARCELONA.lat, BARCELONA.lng), [selectedTime]);
@@ -419,6 +424,29 @@ export default function App() {
     mapController.current = c;
   }, []);
   const clearToast = useCallback(() => setToast(null), []);
+  const closeVideo = useCallback(() => setVideoFile(null), []);
+  /** Graba el día del mapa tal como se ve (luz, sombras, trayectoria) y ofrece compartirlo. */
+  const recordDay = useCallback(async () => {
+    const c = mapController.current;
+    if (!c) return;
+    dayAnim.stop();
+    setVideoFile(null);
+    setVideoProgress(0);
+    try {
+      const blob = await c.recordDayVideo({
+        getRange: () => rangeRef.current,
+        scrub,
+        label: (t) => `${formatClock(t)} · Barcelona`,
+        onProgress: (p) => setVideoProgress(p),
+      });
+      const day = zoneDayKey(rangeRef.current.start);
+      setVideoFile(new File([blob], `i-follow-the-sun-${day}.${videoFileExtension(blob.type)}`, { type: blob.type }));
+    } catch {
+      setToast(tr("dayVideo.no_se_pudo"));
+    } finally {
+      setVideoProgress(null);
+    }
+  }, [dayAnim, scrub]);
   const handleLoaded = useCallback(() => setLoaded(true), []);
 
   /* ------------------------------ geometría: hoja, panel y relleno de la cámara ------------------------------ */
@@ -445,20 +473,19 @@ export default function App() {
 
   const applyInsets = useCallback(
     (i: MapInsets, animate = true) => {
-      const c = mapController.current as MapControllerPlus | null;
+      const c = mapController.current;
       if (!c) return;
-      if (c.setPadding) c.setPadding(i, { animate: animate && !reduced });
-      else c.setInsets(i);
+      // Como `padding`: también se desplaza el punto de fuga del 3D a la parte visible.
+      c.setPadding(i, { animate: animate && !reduced });
     },
     [reduced]
   );
 
-  /** Vuelo a un sitio: de cine (inclinado y de espaldas al sol) si el motor gráfico lo ofrece. */
+  /** Vuelo a un sitio «de cine»: inclinado y de espaldas al sol, para ver de frente la fachada iluminada. */
   const flyToPlace = useCallback((lng: number, lat: number) => {
-    const c = mapController.current as MapControllerPlus | null;
+    const c = mapController.current;
     if (!c) return;
-    if (c.flyToCinematic) c.flyToCinematic(lng, lat, { sunAzimuthDeg: solarService.getPosition(timeRef.current, lat, lng).azimuthDeg });
-    else c.flyToPoint(lng, lat, 17);
+    c.flyToCinematic(lng, lat, { sunAzimuthDeg: solarService.getPosition(timeRef.current, lat, lng).azimuthDeg });
   }, []);
 
   const effectiveWindow = windowMode ? windowRect : null;
@@ -472,16 +499,8 @@ export default function App() {
     : selection;
   const focusRef = useRef(focus);
   focusRef.current = focus;
-  const prevLevel = useRef(sheetLevel);
-  useEffect(() => {
-    if (prevLevel.current === sheetLevel) return;
-    prevLevel.current = sheetLevel;
-    const c = mapController.current as MapControllerPlus | null;
-    const f = focusRef.current;
-    // Con `setPadding` el mapa se recoloca solo; sin él, se vuelve a centrar.
-    if (!c || !f || c.setPadding) return;
-    c.flyToPoint(f.lng, f.lat);
-  }, [sheetLevel]);
+  // Al cambiar la altura de la hoja no hace falta volver a centrar: el `padding` animado de
+  // `applyInsets` recoloca el mapa y lo elegido sigue en la parte visible.
   useEffect(() => {
     if (!effectiveWindow) return;
     const f = focusRef.current;
@@ -1353,11 +1372,16 @@ export default function App() {
   const layerPanel = <LayerControl prefs={prefs} onChange={setPrefs} onClose={() => setLayersOpen(false)} />;
   /** Relieve 3D efectivo: hace falta ver los edificios. */
   const buildings3D = prefs.showBuildings && (prefs.buildings3D || FEATURES.buildings3D);
-  /**
-   * «El día en movimiento» (Fase A): con el motor gráfico, `useDayAnimation({ getRange, scrub })`
-   * de `src/graphics` da el reproductor; sin él, el botón no aparece.
-   */
-  const dayPlayer: DayPlayer | null = null;
+  /** «El día en movimiento»: con «reducir movimiento» no se ofrece (ni la animación ni el vídeo). */
+  const dayPlayer: DayPlayer | null = reduced
+    ? null
+    : {
+        playing: dayAnim.playing,
+        progress: dayAnim.progress,
+        toggle: dayAnim.toggle,
+        record: canVideo ? recordDay : undefined,
+        recording: videoProgress,
+      };
   const autoHide = useAutoHide(timelineOpen, () => setTimelineOpen(false), 7000, selectedTime);
 
   const timeline = (
@@ -1631,6 +1655,7 @@ export default function App() {
       )}
 
       <Toast message={toast} onDone={clearToast} />
+      <VideoReady file={videoFile} onClose={closeVideo} />
       <Splash visible={!loaded} />
     </AppShell>
   );

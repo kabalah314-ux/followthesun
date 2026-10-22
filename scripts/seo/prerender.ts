@@ -209,8 +209,7 @@ function main() {
   const dataPath = [path.join(DIST, "data", "places.json"), path.join(ROOT, "public", "data", "places.json")].find(existsSync);
   const sitemap: Array<{ loc: string; lastmod?: string; priority: string }> = [
     { loc: `${SITE}/`, priority: "1.0" },
-    { loc: `${SITE}/mapa`, priority: "0.8" },
-    { loc: `${SITE}/buscar`, priority: "0.8" },
+    { loc: `${SITE}/planes`, priority: "0.8" },
   ];
 
   let pages: Page[] = [];

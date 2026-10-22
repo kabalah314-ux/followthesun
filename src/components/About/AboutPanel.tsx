@@ -34,6 +34,8 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
         <Block title={tr("aboutPanel.datos")}>
           <p>{tr("aboutPanel.sol_calculo_astronomico_posicion_orto")}</p>
           <p>{tr("aboutPanel.edificios_lugares_y_mapa_openstreetmap")}</p>
+          <p>{tr("aboutPanel.vista_real_icgc")}</p>
+          <p>{tr("aboutPanel.fotos_abiertas")}</p>
           <p>
             {tr("aboutPanel.terrazas_con_licencia_areas_de")}
           </p>
@@ -48,6 +50,10 @@ export default function AboutPanel({ onClose }: { onClose(): void }) {
           </p>
         </Block>
 
+        <Block title={tr("aboutPanel.como_ordenamos")}>
+          <p>{tr("aboutPanel.como_ordenamos_parametros")}</p>
+          <p>{tr("aboutPanel.como_ordenamos_sin_pago")}</p>
+        </Block>
         <Block title={tr("aboutPanel.limites")}>
           <p>{tr("aboutPanel.las_alturas_de_algunos_edificios")}</p>
           <p>{tr("aboutPanel.el_tiempo_a_pie_es")}</p>
