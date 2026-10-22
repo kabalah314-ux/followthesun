@@ -126,13 +126,15 @@ export async function datastoreSearch<T>(
 export async function datastoreSearchOnce<T>(
   resourceId: string,
   fields: readonly string[],
-  opts: { pageSize?: number; maxRows?: number; timeoutMs?: number } = {}
+  opts: { pageSize?: number; maxRows?: number; timeoutMs?: number; budgetMs?: number } = {}
 ): Promise<T[]> {
   const pageSize = opts.pageSize ?? 2000;
   const maxRows = opts.maxRows ?? 20_000;
   const timeoutMs = opts.timeoutMs ?? 45_000;
+  const deadline = Date.now() + (opts.budgetMs ?? 10 * 60_000);
   const out: T[] = [];
   for (let offset = 0; offset < maxRows; offset += pageSize) {
+    if (Date.now() > deadline) throw new Error(`datastore: tiempo agotado tras ${out.length} filas`);
     const params: Record<string, string> = { resource_id: resourceId, limit: String(pageSize), offset: String(offset) };
     if (fields.length > 0) params.fields = fields.join(",");
     const url = `${C.apiBase}datastore_search?${new URLSearchParams(params).toString()}`;

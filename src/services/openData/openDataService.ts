@@ -108,10 +108,14 @@ async function tabularRows(slug: string, required: readonly string[], wanted: re
   try {
     const id = await datastoreIdOf(slug);
     let records: Array<Record<string, unknown>>;
+    // Páginas pequeñas con margen por página y un tope total: el portal a veces va muy lento.
+    const opts = { pageSize: 1000, maxRows: 60_000, timeoutMs: 90_000, budgetMs: 9 * 60_000 };
     try {
-      records = await datastoreSearchOnce<Record<string, unknown>>(id, wanted, { pageSize: 2000, maxRows: 60_000 });
-    } catch {
-      records = await datastoreSearchOnce<Record<string, unknown>>(id, [], { pageSize: 2000, maxRows: 60_000 });
+      records = await datastoreSearchOnce<Record<string, unknown>>(id, wanted, opts);
+    } catch (e) {
+      // Solo si el problema eran los nombres de columna (no el tiempo), se prueba sin elegirlas.
+      if (e instanceof Error && /tiempo agotado|aborted|abort/i.test(e.message)) throw e;
+      records = await datastoreSearchOnce<Record<string, unknown>>(id, [], opts);
     }
     const rows = records.map(normalizeRow);
     if (rows.length > 0 && hasColumns(rows[0], required)) return rows;

@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from "no
 import { resolve } from "node:path";
 import { PLACES_CONFIG } from "../../src/config";
 import { fetchWithTimeout, isRetryable } from "../../src/lib/net";
-import { configureCkan, fetchText, packageResources, type CkanResource } from "../../src/services/openData/ckan";
+import { configureCkan, datastoreSearchOnce, fetchText, packageResources, type CkanResource } from "../../src/services/openData/ckan";
 import { parseCsv, toNumber } from "../../src/services/openData/csv";
 import { treeDims } from "../../src/graphics/trees/species";
 import { TREE_TILE_ZOOM, encodeTreeTiles, type TreeIndexFile, type TreeRecord } from "../../src/graphics/trees/treeTiles";
@@ -42,41 +42,64 @@ function pickCsv(resources: CkanResource[]): CkanResource | null {
   return csv.find((r) => /^OD_Arbrat_.*_BCN\.csv$/i.test(r.name ?? "")) ?? csv[0] ?? null;
 }
 
+/** Columnas que se usan (en minúsculas, como en la cabecera del CSV). */
+const TREE_COLUMNS = ["codi", "latitud", "longitud", "cat_nom_cientific", "categoria_arbrat", "data_plantacio", "tipus_element"] as const;
+
+/**
+ * Filas del conjunto como objetos con las claves en minúsculas: primero el CSV y, si el portal no
+ * deja descargarlo (403 de su protección) o no trae las columnas, el datastore (la API oficial)
+ * por páginas y con un tiempo máximo.
+ */
+async function datasetRows(slug: string): Promise<Array<Record<string, string>>> {
+  const resources = await packageResources(slug);
+  const errors: string[] = [];
+  const res = pickCsv(resources);
+  if (res) {
+    try {
+      const rows = parseCsv(await fetchText(res.url));
+      const header = rows[0]?.map((h) => h.trim().toLowerCase()) ?? [];
+      if (header.includes("latitud") && header.includes("longitud")) {
+        return rows.slice(1).map((row) => Object.fromEntries(header.map((h, i) => [h, row[i] ?? ""])));
+      }
+      errors.push(`csv sin latitud/longitud [${header.slice(0, 8).join(",")}]`);
+    } catch (e) {
+      errors.push(`csv: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const ds = resources.find((r) => r.datastore_active && (r.format ?? "").toLowerCase() === "csv") ?? resources.find((r) => r.datastore_active);
+  if (ds) {
+    try {
+      const records = await datastoreSearchOnce<Record<string, unknown>>(ds.id, [], { pageSize: 5000, maxRows: 400_000, timeoutMs: 120_000, budgetMs: 15 * 60_000 });
+      return records.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.trim().toLowerCase(), v === null || v === undefined ? "" : String(v)])));
+    } catch (e) {
+      errors.push(`datastore: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  throw new Error(`«${slug}»: ${errors.join(" · ") || "sin CSV ni datastore"}`);
+}
+
 async function loadDataset(slug: string, now: Date): Promise<{ trees: Map<string, TreeRecord>; rows: number }> {
-  const res = pickCsv(await packageResources(slug));
-  if (!res) throw new Error(`«${slug}» sin CSV`);
-  const text = await fetchText(res.url);
-  const rows = parseCsv(text);
-  const header = rows[0]?.map((h) => h.trim().toLowerCase()) ?? [];
-  const col = (name: string) => header.indexOf(name);
-  const iCode = col("codi");
-  const iLat = col("latitud");
-  const iLng = col("longitud");
-  const iSci = col("cat_nom_cientific");
-  const iCat = col("categoria_arbrat");
-  const iPlanted = col("data_plantacio");
-  const iType = col("tipus_element");
-  if (iLat < 0 || iLng < 0) throw new Error(`«${slug}»: faltan latitud/longitud en la cabecera`);
+  const rows = await datasetRows(slug);
+  const [cCode, cLat, cLng, cSci, cCat, cPlanted, cType] = TREE_COLUMNS;
   const b = PLACES_CONFIG.bbox;
   const trees = new Map<string, TreeRecord>();
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    const lat = toNumber(row[iLat]);
-    const lng = toNumber(row[iLng]);
+  for (const row of rows) {
+    const lat = toNumber(row[cLat]);
+    const lng = toNumber(row[cLng]);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
     if (lat < b.south - 0.02 || lat > b.north + 0.02 || lng < b.west - 0.02 || lng > b.east + 0.02) continue;
-    const type = iType >= 0 ? row[iType] ?? "" : "";
+    const type = row[cType] ?? "";
     const d = treeDims({
-      scientific: iSci >= 0 ? row[iSci] : undefined,
-      category: iCat >= 0 ? row[iCat] : undefined,
-      planted: iPlanted >= 0 ? row[iPlanted] : undefined,
+      scientific: row[cSci] || undefined,
+      category: row[cCat] || undefined,
+      planted: row[cPlanted] || undefined,
       palm: /palmera/i.test(type),
       now,
     });
-    const code = (iCode >= 0 ? row[iCode] : "") || `${lat.toFixed(6)},${lng.toFixed(6)}`;
+    const code = row[cCode] || `${lat.toFixed(6)},${lng.toFixed(6)}`;
     trees.set(code, { lng, lat, kind: d.kind, heightM: d.heightM, crownM: d.crownM });
   }
-  return { trees, rows: rows.length - 1 };
+  return { trees, rows: rows.length };
 }
 
 async function main() {
@@ -85,7 +108,7 @@ async function main() {
     const res = await fetchWithTimeout(
       `https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id=${DATASETS[0]}`,
       { headers: { "User-Agent": UA } },
-      30_000
+      60_000
     );
     const json = (await res.json()) as { success?: boolean };
     if (json?.success !== true) throw new Error("respuesta inesperada");

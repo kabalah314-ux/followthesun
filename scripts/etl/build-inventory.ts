@@ -89,7 +89,7 @@ async function openDataUp(): Promise<boolean> {
     const res = await fetchWithTimeout(
       `${OPEN_DATA_CONFIG.apiBase}package_show?id=${NEIGHBORHOODS_DATASET}`,
       { headers: { "User-Agent": UA } },
-      30_000
+      60_000
     );
     const json = (await res.json()) as { success?: boolean };
     return json?.success === true;
@@ -161,6 +161,19 @@ function withNeighborhoods(list: Places, index: NeighborhoodIndex): { places: Pl
   return { places, located };
 }
 
+/** Sin barrios nuevos (portal caído): cada lugar conserva el barrio que tenía en el fichero anterior. */
+function withPreviousNeighborhoods(list: Places, prev: Places): { places: Places; located: number } {
+  const byId = new Map(prev.map((p) => [p.id, p.metadata]));
+  let located = 0;
+  const places = list.map((p) => {
+    const m = byId.get(p.id);
+    if (!m || typeof m.neighborhood !== "string") return p;
+    located++;
+    return { ...p, metadata: { ...(p.metadata ?? {}), neighborhood: m.neighborhood, district: m.district } };
+  });
+  return { places, located };
+}
+
 async function main() {
   const bbox = PLACES_CONFIG.bbox;
 
@@ -204,6 +217,11 @@ async function main() {
       const r = withNeighborhoods(basePlaces, index);
       list = r.places;
       console.log(`  barrio asignado a ${r.located} de ${list.length} lugares`);
+    } else if (places && prevPlaces) {
+      // Lugares nuevos pero sin barrios: no se pierden los de antes (las páginas /barrio/ dependen de ellos).
+      const r = withPreviousNeighborhoods(places, prevPlaces.places);
+      list = r.places;
+      console.log(`  barrio del fichero anterior en ${r.located} de ${list.length} lugares`);
     }
     // Se escribe si hay lugares nuevos o si los anteriores ganan el barrio (conservando su fecha).
     if (places || index) {
