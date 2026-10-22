@@ -6,12 +6,12 @@ import type { ShadowWorkerRequest, ShadowWorkerResponse } from "../workers/shado
  * Cliente del worker de geometría de sombras, con caché por zona.
  *
  *  · Cada zona visible (el `BuildingSet` que extrae el motor al mover el mapa) se convierte en
- *    búferes de GPU en el worker; volver a una zona ya vista reutiliza el resultado (LRU de 6).
+ *    búferes de GPU en el worker; volver a una zona ya vista reutiliza el resultado (LRU de 3: la memoria del móvil manda).
  *  · Si el navegador no permite workers (o falla), se calcula en el hilo principal en un hueco
  *    libre: más lento, pero el mapa nunca se queda sin sombras.
  */
 
-const CACHE_SIZE = 6;
+const CACHE_SIZE = 3;
 
 interface Pending {
   src: ShadowSource;

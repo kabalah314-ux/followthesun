@@ -485,6 +485,18 @@ export class SolarGLLayer {
 
   /** Pasada fuera de pantalla: máscara de sombras (y reducción para estadísticas). */
   private drawMask(gl: WebGL2RenderingContext, args: unknown) {
+    // Lo que el mapa tenía enlazado se restaura al terminar (crear destinos también enlaza los suyos).
+    const prevFbo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+    const prevViewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+    try {
+      this.drawMaskInner(gl, args);
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, prevFbo);
+      gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
+    }
+  }
+
+  private drawMaskInner(gl: WebGL2RenderingContext, args: unknown) {
     const map = this.map;
     const frame = this.frame;
     const main = mainMatrixOf(args);
@@ -519,9 +531,6 @@ export class SolarGLLayer {
     const alt = Math.max(frame.altitude, SHADOW_MIN_ALTITUDE);
     const key = `${Array.prototype.join.call(this.matGeom, ",")}|${frame.azimuth.toFixed(5)}|${alt.toFixed(5)}|${mw}x${mh}`;
     const needMask = key !== this.maskKey;
-
-    const prevFbo = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
-    const prevViewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
 
     if (needMask) {
       this.maskKey = key;
@@ -561,9 +570,6 @@ export class SolarGLLayer {
     }
 
     if (this.statsReq && !this.statsPending) this.reduceForStats(r);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, prevFbo);
-    gl.viewport(prevViewport[0], prevViewport[1], prevViewport[2], prevViewport[3]);
   }
 
   private reduceForStats(r: Resources) {

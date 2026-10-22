@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BUILDINGS_3D, CITY_BOUNDS, FEATURES, GRAPHICS, MAP_CONFIG } from "../../config";
 import { cinematicCamera, extraInsets, fitInsets, insetsOffset, type CinematicOptions } from "../../graphics/cinematic";
 import { qualityApi } from "../../graphics/quality";
+import { recordDayVideo, type RecordDayVideoOptions } from "../../graphics/recordDayVideo";
 import { easeOutCubic } from "../../lib/coordinates";
 import { preferences } from "../../lib/preferences";
 import {
@@ -54,6 +55,11 @@ export interface MapController {
    * padding no se vuelve a desplazar en vuelos ni encuadres.
    */
   setPadding(insets: MapInsets, opts?: { animate?: boolean }): void;
+  /**
+   * Graba «el día en 12 segundos» del mapa tal como se ve (luz, sombras, trayectoria) y devuelve el
+   * vídeo (MP4 si el navegador sabe, si no WebM). `scrub` debe mover la hora de la app.
+   */
+  recordDayVideo(opts: Omit<RecordDayVideoOptions, "overlayCanvas">): Promise<Blob>;
 }
 
 export interface MapInsets {
@@ -434,6 +440,11 @@ export default function BarcelonaMap(props: BarcelonaMapProps) {
             paddingRef.current = { top: 0, right: 0, bottom: 0, left: 0 };
           }
         },
+        recordDayVideo: (opts) =>
+          recordDayVideo(created, {
+            ...opts,
+            overlayCanvas: container.querySelector<HTMLCanvasElement>("canvas.fts-sun-canvas"),
+          }),
         flyToCinematic: (lng, lat, opts) => {
           const cam = cinematicCamera(opts, created.getZoom(), {
             maxPitch: MAP_CONFIG.maxPitch,

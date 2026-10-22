@@ -48,6 +48,12 @@ export interface DayAnimationOptions {
   durationMs?: number;
   easing?: Easing;
   loop?: boolean;
+  /**
+   * Intervalo mínimo entre llamadas a `scrub` (ms de reloj real). Con ~100 ms la interfaz de React
+   * se actualiza unas 10 veces por segundo y el motor suaviza el movimiento de las sombras entre
+   * medias; 0 (por defecto) = cada fotograma. El primer y el último instante siempre se entregan.
+   */
+  minScrubIntervalMs?: number;
 }
 
 export interface DayAnimation {
@@ -84,14 +90,19 @@ export function createDayAnimation(o: DayAnimationOptions, clock: AnimationClock
   let raf = 0;
   let lastTs = 0;
   let lastScrub = Number.NaN;
+  let lastScrubAt = -Infinity;
+  const minInterval = Math.max(0, o.minScrubIntervalMs ?? 0);
   let resolver: ((done: boolean) => void) | null = null;
   let current: Promise<boolean> | null = null;
 
-  const emit = () => {
+  const emit = (force = false) => {
     if (!range) range = o.getRange();
     const time = dayTimeAt(progress, range, easing);
-    if (time !== lastScrub) {
+    const now = clock.now();
+    const due = force || progress >= 1 || now - lastScrubAt >= minInterval;
+    if (time !== lastScrub && due) {
       lastScrub = time;
+      lastScrubAt = now;
       o.scrub(time);
     }
     o.onFrame?.({ progress, time });
@@ -144,7 +155,7 @@ export function createDayAnimation(o: DayAnimationOptions, clock: AnimationClock
       current = new Promise<boolean>((resolve) => {
         resolver = resolve;
       });
-      emit();
+      emit(true);
       start();
       return current;
     },
@@ -164,7 +175,7 @@ export function createDayAnimation(o: DayAnimationOptions, clock: AnimationClock
     },
     seek(p: number) {
       progress = clamp(p, 0, 1);
-      emit();
+      emit(true);
     },
     get playing() {
       return playing;

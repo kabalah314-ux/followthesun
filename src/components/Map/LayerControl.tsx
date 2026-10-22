@@ -96,6 +96,29 @@ function qualityHint(q: QualityState): string {
   return QUALITY_HINT[q.level];
 }
 
+/** Con `?debug`: cómo se está dibujando (para soporte y pruebas en previsualizaciones). */
+const SHOW_DEBUG = (() => {
+  try {
+    return new URLSearchParams(window.location.search).has("debug");
+  } catch {
+    return false;
+  }
+})();
+
+function debugLine(q: QualityState): string {
+  const c = q.capabilities;
+  const parts = [
+    q.settings.webgl ? "GPU" : "canvas",
+    q.level,
+    q.reason,
+    c?.gpuMs != null ? `${c.gpuMs} ms` : null,
+    c?.maxSamples != null ? `MSAA ${c.maxSamples}` : null,
+    c?.renderer || null,
+    q.lastError,
+  ];
+  return parts.filter(Boolean).join(" · ");
+}
+
 /** Calidad gráfica: Auto (según el dispositivo), Alta, Media o Ahorro. */
 function QualityPicker({ value, onChange }: { value: GraphicsQualityPreference; onChange(v: GraphicsQualityPreference): void }) {
   const q = useQuality();
@@ -114,6 +137,7 @@ function QualityPicker({ value, onChange }: { value: GraphicsQualityPreference; 
         ]}
       />
       <p className="mt-1.5 text-[12px] leading-snug text-ink-faint">{qualityHint(q)}</p>
+      {SHOW_DEBUG && <p className="mt-1 break-words font-mono text-[11px] leading-snug text-ink-faint">{debugLine(q)}</p>}
     </div>
   );
 }

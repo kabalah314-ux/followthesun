@@ -90,6 +90,22 @@ describe("createDayAnimation", () => {
     expect(await done).toBe(false);
   });
 
+  it("con un intervalo mínimo, la interfaz recibe menos horas (pero siempre la primera y la última)", async () => {
+    const fc = fakeClock();
+    const seen: number[] = [];
+    const anim = createDayAnimation(
+      { getRange: () => range, scrub: (t) => seen.push(t), durationMs: 1000, minScrubIntervalMs: 100 },
+      fc.clock
+    );
+    const done = anim.play();
+    for (let i = 0; i < 70 && fc.pending; i++) fc.step(16);
+    expect(await done).toBe(true);
+    expect(seen[0]).toBe(range.start);
+    expect(seen[seen.length - 1]).toBe(range.end);
+    expect(seen.length).toBeLessThan(14);
+    expect(seen.length).toBeGreaterThan(8);
+  });
+
   it("un hueco largo (pestaña oculta) no salta media animación", () => {
     const fc = fakeClock();
     const anim = createDayAnimation({ getRange: () => range, scrub: () => {}, durationMs: 1000 }, fc.clock);
