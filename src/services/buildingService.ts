@@ -35,6 +35,8 @@ export interface BuildingSet {
   bbox: Float64Array;
   /** Índices de edificios agrupados por clase de altura. */
   buckets: Uint32Array[];
+  /** 1 = contorno que el mapa no levanta en 3D porque tiene partes (`hide_3d`). Opcional. */
+  hide3d?: Uint8Array;
   /** Zona del mapa que se consultó (para saber si un punto tiene datos a su alrededor). */
   coverage: Rect;
   source: string;
@@ -73,6 +75,7 @@ export function buildBuildingSet(
   const renderHeights: number[] = [];
   const orientation: number[] = [];
   const bbox: number[] = [];
+  const hide3d: number[] = [];
   const buckets: number[][] = HEIGHT_BUCKETS.map(() => []);
   buckets.push([]);
   let count = 0;
@@ -85,6 +88,7 @@ export function buildBuildingSet(
     if (!polys) continue;
     const props = f.properties ?? {};
     const rawH = Number(props.height ?? props.render_height);
+    const hidden = props.hide_3d === true || props.hide_3d === "true" ? 1 : 0;
 
     for (const poly of polys) {
       const ring: number[][] | undefined = poly?.[0];
@@ -168,6 +172,7 @@ export function buildBuildingSet(
       renderHeights.push(Number.isFinite(rawH) && rawH > 0 ? rawH : h);
       orientation.push(angle);
       bbox.push(minX, minY, maxX, maxY);
+      hide3d.push(hidden);
       offsets.push(coords.length / 2);
       count++;
     }
@@ -182,6 +187,7 @@ export function buildBuildingSet(
     orientation: Float32Array.from(orientation),
     bbox: Float64Array.from(bbox),
     buckets: buckets.map((b) => Uint32Array.from(b)),
+    hide3d: Uint8Array.from(hide3d),
     coverage,
     source,
   };

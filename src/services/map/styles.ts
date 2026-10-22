@@ -123,7 +123,8 @@ function extrusionPaint(heightProp: string, baseProp: string): Record<string, un
       fullZoom,
       ["coalesce", ["get", baseProp], 0],
     ],
-    "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], fromZoom, 0, fromZoom + 0.4, 0.94],
+    // Opacos del todo desde «calle»: sin fantasmas de caras interiores y en una sola pasada.
+    "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], fromZoom, 0, fromZoom + 0.4, 0.94, fullZoom + 0.6, 1],
     "fill-extrusion-vertical-gradient": true,
   };
 }
@@ -138,6 +139,7 @@ function colorPaint(theme: Theme): Record<string, Record<string, unknown>> {
     water: { "fill-color": p.water },
     waterway: { "line-color": p.water },
     buildings: { "fill-color": p.building, "fill-outline-color": p.buildingLine },
+    "buildings-outline": { "line-color": p.buildingLine },
     "buildings-3d": { "fill-extrusion-color": extrusionColor(theme) },
     "road-path": { "line-color": p.path },
     "road-minor-casing": { "line-color": p.minorCasing },
@@ -153,6 +155,7 @@ function colorPaint(theme: Theme): Record<string, Record<string, unknown>> {
     "label-city": { "text-color": p.label, "text-halo-color": p.labelHalo },
     "label-place": { "text-color": p.label, "text-halo-color": p.labelHalo },
     "label-road": { "text-color": p.label, "text-halo-color": p.labelHalo },
+    "label-housenumber": { "text-color": p.label, "text-halo-color": p.labelHalo },
   };
 }
 
@@ -166,6 +169,45 @@ const inClass = (...c: string[]) => ["match", ["get", "class"], c, true, false];
 const width = (...stops: number[]) => ["interpolate", ["exponential", 1.4], ["zoom"], ...stops];
 
 const BUILDING_MIN_ZOOM = MAP_CONFIG.buildingMinZoom;
+
+/**
+ * Detalle a zoom «calle» y «terraza» (guía 2, Fase A): contorno nítido de cada edificio (en 2D se
+ * leen las manzanas casa a casa; en 3D las aristas de tejado las pinta la capa solar) y números de
+ * portal desde 17,5. Mismo diseño para los dos esquemas vectoriales.
+ */
+function detailLayers(source: string, buildingLayer: string, buildingFilter: unknown): StyleJSON[] {
+  return [
+    {
+      id: "buildings-outline",
+      type: "line",
+      source,
+      "source-layer": buildingLayer,
+      minzoom: 15.5,
+      ...(buildingFilter ? { filter: buildingFilter } : {}),
+      paint: {
+        "line-width": ["interpolate", ["linear"], ["zoom"], 15.5, 0.4, 18, 0.9, 20, 1.5],
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 15.5, 0, 16.5, 0.85],
+      },
+    },
+  ];
+}
+
+function housenumberLayer(source: string, sourceLayer: string, field: string, font: string[]): StyleJSON {
+  return {
+    id: "label-housenumber",
+    type: "symbol",
+    source,
+    "source-layer": sourceLayer,
+    minzoom: 17.5,
+    layout: {
+      "text-field": ["to-string", ["get", field]],
+      "text-font": font,
+      "text-size": ["interpolate", ["linear"], ["zoom"], 17.5, 10, 20, 12.5],
+      "text-padding": 2,
+    },
+    paint: { "text-halo-width": 1.2, "text-opacity": ["interpolate", ["linear"], ["zoom"], 17.5, 0, 18, 0.8] },
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Mapbox Streets v8                                                           */
@@ -256,6 +298,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       filter: ["all", notUnderground, ["==", ["get", "extrude"], "true"]],
       paint: { "fill-color": "#000000", "fill-opacity": 0 },
     },
+    ...detailLayers(S, "building", notUnderground).map((l) => ({ ...l, paint: { ...l.paint, ...c[l.id] } })),
     {
       id: "road-path",
       type: "line",
@@ -264,7 +307,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 14,
       filter: ["all", lineGeom, inClass("path"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-path"], "line-width": width(14, 0.5, 18, 2.4) },
+      paint: { ...c["road-path"], "line-width": width(14, 0.5, 18, 2.4, 20, 7) },
     },
     {
       id: "road-minor-casing",
@@ -274,7 +317,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 13,
       filter: ["all", lineGeom, inClass(...MB_MINOR), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-minor-casing"], "line-width": width(13, 1.2, 16, 4.2, 19, 15) },
+      paint: { ...c["road-minor-casing"], "line-width": width(13, 1.2, 16, 4.2, 19, 15, 20, 30) },
     },
     {
       id: "road-minor",
@@ -284,7 +327,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 13,
       filter: ["all", lineGeom, inClass(...MB_MINOR), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-minor"], "line-width": width(13, 0.6, 16, 2.8, 19, 12.5) },
+      paint: { ...c["road-minor"], "line-width": width(13, 0.6, 16, 2.8, 19, 12.5, 20, 25) },
     },
     {
       id: "road-major-casing",
@@ -294,7 +337,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 10,
       filter: ["all", lineGeom, inClass(...MB_MAJOR), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-major-casing"], "line-width": width(10, 2, 13, 5, 16, 10, 19, 26) },
+      paint: { ...c["road-major-casing"], "line-width": width(10, 2, 13, 5, 16, 10, 19, 26, 20, 52) },
     },
     {
       id: "road-major",
@@ -304,7 +347,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 10,
       filter: ["all", lineGeom, inClass(...MB_MAJOR), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-major"], "line-width": width(10, 1, 13, 3.4, 16, 8, 19, 22) },
+      paint: { ...c["road-major"], "line-width": width(10, 1, 13, 3.4, 16, 8, 19, 22, 20, 44) },
     },
     {
       id: "road-motorway-casing",
@@ -314,7 +357,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 8,
       filter: ["all", lineGeom, inClass(...MB_MOTORWAY), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-motorway-casing"], "line-width": width(8, 1.5, 13, 6, 16, 12, 19, 28) },
+      paint: { ...c["road-motorway-casing"], "line-width": width(8, 1.5, 13, 6, 16, 12, 19, 28, 20, 56) },
     },
     {
       id: "road-motorway",
@@ -324,7 +367,7 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       minzoom: 8,
       filter: ["all", lineGeom, inClass(...MB_MOTORWAY), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24) },
+      paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24, 20, 48) },
     },
     {
       // Edificios 3D: aparecen al acercarse y crecen hasta su altura real. Ver BuildingLayer.
@@ -417,6 +460,10 @@ export function createMapboxStyle(theme: Theme): StyleJSON {
       },
       paint: { ...c["label-road"], "text-halo-width": 1.5, "text-opacity": 0.9 },
     },
+    (() => {
+      const l = housenumberLayer(S, "housenum_label", "house_num", MB_FONT);
+      return { ...l, paint: { ...l.paint, ...c["label-housenumber"] } };
+    })(),
   ];
 
   return {
@@ -509,6 +556,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: BUILDING_MIN_ZOOM,
       paint: { "fill-color": "#000000", "fill-opacity": 0 },
     },
+    ...detailLayers(S, "building", null).map((l) => ({ ...l, paint: { ...l.paint, ...c[l.id] } })),
     {
       id: "road-path",
       type: "line",
@@ -517,7 +565,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 14,
       filter: ["all", lineGeom, inClass("path"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-path"], "line-width": width(14, 0.5, 18, 2.4) },
+      paint: { ...c["road-path"], "line-width": width(14, 0.5, 18, 2.4, 20, 7) },
     },
     {
       id: "road-minor-casing",
@@ -527,7 +575,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 13,
       filter: ["all", lineGeom, inClass("minor", "service", "track"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-minor-casing"], "line-width": width(13, 1.2, 16, 4.2, 19, 15) },
+      paint: { ...c["road-minor-casing"], "line-width": width(13, 1.2, 16, 4.2, 19, 15, 20, 30) },
     },
     {
       id: "road-minor",
@@ -537,7 +585,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 13,
       filter: ["all", lineGeom, inClass("minor", "service", "track"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-minor"], "line-width": width(13, 0.6, 16, 2.8, 19, 12.5) },
+      paint: { ...c["road-minor"], "line-width": width(13, 0.6, 16, 2.8, 19, 12.5, 20, 25) },
     },
     {
       id: "road-major-casing",
@@ -547,7 +595,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 10,
       filter: ["all", lineGeom, inClass("primary", "secondary", "tertiary", "trunk"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-major-casing"], "line-width": width(10, 2, 13, 5, 16, 10, 19, 26) },
+      paint: { ...c["road-major-casing"], "line-width": width(10, 2, 13, 5, 16, 10, 19, 26, 20, 52) },
     },
     {
       id: "road-major",
@@ -557,7 +605,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 10,
       filter: ["all", lineGeom, inClass("primary", "secondary", "tertiary", "trunk"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-major"], "line-width": width(10, 1, 13, 3.4, 16, 8, 19, 22) },
+      paint: { ...c["road-major"], "line-width": width(10, 1, 13, 3.4, 16, 8, 19, 22, 20, 44) },
     },
     {
       id: "road-motorway-casing",
@@ -567,7 +615,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 8,
       filter: ["all", lineGeom, inClass("motorway"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-motorway-casing"], "line-width": width(8, 1.5, 13, 6, 16, 12, 19, 28) },
+      paint: { ...c["road-motorway-casing"], "line-width": width(8, 1.5, 13, 6, 16, 12, 19, 28, 20, 56) },
     },
     {
       id: "road-motorway",
@@ -577,7 +625,7 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       minzoom: 8,
       filter: ["all", lineGeom, inClass("motorway"), notTunnel],
       layout: { "line-cap": "round", "line-join": "round" },
-      paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24) },
+      paint: { ...c["road-motorway"], "line-width": width(8, 0.8, 13, 4, 16, 9.5, 19, 24, 20, 48) },
     },
     {
       // Edificios 3D: aparecen al acercarse y crecen hasta su altura real. Ver BuildingLayer.
@@ -669,6 +717,10 @@ export function createOpenMapTilesStyle(theme: Theme): StyleJSON {
       },
       paint: { ...c["label-road"], "text-halo-width": 1.5, "text-opacity": 0.9 },
     },
+    (() => {
+      const l = housenumberLayer(S, "housenumber", "housenumber", OMT_FONT);
+      return { ...l, paint: { ...l.paint, ...c["label-housenumber"] } };
+    })(),
   ];
 
   return {
@@ -785,14 +837,25 @@ export function installFallbackBasemap(map: MapLike, theme: Theme) {
 /**
  * Fuentes de imagen disponibles, en orden de preferencia.
  *
- *  · **Mapbox Satellite** (`mapbox.mapbox-satellite-v9`): la mejor calidad y la que mejor encaja
- *    con el estilo propio. Requiere token de Mapbox, que es lo que se usa cuando existe.
- *  · **Esri World Imagery**: buena cobertura global, sin token. Es la alternativa cuando no hay
- *    token de Mapbox. **Ojo con la licencia**: Esri permite el uso gratuito con atribución para
- *    uso no comercial; un producto comercial necesita una licencia de Esri. Atribución obligatoria
- *    en el mapa.
+ *  · **Ortofoto del ICGC** (Institut Cartogràfic i Geològic de Catalunya, servicio de mapa base):
+ *    la «Vista real» por defecto. Ortofoto de Catalunya hasta zoom 20 (~15 cm/píxel en Barcelona),
+ *    sin token, con CORS y licencia **CC BY 4.0** (uso comercial permitido con atribución).
+ *    Verificada el 22/10/2026: teselas 200 hasta z20 (z21 → 400), JPEG de ~25-35 KB.
+ *  · **Mapbox Satellite** (`mapbox.mapbox-satellite-v9`): requiere token de Mapbox.
+ *  · **Esri World Imagery**: cobertura global sin token, pero solo para uso NO comercial; queda como
+ *    reserva fuera de Catalunya.
  */
 export const SATELLITE_SOURCES = {
+  icgc: {
+    id: "fts-satellite",
+    label: "Ortofoto ICGC",
+    tiles: ["https://geoserveis.icgc.cat/servei/catalunya/mapa-base/wmts/orto/MON3857NW/{z}/{x}/{y}.png"],
+    attribution:
+      '<a href="https://www.icgc.cat/ca/Geoinformacio-i-mapes/Servei-de-Mapa-Base" target="_blank" rel="noopener">© Institut Cartogràfic i Geològic de Catalunya</a> · CC BY 4.0',
+    maxzoom: 20,
+    bounds: [0.15, 40.5, 3.35, 42.9] as [number, number, number, number],
+    commercial: tr("styles.uso_libre_con_atribucion_cc"),
+  },
   mapbox: {
     id: "fts-satellite",
     label: "Mapbox Satellite",
@@ -852,7 +915,14 @@ export function createSatelliteStyle(
     ...style.sources,
     [src.id]: "url" in src
       ? { type: "raster", url: src.url, tileSize: 256 }
-      : { type: "raster", tiles: src.tiles, tileSize: 256, attribution: src.attribution },
+      : {
+          type: "raster",
+          tiles: src.tiles,
+          tileSize: 256,
+          attribution: src.attribution,
+          ...("maxzoom" in src ? { maxzoom: src.maxzoom } : {}),
+          ...("bounds" in src ? { bounds: src.bounds } : {}),
+        },
   } as StyleJSON["sources"];
 
   style.layers.unshift({
@@ -879,12 +949,21 @@ export function createSatelliteStyle(
       for (const p of props) faded[p] = 0;
       layer.paint = faded as typeof layer.paint;
     } else if (id === "buildings" && type === "fill") {
-      // Velo muy tenue: marca las manzanas sin tapar la imagen.
-      layer.paint = { ...paint, "fill-opacity": 0.22 } as typeof layer.paint;
+      // Velo muy tenue: marca las manzanas sin tapar la imagen (y se retira al acercarse).
+      layer.paint = {
+        ...paint,
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 15, 0.22, 17.5, 0.06],
+      } as typeof layer.paint;
+    } else if (id === "buildings-outline" && type === "line") {
+      layer.paint = { ...paint, "line-opacity": 0.35 } as typeof layer.paint;
     } else if (id === "buildings-3d" && type === "fill-extrusion") {
       layer.paint = { ...paint, "fill-extrusion-opacity": 0.62 } as typeof layer.paint;
     } else if (id.startsWith("road-") && type === "line") {
-      layer.paint = { ...paint, "line-opacity": 0.55 } as typeof layer.paint;
+      // La foto ya enseña las calles: las líneas solo orientan y se apartan al acercarse.
+      layer.paint = {
+        ...paint,
+        "line-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0.55, 17, 0.3, 19, 0.16],
+      } as typeof layer.paint;
     } else if (id.startsWith("label-")) {
       layer.paint = {
         ...paint,

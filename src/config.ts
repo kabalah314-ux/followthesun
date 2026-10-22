@@ -21,7 +21,8 @@ export const MAP_CONFIG = {
   zoomDesktop: 13.4,
   zoomMobile: 13.2,
   minZoom: 11.6,
-  maxZoom: 18.4,
+  /** Hasta el nivel «terraza»: la ortofoto del ICGC llega a 20 y las sombras se dibujan en la GPU. */
+  maxZoom: 20,
   maxPitch: 60,
   maxBounds: [
     [1.92, 41.27],
@@ -43,6 +44,37 @@ export const BUILDINGS_3D = {
   autoTiltPitch: 38,
   /** Por debajo de este zoom se vuelve a la vista cenital (si la inclinación fue automática). */
   autoTiltResetZoom: 14.9,
+} as const;
+
+/**
+ * Motor gráfico («Mapa nítido», Fase A de la guía 2).
+ *
+ * Escalones de zoom con los que se diseña el detalle:
+ *   Ciudad 11–13,5 · Barrio 13,5–15,5 · Calle 15,5–17,5 · Terraza 17,5–20
+ */
+export const GRAPHICS = {
+  tiers: { barrio: 13.5, calle: 15.5, terraza: 17.5 },
+  /**
+   * Penumbra física: el sol mide ≈ 0,53° (radio 0,00465 rad). El borde de la sombra se difumina
+   * ≈ distancia al borde del edificio × tan(radio) → nítida al pie de la fachada y suave en la punta.
+   */
+  sunAngularRadius: 0.00465,
+  /** Suavizado mínimo del borde (m): las huellas de OSM tienen ~0,5 m de precisión. */
+  edgeSoftnessM: 0.22,
+  /** Tope de la penumbra en píxeles físicos (con el sol muy bajo no debe volverse un borrón). */
+  maxPenumbraPx: 18,
+  /** Tono pizarra de la sombra: opacidad base y refuerzos al pasar a «calle» y a «terraza». */
+  shadowTone: { color: [36, 52, 94] as [number, number, number], base: 0.46, calle: 0.12, terraza: 0.06 },
+  /** Oscurecimiento de contacto al pie de las fachadas (fracción extra del tono, primeros metros). */
+  contactShadow: { amount: 0.22, meters: 5 },
+  /** Aristas de tejado en 3D (px CSS) y su opacidad máxima. */
+  roofEdge: { widthPx: 1.1, opacity: 0.55 },
+  /** Bajada automática de calidad: menos de `minFps` sostenido `windowMs` con el mapa en movimiento. */
+  fps: { min: 40, windowMs: 3000, warmupMs: 4000, maxDowngrades: 2 },
+  /** Animación «el día en 12 segundos» (del amanecer al atardecer). */
+  dayAnimationMs: 12_000,
+  /** Cámara cinematográfica: inclinada y de espaldas al sol (las fachadas iluminadas, de frente). */
+  cinematic: { pitch: 60, zoom: 17.6, durationMs: 2600 },
 } as const;
 
 /** Teselas vectoriales abiertas (esquema OpenMapTiles) — mapa de respaldo, sin token. */

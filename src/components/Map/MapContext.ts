@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { MapLike, MapProvider } from "../../services/mapService";
+import type { Theme } from "../../types";
 
 /**
  * Contexto del mapa: <BarcelonaMap> publica aquí la instancia y su proveedor cuando el estilo
@@ -8,6 +9,8 @@ import type { MapLike, MapProvider } from "../../services/mapService";
 export interface MapContextValue {
   map: MapLike | null;
   provider: MapProvider | null;
+  /** Paleta activa del mapa (día / noche). */
+  theme?: Theme;
 }
 
 export const MapContext = createContext<MapContextValue>({ map: null, provider: null });

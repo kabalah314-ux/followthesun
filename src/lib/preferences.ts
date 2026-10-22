@@ -7,6 +7,8 @@ export type TimeFormat = "24h" | "12h";
 export type DistanceUnit = "km" | "mi";
 export type TemperatureUnit = "c" | "f";
 export type MapThemePreference = "auto" | "light" | "dark";
+/** Calidad gráfica del mapa: automática (según el dispositivo) o fijada a mano. */
+export type GraphicsQualityPreference = "auto" | "alta" | "media" | "ahorro";
 
 export interface Preferences {
   timeFormat: TimeFormat;
@@ -33,6 +35,8 @@ export interface Preferences {
    * hizo: manda sobre el modo automático hasta medianoche.
    */
   sunShadeOverride: { mode: "sun" | "shade"; day: string } | null;
+  /** Calidad gráfica: «auto» la elige el dispositivo (y la baja sola si el mapa va a tirones). */
+  graphicsQuality: GraphicsQualityPreference;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -50,6 +54,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   satelliteView: false,
   timelineHidden: false,
   sunShadeOverride: null,
+  graphicsQuality: "auto",
 };
 
 const KEY = "fts:prefs:v2";

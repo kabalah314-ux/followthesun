@@ -227,6 +227,13 @@ export class ShadowLayer {
       if (extrude) sctx.fill(cut);
     }
 
+    // En 3D, la sombra en el suelo de un edificio alto no puede pintarse encima de las fachadas o
+    // tejados de los bajos que tiene delante en pantalla: se recortan todas las siluetas al final.
+    if (opts.shadows && extrude) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.drawImage(this.silhouettes, 0, 0);
+    }
+
     ctx.globalCompositeOperation = "source-over";
     return drawn;
   }
