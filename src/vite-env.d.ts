@@ -15,6 +15,14 @@ interface ImportMetaEnv {
   readonly VITE_ROUTER_MODE?: string;
   /** Token de cliente de Mapillary para fotos de calle y 360° en la ficha (opcional). */
   readonly VITE_MAPILLARY_TOKEN?: string;
+  /** Afiliación (opcional; sin estos valores no aparece ningún enlace de afiliado). */
+  readonly VITE_AFF_CIVITATIS_AID?: string;
+  readonly VITE_AFF_GYG_PARTNER_ID?: string;
+  readonly VITE_AFF_AMAZON_TAG?: string;
+  /** Plantillas https con {q} (búsqueda) y {lang} para redes con enlaces propios. */
+  readonly VITE_AFF_VIATOR_URL?: string;
+  readonly VITE_AFF_TIQETS_URL?: string;
+  readonly VITE_AFF_BOOKING_URL?: string;
 }
 
 interface ImportMeta {
