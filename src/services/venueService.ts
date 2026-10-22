@@ -107,7 +107,7 @@ export function buildVenueQuery(bounds: GeoBounds, limit: number | null = 600, s
 }
 
 /** Etiquetas de OSM que usa `ovToVenue` (lo demás no se guarda en el inventario precalculado). */
-const VENUE_TAGS = ["name", "amenity", "outdoor_seating", "building:levels", "opening_hours"] as const;
+const VENUE_TAGS = ["name", "amenity", "outdoor_seating", "building:levels", "opening_hours", "internet_access", "dog", "wheelchair"] as const;
 
 /** Elemento de Overpass → forma compacta del inventario precalculado (`public/data/venues.json`). */
 export function packVenueElement(el: OvNode): PackedVenue | null {
@@ -204,7 +204,14 @@ export function ovToVenue(el: OvNode): Venue | null {
           ? tr("venueService.candidato_local_en_planta_baja")
           : "OpenStreetMap",
     openingHours: tags.opening_hours,
-    metadata: { amenity: category, levels: tags["building:levels"] },
+    metadata: {
+      amenity: category,
+      levels: tags["building:levels"],
+      // Para los filtros de Explorar (wifi, perros, accesible): solo si OSM lo dice.
+      ...(tags.internet_access ? { wifi: tags.internet_access } : {}),
+      ...(tags.dog ? { dog: tags.dog } : {}),
+      ...(tags.wheelchair ? { wheelchair: tags.wheelchair } : {}),
+    },
   };
 }
 
@@ -486,6 +493,9 @@ export function venueToSunPlace(v: Venue): SunPlace {
       ...(licensed ? { licensed } : {}),
       ...(typeof m.named === "boolean" ? { named: m.named } : {}),
       ...(typeof m.address === "string" ? { address: m.address } : {}),
+      ...(m.wifi !== undefined ? { wifi: m.wifi } : {}),
+      ...(m.dog !== undefined ? { dog: m.dog } : {}),
+      ...(m.wheelchair !== undefined ? { wheelchair: m.wheelchair } : {}),
     },
   };
 }

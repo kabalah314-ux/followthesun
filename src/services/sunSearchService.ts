@@ -108,7 +108,8 @@ export function buildTimes(start: number, end: number, stepMs: number): number[]
 }
 
 /** Tipos de lugar admitidos: el elegido, o los de la intención, o los espacios públicos. */
-export function allowedTypes(req: Pick<SunSearchRequest, "locationType" | "intent">): SunPlaceType[] {
+export function allowedTypes(req: Pick<SunSearchRequest, "locationType" | "locationTypes" | "intent">): SunPlaceType[] {
+  if (req.locationTypes && req.locationTypes.length > 0) return req.locationTypes;
   if (req.locationType && req.locationType !== "any") return [req.locationType];
   if (req.intent) return SUN_INTENTS[req.intent].types;
   return PUBLIC_PLACE_TYPES;
@@ -289,7 +290,10 @@ const NO_SHADOW: SpotShadow = {
 interface SpotAnalysis {
   lng: number;
   lat: number;
+  /** Muestras con las que se puntúa (invertidas en modo sombra). */
   samples: SunSample[];
+  /** Muestras tal cual (sol = sol): con ellas se construyen las ventanas que se enseñan. */
+  raw: SunSample[];
   metrics: WindowMetrics;
   buildingsKnown: boolean;
 }
@@ -321,7 +325,7 @@ function analyzeSpot(
     req.minimumSunlightMinutes * MIN,
     req.endTime
   );
-  return metrics ? { lng, lat, samples, metrics, buildingsKnown: shadow.buildingsKnown } : null;
+  return metrics ? { lng, lat, samples, raw, metrics, buildingsKnown: shadow.buildingsKnown } : null;
 }
 
 /** ¿Es `a` mejor punto que `b`? Más luz acumulada; a igualdad, más sol directo. */
@@ -511,7 +515,9 @@ export async function findBestSunPlaces(
       ? (comfortService.summarize(m.start, m.end) ?? undefined)
       : undefined;
 
-    const windows = groupWindows(best.samples, req.stepMs, req.endTime);
+    // Las ventanas describen la luz real (en modo sombra, «sol» sigue siendo sol): así la ficha, las
+    // tarjetas y la barra del día dicen la verdad en los dos modos.
+    const windows = groupWindows(best.raw, req.stepMs, req.endTime);
     const bestWindow =
       m.strongStart !== null && m.strongEnd !== null ? { start: m.strongStart, end: m.strongEnd } : null;
 

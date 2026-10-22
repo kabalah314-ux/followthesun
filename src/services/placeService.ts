@@ -119,6 +119,10 @@ export function elementToPlace(el: OvElement): SunPlace | null {
   const metadata: Record<string, unknown> = { osm: `${el.type}/${el.id}` };
   if (tags.amenity) metadata.amenity = tags.amenity;
   if (tags.opening_hours) metadata.openingHours = tags.opening_hours;
+  // Para los filtros de Explorar: solo lo que OpenStreetMap dice (nunca se supone).
+  if (tags.internet_access) metadata.wifi = tags.internet_access;
+  if (tags.dog) metadata.dog = tags.dog;
+  if (tags.wheelchair) metadata.wheelchair = tags.wheelchair;
 
   // Nodos: solo terrazas y miradores son puntos legítimos.
   if (el.type === "node") {
