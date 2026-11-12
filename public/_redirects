@@ -1,0 +1,4 @@
+# Cloudflare Pages: equivalente a las "rewrites" de vercel.json.
+# El widget «Sol de hoy» se sirve en /widget y en cualquier ruta /widget/...
+# (el resto de rutas de la app las resuelve Cloudflare con index.html automáticamente).
+/widget/*  /widget  200
